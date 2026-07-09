@@ -2,56 +2,31 @@ package article
 
 import (
 	"context"
+	"strconv"
 	"strings"
 
+	dbmodel "github.com/Loe1210/personal-site/biz/dal/db"
 	articlemodel "github.com/Loe1210/personal-site/biz/model/article"
 )
 
-var mockArticles = []*articlemodel.Article{
-	{
-		ID:          1,
-		Title:       "Hertz 路由、中间件与分层实践",
-		Slug:        "hertz-router-middleware-layering",
-		Summary:     "记录我学习 Hertz 路由、中间件和项目分层时的理解。",
-		ContentMd:   "# Hertz 路由、中间件与分层实践\n\n这是第一篇文章内容。",
-		ContentHTML: "<h1>Hertz 路由、中间件与分层实践</h1><p>这是第一篇文章内容。</p>",
-		CoverImage:  "",
-		CategoryID:  1,
-		TagIds:      []int64{1, 2},
-		Status:      "published",
-		CreatedAt:   "2026-07-09 11:00:00",
-		UpdatedAt:   "2026-07-09 11:00:00",
-		PublishedAt: "2026-07-09 11:00:00",
-	},
-	{
-		ID:          2,
-		Title:       "实习里遇到的 Go 小坑",
-		Slug:        "go-pitfalls-internship",
-		Summary:     "总结实习过程中遇到的一些 Go 常见问题。",
-		ContentMd:   "# 实习里遇到的 Go 小坑\n\n这是第二篇文章内容。",
-		ContentHTML: "<h1>实习里遇到的 Go 小坑</h1><p>这是第二篇文章内容。</p>",
-		CoverImage:  "",
-		CategoryID:  2,
-		TagIds:      []int64{2, 3},
-		Status:      "published",
-		CreatedAt:   "2026-07-09 11:10:00",
-		UpdatedAt:   "2026-07-09 11:10:00",
-		PublishedAt: "2026-07-09 11:10:00",
-	},
-}
+
 
 func ListPublicArticles(_ context.Context, req *articlemodel.ListArticlesRequest) (*articlemodel.ListArticlesResponse, error) {
-	list := make([]*articlemodel.Article, 0)
+	var records []dbmodel.Article
 
+	query := dbmodel.DB.Where("status = ?", "published")
 	keyword := strings.TrimSpace(req.Keyword)
-	for _, item := range mockArticles {
-		if item.Status != "published" {
-			continue
-		}
-		if keyword != "" && !strings.Contains(strings.ToLower(item.Title), strings.ToLower(keyword)) {
-			continue
-		}
-		list = append(list, item)
+	if keyword != "" {
+		query = query.Where("title LIKE ?", "%"+keyword+"%")
+	}
+
+	if err := query.Find(&records).Error; err != nil {
+		return nil, err
+	}
+
+	list := make([]*articlemodel.Article, 0, len(records))
+	for i := range records {
+		list = append(list, toArticleModel(&records[i]))
 	}
 
 	page := int64(1)
@@ -72,25 +47,39 @@ func ListPublicArticles(_ context.Context, req *articlemodel.ListArticlesRequest
 }
 
 func GetPublicArticleBySlug(_ context.Context, req *articlemodel.GetArticleBySlugRequest) (*articlemodel.GetArticleResponse, error) {
-	for _, item := range mockArticles {
-		if item.Slug == req.Slug && item.Status == "published" {
-			return &articlemodel.GetArticleResponse{
-				Article: item,
-			}, nil
-		}
+	var record dbmodel.Article
+
+	err := dbmodel.DB.Where("slug = ? AND status = ?", req.Slug, "published").First(&record).Error
+	if err != nil {
+		return nil, nil
 	}
-	return nil, nil
+
+	return &articlemodel.GetArticleResponse{
+		Article: toArticleModel(&record),
+	}, nil
 }
 
 func ListAdminArticles(_ context.Context, req *articlemodel.ListArticlesRequest) (*articlemodel.ListArticlesResponse, error) {
-	list := make([]*articlemodel.Article, 0)
+	var records []dbmodel.Article
+
+	query := dbmodel.DB.Model(&dbmodel.Article{})
 
 	keyword := strings.TrimSpace(req.Keyword)
-	for _, item := range mockArticles {
-		if keyword != "" && !strings.Contains(strings.ToLower(item.Title), strings.ToLower(keyword)) {
-			continue
-		}
-		list = append(list, item)
+	if keyword != "" {
+		query = query.Where("title LIKE ?", "%"+keyword+"%")
+	}
+
+	if strings.TrimSpace(req.Status) != "" {
+		query = query.Where("status = ?", req.Status)
+	}
+
+	if err := query.Order("id DESC").Find(&records).Error; err != nil {
+		return nil, err
+	}
+
+	list := make([]*articlemodel.Article, 0, len(records))
+	for i := range records {
+		list = append(list, toArticleModel(&records[i]))
 	}
 
 	page := int64(1)
@@ -111,10 +100,13 @@ func ListAdminArticles(_ context.Context, req *articlemodel.ListArticlesRequest)
 }
 
 func CreateArticle(_ context.Context, req *articlemodel.CreateArticleRequest) (*articlemodel.CreateArticleResponse, error) {
-	nextID := int64(len(mockArticles) + 1)
+	now := "2026-07-09 14:40:00"
+	status := req.Status
+	if status == "" {
+		status = "draft"
+	}
 
-	article := &articlemodel.Article{
-		ID:          nextID,
+	record := &dbmodel.Article{
 		Title:       req.Title,
 		Slug:        req.Slug,
 		Summary:     req.Summary,
@@ -122,74 +114,133 @@ func CreateArticle(_ context.Context, req *articlemodel.CreateArticleRequest) (*
 		ContentHTML: req.ContentMd,
 		CoverImage:  req.CoverImage,
 		CategoryID:  req.CategoryID,
-		TagIds:      req.TagIds,
-		Status:      req.Status,
-		CreatedAt:   "2026-07-09 12:00:00",
-		UpdatedAt:   "2026-07-09 12:00:00",
+		TagIds:      joinTagIDs(req.TagIds),
+		Status:      status,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 		PublishedAt: "",
 	}
 
-	if article.Status == "" {
-		article.Status = "draft"
+	if status == "published" {
+		record.PublishedAt = now
 	}
 
-	mockArticles = append(mockArticles, article)
+	if err := dbmodel.DB.Create(record).Error; err != nil {
+		return nil, err
+	}
 
 	return &articlemodel.CreateArticleResponse{
-		Article: article,
+		Article: toArticleModel(record),
 		Message: "article created",
 	}, nil
 }
 
 func UpdateArticle(_ context.Context, req *articlemodel.UpdateArticleRequest) (*articlemodel.UpdateArticleResponse, error) {
-	for _, item := range mockArticles {
-		if item.ID != req.ID {
-			continue
-		}
+	var record dbmodel.Article
 
-		item.Title = req.Title
-		item.Slug = req.Slug
-		item.Summary = req.Summary
-		item.ContentMd = req.ContentMd
-		item.ContentHTML = req.ContentMd
-		item.CoverImage = req.CoverImage
-		item.CategoryID = req.CategoryID
-		item.TagIds = req.TagIds
-		item.Status = req.Status
-		item.UpdatedAt = "2026-07-09 12:30:00"
-
-		if item.Status == "published" && item.PublishedAt == "" {
-			item.PublishedAt = "2026-07-09 12:30:00"
-		}
-		if item.Status != "published" {
-			item.PublishedAt = ""
-		}
-
-		return &articlemodel.UpdateArticleResponse{
-			Article: item,
-			Message: "article updated",
-		}, nil
+	if err := dbmodel.DB.First(&record, req.ID).Error; err != nil {
+		return nil, nil
 	}
 
-	return nil, nil
+	record.Title = req.Title
+	record.Slug = req.Slug
+	record.Summary = req.Summary
+	record.ContentMd = req.ContentMd
+	record.ContentHTML = req.ContentMd
+	record.CoverImage = req.CoverImage
+	record.CategoryID = req.CategoryID
+	record.TagIds = joinTagIDs(req.TagIds)
+	record.Status = req.Status
+	record.UpdatedAt = "2026-07-09 15:00:00"
+
+	if record.Status == "published" {
+		if record.PublishedAt == "" {
+			record.PublishedAt = "2026-07-09 15:00:00"
+		}
+	} else {
+		record.PublishedAt = ""
+	}
+
+	if err := dbmodel.DB.Save(&record).Error; err != nil {
+		return nil, err
+	}
+
+	return &articlemodel.UpdateArticleResponse{
+		Article: toArticleModel(&record),
+		Message: "article updated",
+	}, nil
 }
 
 func DeleteArticle(_ context.Context, req *articlemodel.DeleteArticleRequest) (*articlemodel.DeleteArticleResponse, error) {
-	for i, item := range mockArticles {
-		if item.ID != req.ID {
-			continue
-		}
+	result := dbmodel.DB.Delete(&dbmodel.Article{}, req.ID)
+	if result.Error != nil {
+		return nil, result.Error
+	}
 
-		mockArticles = append(mockArticles[:i], mockArticles[i+1:]...)
-
+	if result.RowsAffected == 0 {
 		return &articlemodel.DeleteArticleResponse{
-			Success: true,
-			Message: "article deleted",
+			Success: false,
+			Message: "article not found",
 		}, nil
 	}
 
 	return &articlemodel.DeleteArticleResponse{
-		Success: false,
-		Message: "article not found",
+		Success: true,
+		Message: "article deleted",
 	}, nil
+}
+
+func parseTagIDs(tagIDs string) []int64 {
+	if strings.TrimSpace(tagIDs) == "" {
+		return []int64{}
+	}
+
+	parts := strings.Split(tagIDs, ",")
+	result := make([]int64, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		v, err := strconv.ParseInt(part, 10, 64)
+		if err != nil {
+			continue
+		}
+		result = append(result, v)
+	}
+	return result
+}
+
+func toArticleModel(item *dbmodel.Article) *articlemodel.Article {
+	if item == nil {
+		return nil
+	}
+
+	return &articlemodel.Article{
+		ID:          item.ID,
+		Title:       item.Title,
+		Slug:        item.Slug,
+		Summary:     item.Summary,
+		ContentMd:   item.ContentMd,
+		ContentHTML: item.ContentHTML,
+		CoverImage:  item.CoverImage,
+		CategoryID:  item.CategoryID,
+		TagIds:      parseTagIDs(item.TagIds),
+		Status:      item.Status,
+		CreatedAt:   item.CreatedAt,
+		UpdatedAt:   item.UpdatedAt,
+		PublishedAt: item.PublishedAt,
+	}
+}
+
+func joinTagIDs(tagIDs []int64) string {
+	if len(tagIDs) == 0 {
+		return ""
+	}
+
+	parts := make([]string, 0, len(tagIDs))
+	for _, id := range tagIDs {
+		parts = append(parts, strconv.FormatInt(id, 10))
+	}
+	return strings.Join(parts, ",")
 }

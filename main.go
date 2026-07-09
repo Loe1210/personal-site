@@ -8,13 +8,19 @@
 package main
 
 import (
+	"log"
+
 	"github.com/cloudwego/hertz/pkg/app/server"
 
+	"github.com/Loe1210/personal-site/biz/dal/db"
 	"github.com/Loe1210/personal-site/biz/router"
 )
 
 
 func main() {
+	if err := db.Init(); err != nil {
+		log.Fatal(err)
+	}
 	h := server.Default()
 
 	h.StaticFile("/swagger.json", "./docs/swagger.json")
