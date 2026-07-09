@@ -1,11 +1,14 @@
-package category
+﻿package category
 
 import (
 	"context"
 	"time"
 
+	mysqlDriver "github.com/go-sql-driver/mysql"
+
 	dbmodel "github.com/Loe1210/personal-site/biz/dal/db"
 	categorymodel "github.com/Loe1210/personal-site/biz/model/category"
+	"github.com/Loe1210/personal-site/pkg/errno"
 )
 
 const timeLayout = "2006-01-02 15:04:05"
@@ -40,7 +43,10 @@ func CreateCategory(_ context.Context, req *categorymodel.CreateCategoryRequest)
 	}
 
 	if err := dbmodel.DB.Create(record).Error; err != nil {
-		return nil, err
+		if mysqlErr, ok := err.(*mysqlDriver.MySQLError); ok && mysqlErr.Number == 1062 {
+			return nil, errno.CategoryConflict
+		}
+		return nil, errno.Internal
 	}
 
 	return &categorymodel.CreateCategoryResponse{

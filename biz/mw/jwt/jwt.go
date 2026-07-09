@@ -1,4 +1,4 @@
-package jwt
+﻿package jwt
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	golangjwt "github.com/golang-jwt/jwt/v5"
 
 	"github.com/Loe1210/personal-site/pkg/errno"
@@ -60,20 +59,20 @@ func AuthMiddleware() app.HandlerFunc {
 	return func(_ context.Context, c *app.RequestContext) {
 		authHeader := string(c.GetHeader("Authorization"))
 		if authHeader == "" {
-			c.AbortWithStatusJSON(consts.StatusUnauthorized, response.Error(errno.ErrorCode, "missing authorization header"))
+			response.WriteErrorMessage(c, errno.Unauthorized, "missing authorization header")
 			return
 		}
 
 		const prefix = "Bearer "
 		if !strings.HasPrefix(authHeader, prefix) {
-			c.AbortWithStatusJSON(consts.StatusUnauthorized, response.Error(errno.ErrorCode, "invalid authorization header"))
+			response.WriteErrorMessage(c, errno.Unauthorized, "invalid authorization header")
 			return
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, prefix)
 		claims, err := ParseToken(tokenString)
 		if err != nil {
-			c.AbortWithStatusJSON(consts.StatusUnauthorized, response.Error(errno.ErrorCode, "invalid token"))
+			response.WriteErrorMessage(c, errno.Unauthorized, "invalid token")
 			return
 		}
 

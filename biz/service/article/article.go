@@ -1,14 +1,16 @@
-package article
+﻿package article
 
 import (
 	"context"
-	"errors"
 	"strconv"
 	"strings"
 	"time"
 
+	mysqlDriver "github.com/go-sql-driver/mysql"
+
 	dbmodel "github.com/Loe1210/personal-site/biz/dal/db"
 	articlemodel "github.com/Loe1210/personal-site/biz/model/article"
+	"github.com/Loe1210/personal-site/pkg/errno"
 )
 
 const timeLayout = "2006-01-02 15:04:05"
@@ -144,7 +146,10 @@ func CreateArticle(_ context.Context, req *articlemodel.CreateArticleRequest) (*
 	}
 
 	if err := dbmodel.DB.Create(record).Error; err != nil {
-		return nil, err
+		if mysqlErr, ok := err.(*mysqlDriver.MySQLError); ok && mysqlErr.Number == 1062 {
+			return nil, errno.SlugConflict
+		}
+		return nil, errno.Internal
 	}
 
 	return &articlemodel.CreateArticleResponse{
@@ -275,11 +280,11 @@ func ensureCategoryExists(categoryID int64) error {
 	if err := dbmodel.DB.Model(&dbmodel.Category{}).
 		Where("id = ?", categoryID).
 		Count(&count).Error; err != nil {
-		return err
+		return errno.Internal
 	}
 
 	if count == 0 {
-		return errors.New("category not found")
+		return errno.CategoryNotFound
 	}
 
 	return nil

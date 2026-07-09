@@ -1,4 +1,6 @@
-package response
+﻿package response
+
+import "github.com/Loe1210/personal-site/pkg/errno"
 
 type Body struct {
 	Code    int         `json:"code"`
@@ -8,8 +10,8 @@ type Body struct {
 
 func Success(data interface{}) Body {
 	return Body{
-		Code:    0,
-		Message: "success",
+		Code:    errno.Success.Code,
+		Message: errno.Success.Message,
 		Data:    data,
 	}
 }
@@ -17,6 +19,20 @@ func Success(data interface{}) Body {
 func Error(code int, message string) Body {
 	return Body{
 		Code:    code,
+		Message: message,
+	}
+}
+
+func AppError(err *errno.AppError) Body {
+	return Body{
+		Code:    err.Code,
+		Message: err.Message,
+	}
+}
+
+func ErrorWithMessage(err *errno.AppError, message string) Body {
+	return Body{
+		Code:    err.Code,
 		Message: message,
 	}
 }
