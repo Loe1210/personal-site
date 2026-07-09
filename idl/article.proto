@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package article;
 
-option go_package = "personal_site/biz/model/article;article";
+option go_package = "github.com/Loe1210/personal-site/biz/model/article;article";
 
 message Article {
   int64 id = 1;

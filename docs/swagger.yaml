@@ -1,0 +1,80 @@
+basePath: /
+definitions:
+  auth.AdminLoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+  response.Body:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: Personal site backend API for learning Hertz, Kitex and future evolution.
+  title: Personal Site API
+  version: "1.0"
+paths:
+  /api/admin/login:
+    post:
+      consumes:
+      - application/json
+      description: 使用管理员账号密码登录并获取 JWT
+      parameters:
+      - description: 登录请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/auth.AdminLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Body'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Body'
+      summary: 管理员登录
+      tags:
+      - auth
+  /api/admin/me:
+    get:
+      consumes:
+      - application/json
+      description: 通过 JWT 获取当前登录管理员信息
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Body'
+      security:
+      - BearerAuth: []
+      summary: 获取当前管理员信息
+      tags:
+      - auth
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

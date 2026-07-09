@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package upload;
 
-option go_package = "personal_site/biz/model/upload;upload";
+option go_package = "github.com/Loe1210/personal-site/biz/model/upload;upload";
 
 message UploadFile {
   int64 file_id = 1;
