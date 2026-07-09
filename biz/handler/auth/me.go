@@ -26,7 +26,7 @@ func Me(_ context.Context, c *app.RequestContext) {
 
 	resp := &authmodel.GetCurrentAdminResponse{
 		User: &authmodel.AdminUser{
-			Id:       userID.(int64),
+			ID:       userID.(int64),
 			Username: username.(string),
 			Nickname: "Administrator",
 		},

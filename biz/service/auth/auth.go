@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	authjwt "github.com/Loe1210/personal-site/biz/mw/jwt"
 	authmodel "github.com/Loe1210/personal-site/biz/model/auth"
+	authjwt "github.com/Loe1210/personal-site/biz/mw/jwt"
 )
 
 const (
@@ -29,7 +29,7 @@ func Login(_ context.Context, req *authmodel.AdminLoginRequest) (*authmodel.Admi
 		Token:     token,
 		ExpiresAt: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
 		User: &authmodel.AdminUser{
-			Id:       adminUserID,
+			ID:       adminUserID,
 			Username: adminUsername,
 			Nickname: "Administrator",
 		},

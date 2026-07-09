@@ -17,7 +17,7 @@
 ### 2.1 项目形态
 
 - 当前是单体项目
-- 核心接口采用 `proto` 做 IDL
+- 核心接口采用 `thrift` 做 IDL
 - `handler/service/dal` 边界必须清晰
 - 页面渲染和内容接口可以共存
 
@@ -25,7 +25,7 @@
 
 - 不做过早微服务拆分
 - 不做过重后台系统
-- 不把页面 view model 全部 proto 化
+- 不把页面 view model 全部 IDL 化
 - 不把所有功能一次性塞进第一版
 
 ### 2.3 必须保持的约束
@@ -35,6 +35,7 @@
 - JWT 只负责签发和校验
 - 每完成一个阶段都补开发日志
 - 每个功能闭环完成后再提交合并
+- 用户负责代码开发与本地测试，日志整理与 Git 流程由 Codex 协助完成
 
 ## 3. 目录规范
 
@@ -43,11 +44,11 @@
 ```text
 personal_site/
 ├── idl/
-│   ├── article.proto
-│   ├── auth.proto
-│   ├── upload.proto
-│   ├── tag.proto
-│   └── category.proto
+│   ├── article.thrift
+│   ├── auth.thrift
+│   ├── upload.thrift
+│   ├── tag.thrift
+│   └── category.thrift
 ├── biz/
 │   ├── handler/
 │   ├── service/
@@ -101,8 +102,6 @@ personal_site/
 推荐分支：
 
 - `main`
-  稳定分支
-
 - `feat/project-bootstrap`
 - `feat/idl-article-auth-upload`
 - `feat/auth-login-jwt`
@@ -139,11 +138,12 @@ personal_site/
 推荐 commit 格式：
 
 ```text
-feat: add article proto
+feat: add article thrift
 feat: implement admin login with jwt
-docs: add phase 01 development log
+feat: add article admin crud in memory
 refactor: simplify article service flow
-fix: handle empty article slug
+fix: align thrift field names in article handlers
+docs: update phase 02 devlog
 ```
 
 ## 6. 开发日志规范
@@ -182,29 +182,28 @@ phase-03.md
 
 ## 7. IDL 规范
 
-### 7.1 每个领域一个 proto
+### 7.1 每个领域一个 thrift
 
-第一批 proto：
+第一批 thrift：
 
-- `article.proto`
-- `auth.proto`
-- `upload.proto`
+- `article.thrift`
+- `auth.thrift`
+- `upload.thrift`
 
-后续 proto：
+后续 thrift：
 
-- `tag.proto`
-- `category.proto`
+- `tag.thrift`
+- `category.thrift`
 
-### 7.2 每个 proto 独立 package
+### 7.2 每个 thrift 独立 package
 
 例如：
 
-```proto
-package article;
-option go_package = "personal_site/biz/model/article;article";
+```thrift
+namespace go article
 ```
 
-### 7.3 不同 proto 不生成到同一 Go 包
+### 7.3 不同 thrift 不生成到同一 Go 包
 
 这是为了避免互相覆盖和命名冲突。
 
@@ -223,10 +222,10 @@ option go_package = "personal_site/biz/model/article;article";
 Phase 01 结束后，下一步建议按这个顺序做：
 
 1. 初始化项目骨架
-2. 接数据库和配置
-3. 实现 JWT
-4. 实现认证接口
-5. 实现文章主链路
+2. 实现 JWT 与认证接口
+3. 实现文章公开读接口
+4. 实现文章后台管理接口
+5. 在完成文章最小闭环后再接数据库
 
 ## 10. 当前阶段的成功标准
 
@@ -234,5 +233,5 @@ Phase 01 结束后，下一步建议按这个顺序做：
 
 - 目录规范明确
 - 开发日志规范明确
-- 第一批 proto 初稿已存在
-- 后续开发可以按文档和 proto 直接进入实现
+- 第一批 thrift 初稿已存在
+- 后续开发可以按文档和 thrift 直接进入实现
