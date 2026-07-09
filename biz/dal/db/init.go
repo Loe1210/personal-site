@@ -29,7 +29,7 @@ func Init() error {
 		return err
 	}
 
-	if err := database.AutoMigrate(&Article{}); err != nil {
+	if err := database.AutoMigrate(&Article{}, &Category{}, &Tag{}, &ArticleTag{}); err != nil {
 		return err
 	}
 

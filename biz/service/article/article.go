@@ -2,14 +2,30 @@ package article
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
+	"time"
 
 	dbmodel "github.com/Loe1210/personal-site/biz/dal/db"
 	articlemodel "github.com/Loe1210/personal-site/biz/model/article"
 )
 
+const timeLayout = "2006-01-02 15:04:05"
 
+func formatTime(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.Local().Format(timeLayout)
+}
+
+func formatTimePtr(t *time.Time) string {
+	if t == nil || t.IsZero() {
+		return ""
+	}
+	return t.Local().Format(timeLayout)
+}
 
 func ListPublicArticles(_ context.Context, req *articlemodel.ListArticlesRequest) (*articlemodel.ListArticlesResponse, error) {
 	var records []dbmodel.Article
@@ -100,10 +116,14 @@ func ListAdminArticles(_ context.Context, req *articlemodel.ListArticlesRequest)
 }
 
 func CreateArticle(_ context.Context, req *articlemodel.CreateArticleRequest) (*articlemodel.CreateArticleResponse, error) {
-	now := "2026-07-09 14:40:00"
 	status := req.Status
+
 	if status == "" {
 		status = "draft"
+	}
+
+	if err := ensureCategoryExists(req.CategoryID); err != nil {
+		return nil, err
 	}
 
 	record := &dbmodel.Article{
@@ -116,13 +136,11 @@ func CreateArticle(_ context.Context, req *articlemodel.CreateArticleRequest) (*
 		CategoryID:  req.CategoryID,
 		TagIds:      joinTagIDs(req.TagIds),
 		Status:      status,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-		PublishedAt: "",
 	}
 
 	if status == "published" {
-		record.PublishedAt = now
+		now := time.Now()
+		record.PublishedAt = &now
 	}
 
 	if err := dbmodel.DB.Create(record).Error; err != nil {
@@ -141,6 +159,9 @@ func UpdateArticle(_ context.Context, req *articlemodel.UpdateArticleRequest) (*
 	if err := dbmodel.DB.First(&record, req.ID).Error; err != nil {
 		return nil, nil
 	}
+	if err := ensureCategoryExists(req.CategoryID); err != nil {
+		return nil, err
+	}
 
 	record.Title = req.Title
 	record.Slug = req.Slug
@@ -151,14 +172,14 @@ func UpdateArticle(_ context.Context, req *articlemodel.UpdateArticleRequest) (*
 	record.CategoryID = req.CategoryID
 	record.TagIds = joinTagIDs(req.TagIds)
 	record.Status = req.Status
-	record.UpdatedAt = "2026-07-09 15:00:00"
 
 	if record.Status == "published" {
-		if record.PublishedAt == "" {
-			record.PublishedAt = "2026-07-09 15:00:00"
+		if record.PublishedAt == nil {
+			now := time.Now()
+			record.PublishedAt = &now
 		}
 	} else {
-		record.PublishedAt = ""
+		record.PublishedAt = nil
 	}
 
 	if err := dbmodel.DB.Save(&record).Error; err != nil {
@@ -227,9 +248,9 @@ func toArticleModel(item *dbmodel.Article) *articlemodel.Article {
 		CategoryID:  item.CategoryID,
 		TagIds:      parseTagIDs(item.TagIds),
 		Status:      item.Status,
-		CreatedAt:   item.CreatedAt,
-		UpdatedAt:   item.UpdatedAt,
-		PublishedAt: item.PublishedAt,
+		CreatedAt:   formatTime(item.CreatedAt),
+		UpdatedAt:   formatTime(item.UpdatedAt),
+		PublishedAt: formatTimePtr(item.PublishedAt),
 	}
 }
 
@@ -243,4 +264,23 @@ func joinTagIDs(tagIDs []int64) string {
 		parts = append(parts, strconv.FormatInt(id, 10))
 	}
 	return strings.Join(parts, ",")
+}
+
+func ensureCategoryExists(categoryID int64) error {
+	if categoryID == 0 {
+		return nil
+	}
+
+	var count int64
+	if err := dbmodel.DB.Model(&dbmodel.Category{}).
+		Where("id = ?", categoryID).
+		Count(&count).Error; err != nil {
+		return err
+	}
+
+	if count == 0 {
+		return errors.New("category not found")
+	}
+
+	return nil
 }

@@ -7,4 +7,6 @@ func Register(h *server.Hertz) {
 	registerHealth(h)
 	registerAuth(h)
 	registerArticle(h)
+	registerCategory(h)
+	registerTag(h)
 }

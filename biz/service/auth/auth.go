@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	adminUsername = "admin"
-	adminPassword = "123456"
+	adminUsername = "string"
+	adminPassword = "string"
 	adminUserID   = int64(1)
 )
 

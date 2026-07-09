@@ -51,12 +51,30 @@ definitions:
       username:
         type: string
     type: object
+  category.CreateCategoryRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      slug:
+        type: string
+    type: object
   response.Body:
     properties:
       code:
         type: integer
       data: {}
       message:
+        type: string
+    type: object
+  tag.CreateTagRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      slug:
         type: string
     type: object
 info:
@@ -209,6 +227,62 @@ paths:
       summary: 更新文章
       tags:
       - article-admin
+  /api/admin/categories:
+    get:
+      consumes:
+      - application/json
+      description: 获取后台分类列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Body'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Body'
+      security:
+      - BearerAuth: []
+      summary: 获取后台分类列表
+      tags:
+      - category-admin
+    post:
+      consumes:
+      - application/json
+      description: 创建一个新分类
+      parameters:
+      - description: 创建分类请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/category.CreateCategoryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Body'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Body'
+      security:
+      - BearerAuth: []
+      summary: 创建分类
+      tags:
+      - category-admin
   /api/admin/login:
     post:
       consumes:
@@ -260,6 +334,62 @@ paths:
       summary: 获取当前管理员信息
       tags:
       - auth
+  /api/admin/tags:
+    get:
+      consumes:
+      - application/json
+      description: 获取后台标签列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Body'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Body'
+      security:
+      - BearerAuth: []
+      summary: 获取后台标签列表
+      tags:
+      - tag-admin
+    post:
+      consumes:
+      - application/json
+      description: 创建一个新标签
+      parameters:
+      - description: 创建标签请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/tag.CreateTagRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Body'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Body'
+      security:
+      - BearerAuth: []
+      summary: 创建标签
+      tags:
+      - tag-admin
   /api/articles:
     get:
       consumes:
@@ -321,6 +451,44 @@ paths:
       summary: 获取文章详情
       tags:
       - article
+  /api/categories:
+    get:
+      consumes:
+      - application/json
+      description: 获取公开分类列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Body'
+      summary: 获取分类列表
+      tags:
+      - category
+  /api/tags:
+    get:
+      consumes:
+      - application/json
+      description: 获取公开标签列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Body'
+      summary: 获取标签列表
+      tags:
+      - tag
 securityDefinitions:
   BearerAuth:
     in: header
