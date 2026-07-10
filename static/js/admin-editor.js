@@ -15,6 +15,7 @@
   const tagsNode = document.getElementById('article-tags');
   const coverInput = document.getElementById('article-cover');
   const coverFile = document.getElementById('article-cover-file');
+  const coverFileName = document.getElementById('article-cover-file-name');
   const coverUploadBtn = document.getElementById('article-cover-upload');
   const coverPreviewWrap = document.getElementById('article-cover-preview');
   const coverPreviewImage = document.getElementById('article-cover-preview-image');
@@ -28,9 +29,11 @@
   let tags = [];
 
   function renderCategories() {
-    categorySelect.innerHTML = '<option value="0">No category</option>' + categories.map(function (item) {
-      return `<option value="${item.id}">${app.escapeHTML(item.name)}</option>`;
-    }).join('');
+    const options = ['<option value="0">No category</option>'];
+    categories.forEach(function (item) {
+      options.push(`<option value="${item.id}">${app.escapeHTML(item.name)}</option>`);
+    });
+    categorySelect.innerHTML = options.join('');
   }
 
   function renderTags(selectedIDs) {
@@ -54,6 +57,11 @@
     if (!coverUploadBtn) return;
     coverUploadBtn.disabled = uploading;
     coverUploadBtn.textContent = uploading ? 'Uploading...' : 'Upload Cover';
+  }
+
+  function setCoverFileName(file) {
+    if (!coverFileName) return;
+    coverFileName.textContent = file ? file.name : '未选择文件';
   }
 
   function validateCoverFile(file) {
@@ -130,6 +138,7 @@
       coverInput.value = data.upload.file_url;
       updateCoverPreview(data.upload.file_url);
       coverFile.value = '';
+      setCoverFileName(null);
       app.setFeedback('editor-feedback', 'Cover uploaded successfully.', true);
       app.showToast('Cover uploaded', 'success');
     } catch (error) {
@@ -180,6 +189,10 @@
   }
 
   coverUploadBtn.addEventListener('click', uploadCover);
+  coverFile.addEventListener('change', function () {
+    const file = coverFile.files && coverFile.files[0];
+    setCoverFileName(file || null);
+  });
   coverInput.addEventListener('input', function () {
     updateCoverPreview(coverInput.value.trim());
   });
@@ -187,6 +200,7 @@
   publishBtn.addEventListener('click', function () { saveArticle('published'); });
 
   loadInitialData().then(function (article) {
+    setCoverFileName(null);
     if (article) fillArticle(article);
   }).catch(function (error) {
     app.setFeedback('editor-feedback', error.message, false);

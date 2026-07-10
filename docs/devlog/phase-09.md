@@ -203,3 +203,34 @@ Finish the missing category/tag maintenance loop in the admin console so taxonom
   - `biz/model/category/custom.go`
   - `biz/model/tag/custom.go`
 - After the local `hz` toolchain path is restored, these temporary supplemental structs can be replaced by regenerated model code.
+
+## Phase 09.4 - Admin Article Editor Encoding and Layout Fix
+
+### Goal
+
+Fix the broken admin article editor page where heading copy became garbled, the category selector was hard to read, and the right-side publishing panel overflowed visually.
+
+### Completed
+
+- Repaired invalid page copy source in `biz/site/handler.go`.
+- Rewrote the repaired handler and article editor template files explicitly as UTF-8 to remove replacement-character rendering.
+- Improved the article editor side-panel layout:
+  - wider desktop publishing column
+  - single-column tag list to avoid chip overflow
+  - safer wrapping for long tag names
+- Improved category selector readability by styling option foreground/background colors.
+- Improved the upload area presentation:
+  - added selected-file name display
+  - styled native file input
+  - kept existing upload behavior intact
+
+### Verification
+
+- `go build ./...` passed.
+- Fresh verification server started on `:8894` after the UTF-8 rewrite.
+- Verified the new article page HTML contains:
+  - `文章主体`
+  - `支持 JPG、JPEG、PNG、WEBP、GIF，单文件不超过 5MB。`
+- Verified no replacement character remained in the fresh page response.
+- Verified admin category API returned category data.
+- Verified a real draft article could be created with `category_id = 1` and then deleted successfully.
