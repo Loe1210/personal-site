@@ -1,6 +1,6 @@
 namespace go auth
 
-struct AdminUser {
+struct User {
     1: i64 id
     2: string username
     3: string nickname
@@ -8,25 +8,28 @@ struct AdminUser {
     5: string updated_at
 }
 
-struct AdminLoginRequest {
+struct UserLoginRequest {
     1: string username (api.body="username")
     2: string password (api.body="password")
 }
 
-struct AdminLoginResponse {
-    1: string token
-    2: string expires_at
-    3: AdminUser user
+struct UserLoginResponse {
+    1: User user
 }
 
-struct GetCurrentAdminRequest {
+struct GetCurrentUserRequest {
 }
 
-struct GetCurrentAdminResponse {
-    1: AdminUser user
+struct GetCurrentUserResponse {
+    1: User user
+}
+
+struct LogoutResponse {
+    1: string message
 }
 
 service AuthService {
-    AdminLoginResponse AdminLogin(1: AdminLoginRequest req) (api.post="/api/admin/login")
-    GetCurrentAdminResponse GetCurrentAdmin(1: GetCurrentAdminRequest req) (api.get="/api/admin/me")
+    UserLoginResponse UserLogin(1: UserLoginRequest req) (api.post="/api/admin/login")
+    GetCurrentUserResponse GetCurrentUser(1: GetCurrentUserRequest req) (api.get="/api/admin/me")
 }
+

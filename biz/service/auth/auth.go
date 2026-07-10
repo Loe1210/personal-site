@@ -1,37 +1,32 @@
-package auth
+﻿package auth
 
 import (
 	"context"
 	"errors"
-	"time"
 
+	dbmodel "github.com/Loe1210/personal-site/biz/dal/db"
 	authmodel "github.com/Loe1210/personal-site/biz/model/auth"
-	authjwt "github.com/Loe1210/personal-site/biz/mw/jwt"
+	"golang.org/x/crypto/bcrypt"
 )
 
-const (
-	adminUsername = "string"
-	adminPassword = "string"
-	adminUserID   = int64(1)
-)
+func Login(_ context.Context, req *authmodel.UserLoginRequest) (*authmodel.UserLoginResponse, error) {
+	var user dbmodel.User
 
-func Login(_ context.Context, req *authmodel.AdminLoginRequest) (*authmodel.AdminLoginResponse, error) {
-	if req.Username != adminUsername || req.Password != adminPassword {
+	if err := dbmodel.DB.Where("username = ? AND status = ?", req.Username, "active").First(&user).Error; err != nil {
 		return nil, errors.New("invalid username or password")
 	}
 
-	token, err := authjwt.GenerateToken(adminUserID, adminUsername)
-	if err != nil {
-		return nil, err
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+		return nil, errors.New("invalid username or password")
 	}
 
-	return &authmodel.AdminLoginResponse{
-		Token:     token,
-		ExpiresAt: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
-		User: &authmodel.AdminUser{
-			ID:       adminUserID,
-			Username: adminUsername,
-			Nickname: "Administrator",
+	return &authmodel.UserLoginResponse{
+		User: &authmodel.User{
+			ID:        user.ID,
+			Username:  user.Username,
+			Nickname:  user.Nickname,
+			CreatedAt: user.CreatedAt.Format("2006-01-02 15:04:05"),
+			UpdatedAt: user.UpdatedAt.Format("2006-01-02 15:04:05"),
 		},
 	}, nil
 }

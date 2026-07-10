@@ -120,6 +120,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/response.Body"
                         }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/response.Body"
+                        }
                     }
                 }
             }
@@ -181,6 +187,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Body"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/response.Body"
                         }
@@ -326,13 +338,19 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/response.Body"
                         }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/response.Body"
+                        }
                     }
                 }
             }
         },
         "/api/admin/login": {
             "post": {
-                "description": "使用管理员账号密码登录并获取 JWT",
+                "description": "使用用户账号密码登录并获取登录态",
                 "consumes": [
                     "application/json"
                 ],
@@ -342,7 +360,7 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
-                "summary": "管理员登录",
+                "summary": "用户登录",
                 "parameters": [
                     {
                         "description": "登录请求",
@@ -350,7 +368,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/auth.AdminLoginRequest"
+                            "$ref": "#/definitions/auth.UserLoginRequest"
                         }
                     }
                 ],
@@ -376,14 +394,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/admin/me": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "通过 JWT 获取当前登录管理员信息",
+        "/api/admin/logout": {
+            "post": {
+                "description": "清除当前登录 Session",
                 "consumes": [
                     "application/json"
                 ],
@@ -393,7 +406,35 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
-                "summary": "获取当前管理员信息",
+                "summary": "用户登出",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "通过 Session 获取当前登录用户信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "获取当前用户信息",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -492,6 +533,12 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Body"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/response.Body"
                         }
@@ -719,7 +766,7 @@ const docTemplate = `{
                 }
             }
         },
-        "auth.AdminLoginRequest": {
+        "auth.UserLoginRequest": {
             "type": "object",
             "properties": {
                 "password": {

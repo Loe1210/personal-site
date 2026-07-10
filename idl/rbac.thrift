@@ -20,10 +20,10 @@ struct Permission {
     8: string updated_at
 }
 
-struct CurrentAdminRBACRequest {
+struct CurrentUserRBACRequest {
 }
 
-struct CurrentAdminRBACResponse {
+struct CurrentUserRBACResponse {
     1: list<Role> roles
     2: list<Permission> permissions
 }
@@ -87,7 +87,7 @@ struct BindRolePermissionsResponse {
 }
 
 service RBACService {
-    CurrentAdminRBACResponse GetCurrentAdminRBAC(1: CurrentAdminRBACRequest req) (api.get="/api/admin/rbac/me")
+    CurrentUserRBACResponse GetCurrentUserRBAC(1: CurrentUserRBACRequest req) (api.get="/api/admin/rbac/me")
     ListRolesResponse ListRoles(1: ListRolesRequest req) (api.get="/api/admin/roles")
     CreateRoleResponse CreateRole(1: CreateRoleRequest req) (api.post="/api/admin/roles")
     ListPermissionsResponse ListPermissions(1: ListPermissionsRequest req) (api.get="/api/admin/permissions")
@@ -95,3 +95,4 @@ service RBACService {
     BindUserRolesResponse BindUserRoles(1: BindUserRolesRequest req) (api.put="/api/admin/users/:user_id/roles")
     BindRolePermissionsResponse BindRolePermissions(1: BindRolePermissionsRequest req) (api.put="/api/admin/roles/:role_id/permissions")
 }
+

@@ -11,6 +11,8 @@ import (
 	"log"
 
 	"github.com/cloudwego/hertz/pkg/app/server"
+    "github.com/hertz-contrib/sessions"
+    "github.com/hertz-contrib/sessions/cookie"
 
 	"github.com/Loe1210/personal-site/biz/dal/db"
 	"github.com/Loe1210/personal-site/biz/router"
@@ -22,6 +24,9 @@ func main() {
 		log.Fatal(err)
 	}
 	h := server.Default()
+	store := cookie.NewStore([]byte("personal-site-session-secret"))
+    h.Use(sessions.New("personal_site_session", store))
+
 
 	h.StaticFile("/swagger.json", "./docs/swagger.json")
 	h.StaticFile("/swagger.yaml", "./docs/swagger.yaml")

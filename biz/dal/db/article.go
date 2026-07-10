@@ -11,7 +11,6 @@ type Article struct {
 	ContentHTML string     `gorm:"type:longtext"`
 	CoverImage  string     `gorm:"type:varchar(255)"`
 	CategoryID  int64      `gorm:"default:0"`
-	TagIds      string     `gorm:"type:text"`
 	Status      string     `gorm:"type:varchar(32);index;default:'draft'"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time

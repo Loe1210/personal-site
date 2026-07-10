@@ -1,13 +1,13 @@
-﻿# 个人小站 IDL 驱动开发方案
+# 个人小站 IDL 驱动开发方案
 
 ## 1. 目标
 
 这份方案用于明确：
 
-1. 这个个人小站如何在单体阶段引入 `IDL/proto`
-2. 哪些模块应该先拆成多个 `proto`
+1. 这个个人小站如何在单体阶段引入 `IDL/thrift`
+2. 哪些模块应该先拆成多个 `thrift`
 3. 后续开发时每一层需要准备什么
-4. 如何避免多个 `proto` 在生成代码时互相覆盖
+4. 如何避免多个 `thrift` 在生成代码时互相覆盖
 
 这套方案的核心思路是：
 
@@ -20,14 +20,14 @@
 你已经明确希望：
 
 - 单体阶段就统一接口模型
-- 后续学习 `Kitex` 时可以直接复用 `proto`
+- 后续学习 `Kitex` 时可以直接复用 `thrift`
 - 模块边界从第一天就清晰
 
 所以这个项目不再走“先手写 dto，后补 proto”的路线，而是走：
 
 ```text
 先设计领域接口
--> 写 proto
+-> 写 thrift
 -> 生成模型/handler 基础代码
 -> 自己实现 handler/service
 -> 单体跑通
@@ -40,7 +40,7 @@
 
 - 路由路径
 - handler 实现
-- JWT 登录逻辑
+- Session 登录逻辑
 - service 业务逻辑
 - dal/db 访问
 - 中间件挂载
@@ -49,11 +49,11 @@
 
 **IDL 管契约，不取代你对业务链路的控制。**
 
-## 3. 推荐 proto 拆分
+## 3. 推荐 thrift 拆分
 
-第一版建议拆成 4 到 5 个 proto。
+第一版建议拆成 4 到 6 个 thrift。
 
-### 3.1 `article.proto`
+### 3.1 `article.thrift`
 
 职责：
 
@@ -64,9 +64,9 @@
 - 文章列表
 - 文章发布状态切换
 
-这是第一优先级最高的 proto。
+这是第一优先级最高的 thrift。
 
-### 3.2 `auth.proto`
+### 3.2 `auth.thrift`
 
 职责：
 
@@ -74,9 +74,9 @@
 - 获取当前登录用户
 - 可选：刷新 token
 
-因为你已经决定登录逻辑自己写 handler，所以 `auth.proto` 现在也适合纳入。
+因为你已经决定登录逻辑自己写 handler，并且当前登录态已切到 Session，所以 `auth.thrift` 现在用于约束登录、当前用户和退出登录接口。
 
-### 3.3 `upload.proto`
+### 3.3 `upload.thrift`
 
 职责：
 
@@ -86,7 +86,7 @@
 
 这个模块后续很容易拆成单独服务，所以值得现在就独立。
 
-### 3.4 `tag.proto`
+### 3.4 `tag.thrift`
 
 职责：
 
@@ -94,16 +94,16 @@
 - 标签创建
 - 文章标签绑定
 
-### 3.5 `category.proto`
+### 3.5 `category.thrift`
 
 职责：
 
 - 分类列表
 - 分类创建
 
-如果第一版不做分类，这个 proto 可以晚一点补。
+如果第一版不做分类，这个 thrift 可以晚一点补。
 
-## 4. 哪些内容不建议 proto 化
+## 4. 哪些内容不建议 thrift 化
 
 下面这些在第一版可以不单独做 proto：
 
@@ -270,9 +270,9 @@ option go_package = "personal_site/biz/model";
 
 适合的 rpc：
 
-- `AdminLogin`
-- `GetCurrentAdmin`
-- `RefreshAdminToken`
+- `UserLogin`
+- `GetCurrentUser`
+- `RefreshUserToken`
 
 ### 8.3 `upload.proto`
 
@@ -356,7 +356,7 @@ route
 
 - 定义 `LoginRequest`
 - 定义 `LoginResponse`
-- 定义 `GetCurrentAdminResponse`
+- 定义 `GetCurrentUserResponse`
 
 所以：
 
@@ -560,7 +560,7 @@ static/
 
 优先做：
 
-- 管理员登录
+- 用户登录
 - 当前用户获取
 - 文章创建
 - 文章编辑
@@ -765,10 +765,10 @@ service AuthService {}
 
 建议接口：
 
-#### `AdminLogin`
+#### `UserLogin`
 
 - `HTTP`：`POST /api/admin/login`
-- 用途：管理员登录
+- 用途：用户登录
 
 请求关键字段：
 
@@ -786,7 +786,7 @@ service AuthService {}
 - 这里由你自己写 handler
 - 登录成功后在 handler 或 service 中签发 JWT
 
-#### `GetCurrentAdmin`
+#### `GetCurrentUser`
 
 - `HTTP`：`GET /api/admin/me`
 - 用途：获取当前登录管理员信息
@@ -799,7 +799,7 @@ service AuthService {}
 
 - `user`
 
-#### `RefreshAdminToken`
+#### `RefreshUserToken`
 
 - `HTTP`：`POST /api/admin/refresh`
 - 用途：可选，第一版可不做
@@ -957,7 +957,7 @@ service CategoryService {}
 例如：
 
 - `CreateArticleRequest`
-- `AdminLoginRequest`
+- `UserLoginRequest`
 - `UploadImageRequest`
 
 ### 15.2 Response
@@ -966,7 +966,7 @@ service CategoryService {}
 
 - `CreateArticleResponse`
 - `ListArticlesResponse`
-- `GetCurrentAdminResponse`
+- `GetCurrentUserResponse`
 
 ### 15.3 Entity Summary
 
@@ -975,7 +975,7 @@ service CategoryService {}
 - `Article`
 - `Tag`
 - `Category`
-- `AdminUser`
+- `User`
 - `UploadFile`
 
 这样做的好处是：
@@ -990,8 +990,8 @@ service CategoryService {}
 
 ### 必做
 
-- `AdminLogin`
-- `GetCurrentAdmin`
+- `UserLogin`
+- `GetCurrentUser`
 - `CreateArticle`
 - `UpdateArticle`
 - `GetArticleBySlug`
@@ -1013,3 +1013,6 @@ service CategoryService {}
 - 先把后台登录和文章主链路跑通
 - 上传先可用
 - 标签和分类随后补足
+
+
+

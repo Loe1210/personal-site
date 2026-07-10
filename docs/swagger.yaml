@@ -44,7 +44,7 @@ definitions:
       title:
         type: string
     type: object
-  auth.AdminLoginRequest:
+  auth.UserLoginRequest:
     properties:
       password:
         type: string
@@ -147,6 +147,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/response.Body'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.Body'
       security:
       - BearerAuth: []
       summary: 创建文章
@@ -222,6 +226,10 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/response.Body'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.Body'
       security:
       - BearerAuth: []
       summary: 更新文章
@@ -278,6 +286,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/response.Body'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.Body'
       security:
       - BearerAuth: []
       summary: 创建分类
@@ -287,14 +299,14 @@ paths:
     post:
       consumes:
       - application/json
-      description: 使用管理员账号密码登录并获取 JWT
+      description: 使用用户账号密码登录并获取登录态
       parameters:
       - description: 登录请求
         in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/auth.AdminLoginRequest'
+          $ref: '#/definitions/auth.UserLoginRequest'
       produces:
       - application/json
       responses:
@@ -310,14 +322,29 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/response.Body'
-      summary: 管理员登录
+      summary: 用户登录
+      tags:
+      - auth
+  /api/admin/logout:
+    post:
+      consumes:
+      - application/json
+      description: 清除当前登录 Session
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+      summary: 用户登出
       tags:
       - auth
   /api/admin/me:
     get:
       consumes:
       - application/json
-      description: 通过 JWT 获取当前登录管理员信息
+      description: 通过 Session 获取当前登录用户信息
       produces:
       - application/json
       responses:
@@ -331,7 +358,7 @@ paths:
             $ref: '#/definitions/response.Body'
       security:
       - BearerAuth: []
-      summary: 获取当前管理员信息
+      summary: 获取当前用户信息
       tags:
       - auth
   /api/admin/tags:
@@ -383,6 +410,10 @@ paths:
             $ref: '#/definitions/response.Body'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Body'
+        "409":
+          description: Conflict
           schema:
             $ref: '#/definitions/response.Body'
       security:
