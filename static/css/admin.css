@@ -659,3 +659,10 @@
     flex-direction: column;
   }
 }
+
+.upload-panel__hint {
+  margin: 4px 0 0;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}

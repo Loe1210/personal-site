@@ -20,7 +20,7 @@ func UploadImage(ctx context.Context, c *app.RequestContext) {
 
 	header, err := c.FormFile("file")
 	if err != nil {
-		response.WriteError(c, errno.BadRequest)
+		response.WriteError(c, errno.UploadFileMissing)
 		return
 	}
 

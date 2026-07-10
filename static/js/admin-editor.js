@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
   const app = window.AdminApp;
   if (!app) return;
 
@@ -20,6 +20,9 @@
   const coverPreviewImage = document.getElementById('article-cover-preview-image');
   const saveDraftBtn = document.getElementById('article-save-draft');
   const publishBtn = document.getElementById('article-publish');
+
+  const MAX_COVER_SIZE = 5 * 1024 * 1024;
+  const ALLOWED_COVER_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
   let categories = [];
   let tags = [];
@@ -45,6 +48,28 @@
     }
     coverPreviewImage.src = url;
     coverPreviewWrap.hidden = false;
+  }
+
+  function setCoverUploadState(uploading) {
+    if (!coverUploadBtn) return;
+    coverUploadBtn.disabled = uploading;
+    coverUploadBtn.textContent = uploading ? 'Uploading...' : 'Upload Cover';
+  }
+
+  function validateCoverFile(file) {
+    if (!file) {
+      return 'Please choose a file first.';
+    }
+    if (file.size <= 0) {
+      return 'The selected file is empty.';
+    }
+    if (file.size > MAX_COVER_SIZE) {
+      return 'Image size must be less than or equal to 5MB.';
+    }
+    if (!ALLOWED_COVER_TYPES.has(file.type)) {
+      return 'Only JPG, JPEG, PNG, WEBP and GIF images are allowed.';
+    }
+    return '';
   }
 
   async function loadInitialData() {
@@ -84,24 +109,34 @@
 
   async function uploadCover() {
     const file = coverFile.files && coverFile.files[0];
-    if (!file) {
-      app.showToast('Please choose a file first', 'error');
+    const validationMessage = validateCoverFile(file);
+    if (validationMessage) {
+      app.setFeedback('editor-feedback', validationMessage, false);
+      app.showToast(validationMessage, 'error');
       return;
     }
+
     const formData = new FormData();
     formData.append('biz_type', 'article_cover');
     formData.append('file', file);
+
     try {
       await app.requireAuth();
+      setCoverUploadState(true);
       const data = await app.request('/api/admin/upload', {
         method: 'POST',
         body: formData
       });
       coverInput.value = data.upload.file_url;
       updateCoverPreview(data.upload.file_url);
+      coverFile.value = '';
+      app.setFeedback('editor-feedback', 'Cover uploaded successfully.', true);
       app.showToast('Cover uploaded', 'success');
     } catch (error) {
+      app.setFeedback('editor-feedback', error.message, false);
       app.showToast(error.message, 'error');
+    } finally {
+      setCoverUploadState(false);
     }
   }
 

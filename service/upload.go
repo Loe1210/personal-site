@@ -1,19 +1,38 @@
-﻿package service
+package service
 
 import (
 	"context"
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
-	dbmodel "github.com/Loe1210/personal-site/dal/db"
 	uploadmodel "github.com/Loe1210/personal-site/biz/model/upload"
+	dbmodel "github.com/Loe1210/personal-site/dal/db"
 	"github.com/Loe1210/personal-site/pkg/errno"
 )
+
+const maxUploadImageSize = 5 * 1024 * 1024
+
+var (
+	allowedUploadImageTypes = map[string]string{
+		"image/jpeg": ".jpg",
+		"image/png":  ".png",
+		"image/webp": ".webp",
+		"image/gif":  ".gif",
+	}
+	bizTypeSanitizer = regexp.MustCompile(`[^a-z0-9_-]+`)
+)
+
+type validatedImageMeta struct {
+	mimeType string
+	ext      string
+}
 
 func toUploadModel(item *dbmodel.UploadFile) *uploadmodel.UploadFile {
 	if item == nil {
@@ -43,49 +62,68 @@ func GetUploadInfo(_ context.Context, req *uploadmodel.GetUploadInfoRequest) (*u
 	}, nil
 }
 
-func validateImageHeader(header *multipart.FileHeader) error {
+func normalizeBizType(input string) string {
+	bizType := strings.ToLower(strings.TrimSpace(input))
+	if bizType == "" {
+		return "common"
+	}
+
+	bizType = bizTypeSanitizer.ReplaceAllString(bizType, "-")
+	bizType = strings.Trim(bizType, "-")
+	if bizType == "" {
+		return "common"
+	}
+	return bizType
+}
+
+func validateAndDetectImage(header *multipart.FileHeader) (*validatedImageMeta, error) {
 	if header == nil {
-		return errno.BadRequest
+		return nil, errno.UploadFileMissing
 	}
-
-	contentType := header.Header.Get("Content-Type")
-	if contentType == "" {
-		return errno.BadRequest
-	}
-
-	if !strings.HasPrefix(contentType, "image/") {
-		return errno.BadRequest
-	}
-
 	if header.Size <= 0 {
-		return errno.BadRequest
+		return nil, errno.UploadFileEmpty
+	}
+	if header.Size > maxUploadImageSize {
+		return nil, errno.UploadFileTooLarge
 	}
 
-	const maxImageSize = 5 * 1024 * 1024
-	if header.Size > maxImageSize {
-		return errno.BadRequest
+	file, err := header.Open()
+	if err != nil {
+		return nil, errno.Internal
+	}
+	defer file.Close()
+
+	buffer := make([]byte, 512)
+	n, readErr := file.Read(buffer)
+	if readErr != nil && readErr != io.EOF {
+		return nil, errno.Internal
+	}
+	if n == 0 {
+		return nil, errno.UploadFileEmpty
 	}
 
-	return nil
+	detectedType := http.DetectContentType(buffer[:n])
+	ext, ok := allowedUploadImageTypes[detectedType]
+	if !ok {
+		return nil, errno.UploadFileTypeInvalid
+	}
+
+	return &validatedImageMeta{
+		mimeType: detectedType,
+		ext:      ext,
+	}, nil
 }
 
 func UploadImage(_ context.Context, req *uploadmodel.UploadImageRequest, header *multipart.FileHeader) (*uploadmodel.UploadImageResponse, error) {
-	if err := validateImageHeader(header); err != nil {
+	meta, err := validateAndDetectImage(header)
+	if err != nil {
 		return nil, err
 	}
 
-	bizType := strings.TrimSpace(req.BizType)
-	if bizType == "" {
-		bizType = "common"
-	}
-
-	ext := strings.ToLower(filepath.Ext(header.Filename))
-	if ext == "" {
-		ext = ".bin"
-	}
-
-	fileName := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
-	relativeDir := filepath.Join("static", "uploads", "images")
+	bizType := normalizeBizType(req.BizType)
+	dateDir := time.Now().Format("20060102")
+	fileName := fmt.Sprintf("%d%s", time.Now().UnixNano(), meta.ext)
+	relativeDir := filepath.Join("static", "uploads", "images", bizType, dateDir)
 	relativePath := filepath.Join(relativeDir, fileName)
 	fileURL := "/" + filepath.ToSlash(relativePath)
 
@@ -101,12 +139,13 @@ func UploadImage(_ context.Context, req *uploadmodel.UploadImageRequest, header 
 		FileName: header.Filename,
 		FileURL:  fileURL,
 		FilePath: relativePath,
-		MimeType: header.Header.Get("Content-Type"),
+		MimeType: meta.mimeType,
 		Size:     header.Size,
 		BizType:  bizType,
 	}
 
 	if err := dbmodel.DB.Create(record).Error; err != nil {
+		_ = os.Remove(relativePath)
 		return nil, errno.Internal
 	}
 
@@ -131,5 +170,3 @@ func saveUploadedFile(header *multipart.FileHeader, dst string) error {
 	_, err = io.Copy(out, src)
 	return err
 }
-
-

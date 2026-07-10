@@ -130,3 +130,32 @@ Run the redesigned frontend on an isolated verification port and confirm the new
 
 - Public article API still returned no published articles during this pass, so article detail rendering could not be validated against a real published slug.
 - The custom verification port support is intentionally kept because it makes future UI review much easier.
+
+## Phase 08.3 - Blog Real Filter Wiring
+
+### Goal
+
+Replace the previous client-side mock filtering flow on the Blog page with real URL-driven category and tag filtering backed by the public article API.
+
+### Completed
+
+- Updated the Blog page filter summary area so the current filter state is visible in the hero panel.
+- Switched Blog list loading from "fetch all then filter in browser" to real API requests:
+  - `/api/articles?category=...`
+  - `/api/articles?tag=...`
+  - combined category + tag query support
+- Added URL state synchronization for Blog filters:
+  - clicking chips updates the browser URL
+  - refreshing the page preserves current filter state
+  - browser back/forward navigation restores filter state
+- Kept category and tag chip rendering driven by the live taxonomy APIs.
+
+### Verification
+
+- Started a temporary verification server on `:8892`.
+- Created a temporary published article for verification.
+- Verified filtered public article results:
+  - category filter returned the expected article
+  - tag filter returned the expected article
+- Verified `/blog?category=go-backend&tag=hertz` returned the updated page shell with the live filter summary container.
+- Deleted the temporary verification article after validation.

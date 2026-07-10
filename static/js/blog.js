@@ -1,10 +1,11 @@
-ï»¿(function () {
+(function () {
   const root = window.PersonalSite;
   if (!root) return;
 
   const listEl = document.getElementById("blog-list");
   const categoryFilter = document.getElementById("category-filter");
   const tagFilter = document.getElementById("tag-filter");
+  const summaryEl = document.getElementById("blog-filter-summary");
 
   const state = {
     category: "",
@@ -13,16 +14,83 @@
     tags: [],
   };
 
+  function readStateFromURL() {
+    const params = new URLSearchParams(window.location.search);
+    state.category = params.get("category") || "";
+    state.tag = params.get("tag") || "";
+  }
+
+  function writeStateToURL() {
+    const params = new URLSearchParams();
+    if (state.category) params.set("category", state.category);
+    if (state.tag) params.set("tag", state.tag);
+    const nextURL = params.toString() ? "/blog?" + params.toString() : "/blog";
+    window.history.pushState({ category: state.category, tag: state.tag }, "", nextURL);
+  }
+
   function renderChips(container, items, type, activeValue) {
     if (!container) return;
-    const allLabel = type === "category" ? "å…¨éƒ¨åˆ†ç±»" : "å…¨éƒ¨æ ‡ç­¾";
-    const chips = [`<button class="filter-chip${activeValue === "" ? " is-active" : ""}" data-type="${type}" data-value="">${allLabel}</button>`];
+    const allLabel = type === "category" ? "È«²¿·ÖÀà" : "È«²¿±êÇ©";
+    const chips = [
+      `<button class="filter-chip${activeValue === "" ? " is-active" : ""}" data-type="${type}" data-value="">${allLabel}</button>`
+    ];
 
     items.forEach(function (item) {
-      chips.push(`<button class="filter-chip${activeValue === item.slug ? " is-active" : ""}" data-type="${type}" data-value="${root.escapeHTML(item.slug)}">${root.escapeHTML(item.name)}</button>`);
+      chips.push(
+        `<button class="filter-chip${activeValue === item.slug ? " is-active" : ""}" data-type="${type}" data-value="${root.escapeHTML(item.slug)}">${root.escapeHTML(item.name)}</button>`
+      );
     });
 
     container.innerHTML = chips.join("");
+  }
+
+  function buildCategoryMap() {
+    const map = {};
+    state.categories.forEach(function (item) {
+      map[item.id] = item.name;
+    });
+    return map;
+  }
+
+  function buildTagMap() {
+    const map = {};
+    state.tags.forEach(function (item) {
+      map[item.id] = item.name;
+    });
+    return map;
+  }
+
+  function getCategoryName(slug) {
+    const match = state.categories.find(function (item) { return item.slug === slug; });
+    return match ? match.name : "";
+  }
+
+  function getTagName(slug) {
+    const match = state.tags.find(function (item) { return item.slug === slug; });
+    return match ? match.name : "";
+  }
+
+  function renderSummary(total) {
+    if (!summaryEl) return;
+
+    const parts = [];
+    const categoryName = state.category ? getCategoryName(state.category) : "";
+    const tagName = state.tag ? getTagName(state.tag) : "";
+
+    if (categoryName) {
+      parts.push("·ÖÀà: " + categoryName);
+    }
+    if (tagName) {
+      parts.push("±êÇ©: #" + tagName);
+    }
+
+    if (!parts.length) {
+      summaryEl.textContent = "µ±Ç°Õ¹Ê¾È«²¿ÒÑ·¢²¼ÎÄÕÂ£¬¿ÉÍ¨¹ıÏÂ·½·ÖÀàºÍ±êÇ©¿ìËÙÇĞ»»ÊÓÍ¼¡£";
+      return;
+    }
+
+    const totalText = typeof total === "number" ? " ¡¤ ¹² " + total + " Æª" : "";
+    summaryEl.textContent = "µ±Ç°É¸Ñ¡£º" + parts.join(" / ") + totalText;
   }
 
   function cardHTML(article, categoryMap, tagMap) {
@@ -56,55 +124,54 @@
     `;
   }
 
-  async function loadList() {
+  async function loadTaxonomy() {
+    const [categories, tags] = await Promise.all([
+      root.fetchJSON("/api/categories"),
+      root.fetchJSON("/api/tags")
+    ]);
+
+    state.categories = categories.list || [];
+    state.tags = tags.list || [];
+    renderChips(categoryFilter, state.categories, "category", state.category);
+    renderChips(tagFilter, state.tags, "tag", state.tag);
+    renderSummary();
+  }
+
+  async function loadArticles() {
     if (!listEl) return;
-    listEl.innerHTML = '<div class="empty-state">æ­£åœ¨åŠ è½½æ–‡ç« ...</div>';
+    listEl.innerHTML = '<div class="empty-state">ÕıÔÚ¼ÓÔØÎÄÕÂ...</div>';
+
+    const params = new URLSearchParams();
+    if (state.category) params.set("category", state.category);
+    if (state.tag) params.set("tag", state.tag);
 
     try {
-      const [articles, categories, tags] = await Promise.all([
-        root.fetchJSON("/api/articles"),
-        root.fetchJSON("/api/categories"),
-        root.fetchJSON("/api/tags"),
-      ]);
+      const articleURL = params.toString() ? "/api/articles?" + params.toString() : "/api/articles";
+      const articles = await root.fetchJSON(articleURL);
+      const list = articles.list || [];
+      const categoryMap = buildCategoryMap();
+      const tagMap = buildTagMap();
 
-      state.categories = categories.list || [];
-      state.tags = tags.list || [];
-
+      renderSummary(list.length);
       renderChips(categoryFilter, state.categories, "category", state.category);
       renderChips(tagFilter, state.tags, "tag", state.tag);
 
-      const categoryMap = {};
-      state.categories.forEach(function (item) { categoryMap[item.id] = item.name; });
-
-      const tagMap = {};
-      const tagSlugMap = {};
-      state.tags.forEach(function (item) {
-        tagMap[item.id] = item.name;
-        tagSlugMap[item.id] = item.slug;
-      });
-
-      let filtered = articles.list || [];
-      if (state.category) {
-        const categoryIDs = state.categories.filter(function (item) { return item.slug === state.category; }).map(function (item) { return item.id; });
-        filtered = filtered.filter(function (item) { return categoryIDs.includes(item.category_id); });
-      }
-      if (state.tag) {
-        filtered = filtered.filter(function (item) {
-          return (item.tag_ids || []).some(function (id) { return tagSlugMap[id] === state.tag; });
-        });
-      }
-
-      if (!filtered.length) {
-        listEl.innerHTML = '<div class="empty-state">å½“å‰ç­›é€‰æ¡ä»¶ä¸‹æ²¡æœ‰æ–‡ç« ã€‚</div>';
+      if (!list.length) {
+        listEl.innerHTML = '<div class="empty-state">µ±Ç°É¸Ñ¡Ìõ¼şÏÂÃ»ÓĞÎÄÕÂ¡£</div>';
         return;
       }
 
-      listEl.innerHTML = filtered.map(function (article) {
+      listEl.innerHTML = list.map(function (article) {
         return cardHTML(article, categoryMap, tagMap);
       }).join("");
     } catch (error) {
-      listEl.innerHTML = `<div class="empty-state">æ–‡ç« åˆ—è¡¨åŠ è½½å¤±è´¥ï¼š${root.escapeHTML(error.message)}</div>`;
+      renderSummary();
+      listEl.innerHTML = `<div class="empty-state">ÎÄÕÂÁĞ±í¼ÓÔØÊ§°Ü£º${root.escapeHTML(error.message)}</div>`;
     }
+  }
+
+  async function refreshArticles() {
+    await loadArticles();
   }
 
   document.addEventListener("click", function (event) {
@@ -119,8 +186,23 @@
     if (type === "tag") {
       state.tag = value;
     }
-    loadList();
+
+    writeStateToURL();
+    refreshArticles();
   });
 
-  loadList();
+  window.addEventListener("popstate", function () {
+    readStateFromURL();
+    renderChips(categoryFilter, state.categories, "category", state.category);
+    renderChips(tagFilter, state.tags, "tag", state.tag);
+    refreshArticles();
+  });
+
+  async function init() {
+    readStateFromURL();
+    await loadTaxonomy();
+    await loadArticles();
+  }
+
+  init();
 })();
