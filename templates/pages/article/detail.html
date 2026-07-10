@@ -1,0 +1,27 @@
+{{ define "pages/article/detail.html" }}
+{{ template "layout-start" . }}
+{{ template "nav" . }}
+
+<main class="article-page" data-slug="{{ .Slug }}">
+  <section class="article-hero" id="article-hero">
+    <p class="page-hero__eyebrow">Article</p>
+    <h1 id="article-title">正在加载文章...</h1>
+    <p class="article-hero__summary" id="article-summary">请稍候，正在获取文章内容。</p>
+    <div class="article-hero__meta" id="article-meta"></div>
+  </section>
+
+  <section class="article-cover" id="article-cover-wrap" hidden>
+    <img id="article-cover" alt="article cover">
+  </section>
+
+  <section class="article-body" id="article-body">
+    <div class="empty-state">正在加载正文...</div>
+  </section>
+
+  <div class="article-footer">
+    <a href="/blog" class="article-footer__back">返回 Blog</a>
+  </div>
+</main>
+
+{{ template "layout-end" . }}
+{{ end }}

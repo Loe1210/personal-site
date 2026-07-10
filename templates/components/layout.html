@@ -1,0 +1,34 @@
+{{ define "layout-start" }}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ .PageTitle }}</title>
+  <meta name="description" content="{{ .Description }}">
+  <link rel="stylesheet" href="/static/css/reset.css">
+  <link rel="stylesheet" href="/static/css/theme.css">
+  {{ range .Styles }}
+  <link rel="stylesheet" href="{{ . }}">
+  {{ end }}
+</head>
+<body class="{{ .BodyClass }}">
+  <div class="site-bg">
+    <div class="site-bg__grid"></div>
+    <div class="site-bg__glow site-bg__glow--left"></div>
+    <div class="site-bg__glow site-bg__glow--right"></div>
+    <div class="site-bg__noise"></div>
+  </div>
+  <div class="site-shell">
+{{ end }}
+
+{{ define "layout-end" }}
+  </div>
+  <script src="/static/js/background.js"></script>
+  <script src="/static/js/site.js"></script>
+  {{ range .Scripts }}
+  <script src="{{ . }}"></script>
+  {{ end }}
+</body>
+</html>
+{{ end }}

@@ -1,0 +1,23 @@
+{{ define "pages/blog/index.html" }}
+{{ template "layout-start" . }}
+{{ template "nav" . }}
+
+<main class="blog-page">
+  <section class="page-hero page-hero--compact">
+    <p class="page-hero__eyebrow">Blog</p>
+    <h1>文章归档</h1>
+    <p>记录我从实习开始积累的技术思考、踩坑笔记和工程迭代过程。</p>
+  </section>
+
+  <section class="filter-bar">
+    <div class="filter-chip-group" id="category-filter"></div>
+    <div class="filter-chip-group" id="tag-filter"></div>
+  </section>
+
+  <section class="blog-list" id="blog-list">
+    <div class="empty-state">正在加载文章列表...</div>
+  </section>
+</main>
+
+{{ template "layout-end" . }}
+{{ end }}

@@ -1,0 +1,17 @@
+{{ define "article-card" }}
+<article class="article-card">
+  <div class="article-card__meta">
+    <span class="article-card__category">{{ .Category }}</span>
+    <span class="article-card__date">{{ .PublishedAt }}</span>
+  </div>
+  <h3 class="article-card__title">
+    <a href="/blog/{{ .Slug }}">{{ .Title }}</a>
+  </h3>
+  <p class="article-card__summary">{{ .Summary }}</p>
+  <div class="article-card__tags">
+    {{ range .Tags }}
+    <span class="article-card__tag">#{{ . }}</span>
+    {{ end }}
+  </div>
+</article>
+{{ end }}

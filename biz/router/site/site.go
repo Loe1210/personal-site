@@ -8,5 +8,8 @@ import (
 
 func Register(h *server.Hertz) {
 	h.GET("/", sitehandler.Home)
+	h.GET("/blog", sitehandler.Blog)
+	h.GET("/blog/:slug", sitehandler.ArticleDetail)
+	h.GET("/about", sitehandler.About)
 	h.GET("/swagger", sitehandler.Swagger)
 }

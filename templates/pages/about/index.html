@@ -1,0 +1,47 @@
+{{ define "pages/about/index.html" }}
+{{ template "layout-start" . }}
+{{ template "nav" . }}
+
+<main class="about-page">
+  <section class="page-hero">
+    <p class="page-hero__eyebrow">About</p>
+    <h1>关于这个小站</h1>
+    <p>
+      这里会持续记录我从实习开始积累的后端开发经验、Go 学习过程和个人工程体系的演进。
+    </p>
+  </section>
+
+  <section class="about-grid">
+    <article class="about-card">
+      <h2>我在做什么</h2>
+      <p>
+        现在主要沿着 Go 后端这条线继续推进，把一个单体个人站做成可以不断生长的工程实验场。
+      </p>
+    </article>
+
+    <article class="about-card">
+      <h2>技术主线</h2>
+      <ul>
+        <li>Hertz：Web 服务、模板、上传、权限体系</li>
+        <li>Kitex：RPC、服务拆分、微服务协作</li>
+        <li>Eino：后续 AI 工作流和知识增强能力</li>
+      </ul>
+    </article>
+
+    <article class="about-card">
+      <h2>这个站点的定位</h2>
+      <p>
+        它既是博客，也是我的工程成长记录。每个阶段都会沉淀开发日志、接口设计和演进过程。
+      </p>
+    </article>
+
+    <article class="about-card about-card--accent">
+      <h2>外部入口</h2>
+      <p>如果你想直接看代码和迭代记录，可以从 GitHub 进入。</p>
+      <a class="hero__action hero__action--primary" href="{{ .GitHubURL }}" target="_blank" rel="noreferrer">访问 GitHub</a>
+    </article>
+  </section>
+</main>
+
+{{ template "layout-end" . }}
+{{ end }}
