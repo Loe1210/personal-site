@@ -15,7 +15,10 @@
         <input id="category-name" class="admin-input" type="text" placeholder="Name" required>
         <input id="category-slug" class="admin-input" type="text" placeholder="Slug" required>
         <textarea id="category-description" class="admin-textarea admin-textarea--short" rows="3" placeholder="Description"></textarea>
-        <button class="admin-button admin-button--primary" type="submit">Create Category</button>
+        <div class="stack-form__actions">
+          <button id="category-submit-btn" class="admin-button admin-button--primary" type="submit">Create Category</button>
+          <button id="category-cancel-btn" class="admin-button admin-button--ghost" type="button" hidden>Cancel Edit</button>
+        </div>
       </form>
       <div id="category-feedback" class="admin-feedback" hidden></div>
       <div id="category-list" class="taxonomy-list"><div class="admin-empty">Loading categories...</div></div>
@@ -31,7 +34,10 @@
         <input id="tag-name" class="admin-input" type="text" placeholder="Name" required>
         <input id="tag-slug" class="admin-input" type="text" placeholder="Slug" required>
         <textarea id="tag-description" class="admin-textarea admin-textarea--short" rows="3" placeholder="Description"></textarea>
-        <button class="admin-button admin-button--primary" type="submit">Create Tag</button>
+        <div class="stack-form__actions">
+          <button id="tag-submit-btn" class="admin-button admin-button--primary" type="submit">Create Tag</button>
+          <button id="tag-cancel-btn" class="admin-button admin-button--ghost" type="button" hidden>Cancel Edit</button>
+        </div>
       </form>
       <div id="tag-feedback" class="admin-feedback" hidden></div>
       <div id="tag-list" class="taxonomy-list"><div class="admin-empty">Loading tags...</div></div>

@@ -151,3 +151,55 @@ Polish the last admin presentation details after the redesign and verify the new
 - This pass was a visual polish pass, not a behavior rewrite.
 - Existing admin DOM ids and JS contracts remain intact.
 - `APP_HOST_PORT` support now also helps future admin visual review without disturbing the default local service.
+## Phase 09.3 - Taxonomy Management Completion
+
+### Goal
+
+Finish the missing category/tag maintenance loop in the admin console so taxonomy is no longer create-only.
+
+### Completed
+
+- Added backend update/delete APIs for category:
+  - `PUT /api/admin/categories/:id`
+  - `DELETE /api/admin/categories/:id`
+- Added backend update/delete APIs for tag:
+  - `PUT /api/admin/tags/:id`
+  - `DELETE /api/admin/tags/:id`
+- Added conflict and usage handling:
+  - duplicate category or tag slug/name returns conflict-style business error
+  - deleting a category that is still referenced by articles is blocked
+  - deleting a tag that is still referenced by `article_tags` is blocked
+- Extended RBAC seed permissions:
+  - `category:update`
+  - `category:delete`
+  - `tag:update`
+  - `tag:delete`
+- Updated admin taxonomy page:
+  - added edit action
+  - added delete action
+  - added cancel-edit flow
+  - preserved existing admin page design language
+- Updated taxonomy frontend script:
+  - create and update now share the same form
+  - editing state is visible in-page
+  - delete uses guarded confirmation
+  - success feedback remains visible after refresh instead of being cleared immediately
+
+### Validation
+
+- `go build ./...` passed.
+- Verified the full taxonomy flow on an isolated local instance:
+  - login
+  - create category
+  - update category
+  - delete category
+  - create tag
+  - update tag
+  - delete tag
+
+### Notes
+
+- `hz model` was not available in the current toolchain path during this round, so the thrift contracts were updated first and small supplemental request/response structs were added under:
+  - `biz/model/category/custom.go`
+  - `biz/model/tag/custom.go`
+- After the local `hz` toolchain path is restored, these temporary supplemental structs can be replaced by regenerated model code.

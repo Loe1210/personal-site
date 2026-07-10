@@ -1,4 +1,4 @@
-package category
+﻿package category
 
 import (
 	"github.com/cloudwego/hertz/pkg/app/server"
@@ -12,5 +12,7 @@ func Register(h *server.Hertz) {
 	{
 		admin.GET("/categories", sessionmw.RequirePermission("category:read"), ListAdminCategories)
 		admin.POST("/categories", sessionmw.RequirePermission("category:create"), CreateCategory)
+		admin.PUT("/categories/:id", sessionmw.RequirePermission("category:update"), UpdateCategory)
+		admin.DELETE("/categories/:id", sessionmw.RequirePermission("category:delete"), DeleteCategory)
 	}
 }

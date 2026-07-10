@@ -1,4 +1,4 @@
-﻿package db
+package db
 
 import (
 	"fmt"
@@ -129,8 +129,12 @@ func seedRBAC() error {
 		{Name: "Article Delete", Code: "article:delete", Resource: "article", Action: "delete", Description: "delete article"},
 		{Name: "Category Read", Code: "category:read", Resource: "category", Action: "read", Description: "read category"},
 		{Name: "Category Create", Code: "category:create", Resource: "category", Action: "create", Description: "create category"},
+		{Name: "Category Update", Code: "category:update", Resource: "category", Action: "update", Description: "update category"},
+		{Name: "Category Delete", Code: "category:delete", Resource: "category", Action: "delete", Description: "delete category"},
 		{Name: "Tag Read", Code: "tag:read", Resource: "tag", Action: "read", Description: "read tag"},
 		{Name: "Tag Create", Code: "tag:create", Resource: "tag", Action: "create", Description: "create tag"},
+		{Name: "Tag Update", Code: "tag:update", Resource: "tag", Action: "update", Description: "update tag"},
+		{Name: "Tag Delete", Code: "tag:delete", Resource: "tag", Action: "delete", Description: "delete tag"},
 		{Name: "User Me", Code: "user:me", Resource: "user", Action: "me", Description: "get current user"},
 		{Name: "User Logout", Code: "user:logout", Resource: "user", Action: "logout", Description: "logout user"},
 	}
@@ -153,7 +157,11 @@ func seedRBAC() error {
 		"article:create",
 		"article:update",
 		"category:read",
+		"category:create",
+		"category:update",
 		"tag:read",
+		"tag:create",
+		"tag:update",
 		"user:me",
 		"user:logout",
 	}
@@ -260,4 +268,3 @@ func ensureUserRole(userID, roleID int64) error {
 		RoleID: roleID,
 	}).Error
 }
-

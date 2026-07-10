@@ -620,3 +620,42 @@
     min-width: 0;
   }
 }
+
+.stack-form__actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.taxonomy-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.taxonomy-row__main {
+  min-width: 0;
+}
+
+.taxonomy-row__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-button--danger {
+  border-color: rgba(255, 125, 125, 0.28);
+  color: #ffd0d0;
+}
+
+.admin-button--danger:hover {
+  border-color: rgba(255, 125, 125, 0.48);
+  color: #ffe4e4;
+}
+
+@media (max-width: 760px) {
+  .taxonomy-row {
+    flex-direction: column;
+  }
+}

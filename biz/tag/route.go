@@ -1,4 +1,4 @@
-package tag
+﻿package tag
 
 import (
 	"github.com/cloudwego/hertz/pkg/app/server"
@@ -12,5 +12,7 @@ func Register(h *server.Hertz) {
 	{
 		admin.GET("/tags", sessionmw.RequirePermission("tag:read"), ListAdminTags)
 		admin.POST("/tags", sessionmw.RequirePermission("tag:create"), CreateTag)
+		admin.PUT("/tags/:id", sessionmw.RequirePermission("tag:update"), UpdateTag)
+		admin.DELETE("/tags/:id", sessionmw.RequirePermission("tag:delete"), DeleteTag)
 	}
 }

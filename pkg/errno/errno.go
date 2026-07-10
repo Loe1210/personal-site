@@ -1,4 +1,4 @@
-﻿package errno
+package errno
 
 type AppError struct {
 	Code       int
@@ -31,4 +31,6 @@ var (
 	TagNotFound      = &AppError{Code: 20004, Message: "tag not found", HTTPStatus: 400}
 	CategoryConflict = &AppError{Code: 20005, Message: "category already exists", HTTPStatus: 409}
 	TagConflict      = &AppError{Code: 20006, Message: "tag already exists", HTTPStatus: 409}
+	CategoryInUse    = &AppError{Code: 20007, Message: "category is used by articles", HTTPStatus: 409}
+	TagInUse         = &AppError{Code: 20008, Message: "tag is used by articles", HTTPStatus: 409}
 )
