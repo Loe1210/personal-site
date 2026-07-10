@@ -241,3 +241,11 @@ namespace go article
 2. 再补上传状态字段，如 `pending / success / failed`
 3. 之后考虑对象存储
 4. 最后再做分片上传、断点续传和状态补偿
+
+## Directory Layout (ApiSdk-Style)
+
+- `biz/<domain>` holds HTTP route registration, handlers, and validation helpers.
+- `service/` holds reusable business logic.
+- `dal/` holds DB initialization and persistence models.
+- `configs/` holds application configuration loading.
+- `pkg/` holds middleware, error definitions, and response helpers.
