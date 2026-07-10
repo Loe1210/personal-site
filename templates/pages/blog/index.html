@@ -1,12 +1,18 @@
-{{ define "pages/blog/index.html" }}
+﻿{{ define "pages/blog/index.html" }}
 {{ template "layout-start" . }}
 {{ template "nav" . }}
 
 <main class="blog-page">
-  <section class="page-hero page-hero--compact">
-    <p class="page-hero__eyebrow">Blog</p>
-    <h1>文章归档</h1>
-    <p>记录我从实习开始积累的技术思考、踩坑笔记和工程迭代过程。</p>
+  <section class="page-hero page-hero--compact blog-hero">
+    <div>
+      <p class="page-hero__eyebrow">Blog</p>
+      <h1>文章归档</h1>
+      <p>记录我从实习开始积累的技术思考、踩坑笔记，以及这个小站一步步演进的过程。</p>
+    </div>
+    <div class="blog-hero__search-shell">
+      <span class="blog-hero__search-label">检索视图</span>
+      <div class="blog-hero__search-box">搜索功能后续接入，目前先支持分类与标签筛选</div>
+    </div>
   </section>
 
   <section class="filter-bar">

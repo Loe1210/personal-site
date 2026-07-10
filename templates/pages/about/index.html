@@ -1,43 +1,69 @@
-{{ define "pages/about/index.html" }}
+﻿{{ define "pages/about/index.html" }}
 {{ template "layout-start" . }}
 {{ template "nav" . }}
 
 <main class="about-page">
-  <section class="page-hero">
-    <p class="page-hero__eyebrow">About</p>
-    <h1>关于这个小站</h1>
-    <p>
-      这里会持续记录我从实习开始积累的后端开发经验、Go 学习过程和个人工程体系的演进。
-    </p>
-  </section>
-
   <section class="about-grid">
-    <article class="about-card">
-      <h2>我在做什么</h2>
+    <article class="about-card about-card--intro">
+      <div class="about-card__profile">
+        <div class="about-card__avatar-wrap">
+          <img src="/static/images/avatar-grid.svg" alt="Loe avatar">
+        </div>
+        <div>
+          <p class="page-hero__eyebrow">About</p>
+          <h1>你好，我是夏风</h1>
+        </div>
+      </div>
       <p>
-        现在主要沿着 Go 后端这条线继续推进，把一个单体个人站做成可以不断生长的工程实验场。
+        后端开发工程师，也正在把自己学 Go、做系统、做项目的过程，沉淀成一个能够长期生长的小站。
       </p>
+      <div class="about-inline-list">
+        <span>中国 · 成都</span>
+        <span>后端工程</span>
+        <span>系统设计</span>
+      </div>
     </article>
 
     <article class="about-card">
-      <h2>技术主线</h2>
-      <ul>
-        <li>Hertz：Web 服务、模板、上传、权限体系</li>
-        <li>Kitex：RPC、服务拆分、微服务协作</li>
-        <li>Eino：后续 AI 工作流和知识增强能力</li>
-      </ul>
+      <h2>学习路线图</h2>
+      <div class="about-roadmap">
+        <div><strong>Hertz</strong><span>单体 HTTP 服务与模板实践</span></div>
+        <div><strong>Kitex</strong><span>RPC、服务拆分与治理能力</span></div>
+        <div><strong>Eino</strong><span>AI 工作流与知识增强系统</span></div>
+      </div>
     </article>
 
     <article class="about-card">
-      <h2>这个站点的定位</h2>
-      <p>
-        它既是博客，也是我的工程成长记录。每个阶段都会沉淀开发日志、接口设计和演进过程。
-      </p>
+      <h2>技术栈</h2>
+      <div class="skill-grid">
+        <span>Go</span>
+        <span>Hertz</span>
+        <span>Kitex</span>
+        <span>Thrift</span>
+        <span>GORM</span>
+        <span>MySQL</span>
+        <span>Session</span>
+        <span>RBAC</span>
+      </div>
+    </article>
+
+    <article class="about-card">
+      <h2>实习经历</h2>
+      <div class="timeline-list timeline-list--about">
+        <div>
+          <strong>2023.07 - 2023.10</strong>
+          <span>字节后端实习阶段，开始系统接触工程化与服务化设计。</span>
+        </div>
+        <div>
+          <strong>持续至今</strong>
+          <span>把实习中的经验沉淀为个人工程项目和技术文章。</span>
+        </div>
+      </div>
     </article>
 
     <article class="about-card about-card--accent">
-      <h2>外部入口</h2>
-      <p>如果你想直接看代码和迭代记录，可以从 GitHub 进入。</p>
+      <h2>站点定位</h2>
+      <p>这里既是博客，也是我的工程成长记录。后续会继续接入更完整的后台、上传体系和服务化演进能力。</p>
       <a class="hero__action hero__action--primary" href="{{ .GitHubURL }}" target="_blank" rel="noreferrer">访问 GitHub</a>
     </article>
   </section>

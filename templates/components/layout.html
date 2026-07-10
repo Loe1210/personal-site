@@ -1,4 +1,4 @@
-{{ define "layout-start" }}
+﻿{{ define "layout-start" }}
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ .PageTitle }}</title>
   <meta name="description" content="{{ .Description }}">
+  <meta name="theme-color" content="#07090c">
   <link rel="stylesheet" href="/static/css/reset.css">
   <link rel="stylesheet" href="/static/css/theme.css">
   {{ range .Styles }}
@@ -17,7 +18,11 @@
     <div class="site-bg__grid"></div>
     <div class="site-bg__glow site-bg__glow--left"></div>
     <div class="site-bg__glow site-bg__glow--right"></div>
+    <div class="site-bg__vignette"></div>
     <div class="site-bg__noise"></div>
+    <span class="site-bg__pixel site-bg__pixel--one"></span>
+    <span class="site-bg__pixel site-bg__pixel--two"></span>
+    <span class="site-bg__pixel site-bg__pixel--three"></span>
   </div>
   <div class="site-shell">
 {{ end }}

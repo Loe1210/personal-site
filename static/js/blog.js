@@ -15,7 +15,7 @@
 
   function renderChips(container, items, type, activeValue) {
     if (!container) return;
-    const allLabel = type === "category" ? "All Categories" : "All Tags";
+    const allLabel = type === "category" ? "全部分类" : "全部标签";
     const chips = [`<button class="filter-chip${activeValue === "" ? " is-active" : ""}" data-type="${type}" data-value="">${allLabel}</button>`];
 
     items.forEach(function (item) {
@@ -28,21 +28,29 @@
   function cardHTML(article, categoryMap, tagMap) {
     const category = categoryMap[article.category_id] || "Uncategorized";
     const tags = (article.tag_ids || []).map(function (id) { return tagMap[id]; }).filter(Boolean);
+    const cover = article.cover_image
+      ? `<img class="article-card__cover-img" src="${root.escapeHTML(article.cover_image)}" alt="${root.escapeHTML(article.title)}">`
+      : '<div class="article-card__cover-glow"></div><div class="article-card__cover-grid"></div>';
 
     return `
       <article class="article-card">
-        <div class="article-card__meta">
-          <span class="article-card__category">${root.escapeHTML(category)}</span>
-          <span class="article-card__date">${root.escapeHTML(article.published_at || article.created_at || "")}</span>
+        <div class="article-card__cover">
+          ${cover}
         </div>
-        <h2 class="article-card__title">
-          <a href="/blog/${root.escapeHTML(article.slug)}">${root.escapeHTML(article.title)}</a>
-        </h2>
-        <p class="article-card__summary">${root.escapeHTML(article.summary || "No summary yet")}</p>
-        <div class="article-card__tags">
-          ${tags.map(function (name) {
-            return `<span class="article-card__tag">#${root.escapeHTML(name)}</span>`;
-          }).join("")}
+        <div class="article-card__body">
+          <div class="article-card__meta">
+            <span class="article-card__category">${root.escapeHTML(category)}</span>
+            <span class="article-card__date">${root.escapeHTML(article.published_at || article.created_at || "")}</span>
+          </div>
+          <h2 class="article-card__title">
+            <a href="/blog/${root.escapeHTML(article.slug)}">${root.escapeHTML(article.title)}</a>
+          </h2>
+          <p class="article-card__summary">${root.escapeHTML(article.summary || "No summary yet")}</p>
+          <div class="article-card__tags">
+            ${tags.map(function (name) {
+              return `<span class="article-card__tag">#${root.escapeHTML(name)}</span>`;
+            }).join("")}
+          </div>
         </div>
       </article>
     `;
@@ -50,7 +58,7 @@
 
   async function loadList() {
     if (!listEl) return;
-    listEl.innerHTML = '<div class="empty-state">Loading posts...</div>';
+    listEl.innerHTML = '<div class="empty-state">正在加载文章...</div>';
 
     try {
       const [articles, categories, tags] = await Promise.all([
@@ -87,7 +95,7 @@
       }
 
       if (!filtered.length) {
-        listEl.innerHTML = '<div class="empty-state">No posts match the current filters.</div>';
+        listEl.innerHTML = '<div class="empty-state">当前筛选条件下没有文章。</div>';
         return;
       }
 
@@ -95,7 +103,7 @@
         return cardHTML(article, categoryMap, tagMap);
       }).join("");
     } catch (error) {
-      listEl.innerHTML = `<div class="empty-state">Post list failed to load: ${root.escapeHTML(error.message)}</div>`;
+      listEl.innerHTML = `<div class="empty-state">文章列表加载失败：${root.escapeHTML(error.message)}</div>`;
     }
   }
 

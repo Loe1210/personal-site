@@ -31,8 +31,8 @@
       const tagMap = {};
       (tagsResp.list || []).forEach(function (item) { tagMap[item.id] = item.name; });
 
-      titleEl.textContent = article.title || "Untitled article";
-      summaryEl.textContent = article.summary || "No summary yet.";
+      titleEl.textContent = article.title || "未命名文章";
+      summaryEl.textContent = article.summary || "这篇文章还没有摘要。";
 
       const metaParts = [];
       if (article.published_at || article.created_at) {
@@ -56,9 +56,9 @@
 
       bodyEl.innerHTML = root.markdownToHTML(article.content_md || article.content_html || "");
     } catch (error) {
-      titleEl.textContent = "Article failed to load";
+      titleEl.textContent = "文章加载失败";
       summaryEl.textContent = error.message;
-      bodyEl.innerHTML = `<div class="empty-state">Could not load the article body: ${root.escapeHTML(error.message)}</div>`;
+      bodyEl.innerHTML = `<div class="empty-state">正文加载失败：${root.escapeHTML(error.message)}</div>`;
     }
   }
 
