@@ -1,41 +1,45 @@
-﻿package auth
+package auth
 
 import (
 	"context"
 
-	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/cloudwego/hertz/pkg/protocol/consts"
-	"github.com/hertz-contrib/sessions"
-
+	dbmodel "github.com/Loe1210/personal-site/biz/dal/db"
 	authmodel "github.com/Loe1210/personal-site/biz/model/auth"
 	"github.com/Loe1210/personal-site/pkg/errno"
 	"github.com/Loe1210/personal-site/pkg/response"
-	dbmodel "github.com/Loe1210/personal-site/biz/dal/db"
+	"github.com/cloudwego/hertz/pkg/app"
+	"github.com/cloudwego/hertz/pkg/protocol/consts"
+	"github.com/hertz-contrib/sessions"
 )
 
-// Me godoc
-// @Summary 获取当前用户信息
-// @Description 通过 Session 获取当前登录用户信息
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Success 200 {object} response.Body
-// @Failure 401 {object} response.Body
-// @Router /api/admin/me [get]
 func Me(_ context.Context, c *app.RequestContext) {
 	session := sessions.Default(c)
 
-	userID := session.Get("user_id")
-	username := session.Get("username")
-	var user dbmodel.User
-	if err := dbmodel.DB.First(&user, userID.(int64)).Error; err != nil {
-		c.JSON(consts.StatusUnauthorized, response.Error(errno.ErrorCode, "user not found"))
+	userIDValue := session.Get("user_id")
+	usernameValue := session.Get("username")
+	if userIDValue == nil || usernameValue == nil {
+		c.JSON(consts.StatusUnauthorized, response.Error(errno.Unauthorized.Code, "login required"))
 		return
 	}
 
-	if user.Username != username.(string) {
-		c.JSON(consts.StatusUnauthorized, response.Error(errno.ErrorCode, "login required"))
+	userID, ok := userIDValue.(int64)
+	if !ok {
+		c.JSON(consts.StatusUnauthorized, response.Error(errno.Unauthorized.Code, "invalid session"))
+		return
+	}
+	username, ok := usernameValue.(string)
+	if !ok {
+		c.JSON(consts.StatusUnauthorized, response.Error(errno.Unauthorized.Code, "invalid session"))
+		return
+	}
+
+	var user dbmodel.User
+	if err := dbmodel.DB.First(&user, userID).Error; err != nil {
+		c.JSON(consts.StatusUnauthorized, response.Error(errno.ErrorCode, "user not found"))
+		return
+	}
+	if user.Username != username {
+		c.JSON(consts.StatusUnauthorized, response.Error(errno.Unauthorized.Code, "login required"))
 		return
 	}
 

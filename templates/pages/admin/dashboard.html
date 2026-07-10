@@ -1,0 +1,24 @@
+﻿{{ define "pages/admin/dashboard.html" }}
+{{ template "admin-layout-start" . }}
+{{ template "admin-sidebar" . }}
+<section class="admin-main">
+  {{ template "admin-topbar" . }}
+  <div class="admin-panel admin-panel--welcome">
+    <p class="admin-panel__eyebrow">Welcome</p>
+    <h2 id="dashboard-greeting">Loading admin profile...</h2>
+    <p id="dashboard-subtitle" class="admin-muted">Checking current session and loading content metrics.</p>
+  </div>
+  <div class="stats-grid" id="dashboard-stats">
+    <article class="stat-card"><span>Articles</span><strong id="stat-articles">--</strong></article>
+    <article class="stat-card"><span>Published</span><strong id="stat-published">--</strong></article>
+    <article class="stat-card"><span>Categories</span><strong id="stat-categories">--</strong></article>
+    <article class="stat-card"><span>Tags</span><strong id="stat-tags">--</strong></article>
+  </div>
+  <div class="quick-grid">
+    <a class="quick-card" href="/admin/articles/new"><h3>New Article</h3><p>Create a new draft or publish a new post.</p></a>
+    <a class="quick-card" href="/admin/articles"><h3>Manage Articles</h3><p>Review, search, edit, and delete existing content.</p></a>
+    <a class="quick-card" href="/admin/taxonomy"><h3>Taxonomy</h3><p>Create categories and tags used by your articles.</p></a>
+  </div>
+</section>
+{{ template "admin-layout-end" . }}
+{{ end }}

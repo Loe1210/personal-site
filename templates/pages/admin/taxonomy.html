@@ -1,0 +1,38 @@
+﻿{{ define "pages/admin/taxonomy.html" }}
+{{ template "admin-layout-start" . }}
+{{ template "admin-sidebar" . }}
+<section class="admin-main">
+  {{ template "admin-topbar" . }}
+  <div class="taxonomy-grid">
+    <section class="taxonomy-card">
+      <div class="taxonomy-card__header">
+        <h2>Categories</h2>
+        <p>Create and review article categories.</p>
+      </div>
+      <form id="category-form" class="stack-form">
+        <input id="category-name" class="admin-input" type="text" placeholder="Name" required>
+        <input id="category-slug" class="admin-input" type="text" placeholder="Slug" required>
+        <textarea id="category-description" class="admin-textarea admin-textarea--short" rows="3" placeholder="Description"></textarea>
+        <button class="admin-button admin-button--primary" type="submit">Create Category</button>
+      </form>
+      <div id="category-feedback" class="admin-feedback" hidden></div>
+      <div id="category-list" class="taxonomy-list"><div class="admin-empty">Loading categories...</div></div>
+    </section>
+    <section class="taxonomy-card">
+      <div class="taxonomy-card__header">
+        <h2>Tags</h2>
+        <p>Create and review article tags.</p>
+      </div>
+      <form id="tag-form" class="stack-form">
+        <input id="tag-name" class="admin-input" type="text" placeholder="Name" required>
+        <input id="tag-slug" class="admin-input" type="text" placeholder="Slug" required>
+        <textarea id="tag-description" class="admin-textarea admin-textarea--short" rows="3" placeholder="Description"></textarea>
+        <button class="admin-button admin-button--primary" type="submit">Create Tag</button>
+      </form>
+      <div id="tag-feedback" class="admin-feedback" hidden></div>
+      <div id="tag-list" class="taxonomy-list"><div class="admin-empty">Loading tags...</div></div>
+    </section>
+  </div>
+</section>
+{{ template "admin-layout-end" . }}
+{{ end }}

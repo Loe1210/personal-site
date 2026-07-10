@@ -19,6 +19,7 @@ type pageData struct {
 	Styles      []string
 	Scripts     []string
 	Slug        string
+	ArticleID   string
 }
 
 func renderPage(c *app.RequestContext, name string, data pageData) {
@@ -30,15 +31,9 @@ func Home(_ context.Context, c *app.RequestContext) {
 		PageTitle:   "Loe | Personal Site",
 		Description: "A personal site about Go, Hertz, Kitex and engineering practice.",
 		BodyClass:   "page-home",
-		Active:      "",
 		GitHubURL:   githubURL,
-		Styles: []string{
-			"/static/css/blog.css",
-			"/static/css/home.css",
-		},
-		Scripts: []string{
-			"/static/js/home.js",
-		},
+		Styles:      []string{"/static/css/blog.css", "/static/css/home.css"},
+		Scripts:     []string{"/static/js/home.js"},
 	})
 }
 
@@ -49,12 +44,8 @@ func Blog(_ context.Context, c *app.RequestContext) {
 		BodyClass:   "page-blog",
 		Active:      "blog",
 		GitHubURL:   githubURL,
-		Styles: []string{
-			"/static/css/blog.css",
-		},
-		Scripts: []string{
-			"/static/js/blog.js",
-		},
+		Styles:      []string{"/static/css/blog.css"},
+		Scripts:     []string{"/static/js/blog.js"},
 	})
 }
 
@@ -65,13 +56,9 @@ func ArticleDetail(_ context.Context, c *app.RequestContext) {
 		BodyClass:   "page-article",
 		Active:      "blog",
 		GitHubURL:   githubURL,
-		Styles: []string{
-			"/static/css/article.css",
-		},
-		Scripts: []string{
-			"/static/js/article.js",
-		},
-		Slug: c.Param("slug"),
+		Styles:      []string{"/static/css/article.css"},
+		Scripts:     []string{"/static/js/article.js"},
+		Slug:        c.Param("slug"),
 	})
 }
 
@@ -82,8 +69,78 @@ func About(_ context.Context, c *app.RequestContext) {
 		BodyClass:   "page-about",
 		Active:      "about",
 		GitHubURL:   githubURL,
-		Styles: []string{
-			"/static/css/about.css",
-		},
+		Styles:      []string{"/static/css/about.css"},
+	})
+}
+
+func AdminLogin(_ context.Context, c *app.RequestContext) {
+	renderPage(c, "pages/admin/login.html", pageData{
+		PageTitle:   "Admin Login | Loe",
+		Description: "Admin login for the personal site.",
+		BodyClass:   "page-admin-login",
+		GitHubURL:   githubURL,
+		Styles:      []string{"/static/css/admin.css", "/static/css/admin-login.css"},
+		Scripts:     []string{"/static/js/admin-common.js", "/static/js/admin-login.js"},
+	})
+}
+
+func AdminDashboard(_ context.Context, c *app.RequestContext) {
+	renderPage(c, "pages/admin/dashboard.html", pageData{
+		PageTitle:   "Dashboard | Loe Admin",
+		Description: "Admin dashboard for content operations.",
+		BodyClass:   "page-admin dashboard-page",
+		Active:      "dashboard",
+		GitHubURL:   githubURL,
+		Styles:      []string{"/static/css/admin.css", "/static/css/admin-dashboard.css"},
+		Scripts:     []string{"/static/js/admin-common.js", "/static/js/admin-dashboard.js"},
+	})
+}
+
+func AdminArticles(_ context.Context, c *app.RequestContext) {
+	renderPage(c, "pages/admin/articles.html", pageData{
+		PageTitle:   "Articles | Loe Admin",
+		Description: "Admin article management.",
+		BodyClass:   "page-admin articles-page",
+		Active:      "articles",
+		GitHubURL:   githubURL,
+		Styles:      []string{"/static/css/admin.css", "/static/css/admin-articles.css"},
+		Scripts:     []string{"/static/js/admin-common.js", "/static/js/admin-articles.js"},
+	})
+}
+
+func AdminArticleNew(_ context.Context, c *app.RequestContext) {
+	renderPage(c, "pages/admin/article-edit.html", pageData{
+		PageTitle:   "New Article | Loe Admin",
+		Description: "Create a new article.",
+		BodyClass:   "page-admin editor-page",
+		Active:      "articles",
+		GitHubURL:   githubURL,
+		Styles:      []string{"/static/css/admin.css", "/static/css/admin-editor.css"},
+		Scripts:     []string{"/static/js/admin-common.js", "/static/js/admin-editor.js"},
+	})
+}
+
+func AdminArticleEdit(_ context.Context, c *app.RequestContext) {
+	renderPage(c, "pages/admin/article-edit.html", pageData{
+		PageTitle:   "Edit Article | Loe Admin",
+		Description: "Edit an existing article.",
+		BodyClass:   "page-admin editor-page",
+		Active:      "articles",
+		GitHubURL:   githubURL,
+		Styles:      []string{"/static/css/admin.css", "/static/css/admin-editor.css"},
+		Scripts:     []string{"/static/js/admin-common.js", "/static/js/admin-editor.js"},
+		ArticleID:   c.Param("id"),
+	})
+}
+
+func AdminTaxonomy(_ context.Context, c *app.RequestContext) {
+	renderPage(c, "pages/admin/taxonomy.html", pageData{
+		PageTitle:   "Taxonomy | Loe Admin",
+		Description: "Manage categories and tags.",
+		BodyClass:   "page-admin taxonomy-page",
+		Active:      "taxonomy",
+		GitHubURL:   githubURL,
+		Styles:      []string{"/static/css/admin.css", "/static/css/admin-taxonomy.css"},
+		Scripts:     []string{"/static/js/admin-common.js", "/static/js/admin-taxonomy.js"},
 	})
 }

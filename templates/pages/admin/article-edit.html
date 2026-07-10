@@ -1,0 +1,61 @@
+﻿{{ define "pages/admin/article-edit.html" }}
+{{ template "admin-layout-start" . }}
+{{ template "admin-sidebar" . }}
+<section class="admin-main article-editor-page" data-article-id="{{ .ArticleID }}">
+  {{ template "admin-topbar" . }}
+  <div id="editor-feedback" class="admin-feedback" hidden></div>
+  <form id="article-editor-form" class="editor-layout">
+    <div class="editor-main-card">
+      <label class="form-field">
+        <span>Title</span>
+        <input id="article-title" class="admin-input" type="text" required>
+      </label>
+      <label class="form-field">
+        <span>Slug</span>
+        <input id="article-slug" class="admin-input" type="text" required>
+      </label>
+      <label class="form-field">
+        <span>Summary</span>
+        <textarea id="article-summary" class="admin-textarea admin-textarea--short" rows="4"></textarea>
+      </label>
+      <label class="form-field">
+        <span>Markdown</span>
+        <textarea id="article-content" class="admin-textarea admin-textarea--long" rows="18"></textarea>
+      </label>
+    </div>
+    <aside class="editor-side-card">
+      <label class="form-field">
+        <span>Status</span>
+        <select id="article-status" class="admin-select">
+          <option value="draft">Draft</option>
+          <option value="published">Published</option>
+        </select>
+      </label>
+      <label class="form-field">
+        <span>Category</span>
+        <select id="article-category" class="admin-select"></select>
+      </label>
+      <div class="form-field">
+        <span>Tags</span>
+        <div id="article-tags" class="checkbox-stack"></div>
+      </div>
+      <label class="form-field">
+        <span>Cover URL</span>
+        <input id="article-cover" class="admin-input" type="text" placeholder="Upload or paste a URL">
+      </label>
+      <div class="upload-panel">
+        <input id="article-cover-file" class="admin-input-file" type="file" accept="image/*">
+        <button id="article-cover-upload" class="admin-button admin-button--ghost" type="button">Upload Cover</button>
+        <div id="article-cover-preview" class="cover-preview" hidden>
+          <img id="article-cover-preview-image" alt="cover preview">
+        </div>
+      </div>
+      <div class="editor-actions">
+        <button id="article-save-draft" class="admin-button admin-button--ghost" type="button">Save Draft</button>
+        <button id="article-publish" class="admin-button admin-button--primary" type="button">Publish</button>
+      </div>
+    </aside>
+  </form>
+</section>
+{{ template "admin-layout-end" . }}
+{{ end }}

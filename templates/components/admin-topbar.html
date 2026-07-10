@@ -1,0 +1,14 @@
+﻿{{ define "admin-topbar" }}
+<header class="admin-topbar">
+  <div>
+    <p class="admin-topbar__eyebrow">Control Panel</p>
+    <h1 class="admin-topbar__title">{{ .PageTitle }}</h1>
+  </div>
+  <div class="admin-topbar__actions">
+    <div class="admin-topbar__user">
+      <span id="admin-user-name">Loading...</span>
+    </div>
+    <button id="admin-logout-btn" class="admin-button admin-button--ghost" type="button">Logout</button>
+  </div>
+</header>
+{{ end }}

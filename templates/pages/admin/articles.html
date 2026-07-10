@@ -1,0 +1,24 @@
+﻿{{ define "pages/admin/articles.html" }}
+{{ template "admin-layout-start" . }}
+{{ template "admin-sidebar" . }}
+<section class="admin-main">
+  {{ template "admin-topbar" . }}
+  <div class="toolbar-card">
+    <div class="toolbar-card__left">
+      <input id="article-search-input" class="admin-input" type="text" placeholder="Search title keyword">
+      <select id="article-status-filter" class="admin-select">
+        <option value="">All status</option>
+        <option value="draft">Draft</option>
+        <option value="published">Published</option>
+      </select>
+      <button id="article-filter-btn" class="admin-button admin-button--ghost" type="button">Apply</button>
+    </div>
+    <a class="admin-button admin-button--primary" href="/admin/articles/new">New Article</a>
+  </div>
+  <div id="articles-feedback" class="admin-feedback" hidden></div>
+  <div id="articles-list" class="admin-list-grid">
+    <div class="admin-empty">Loading articles...</div>
+  </div>
+</section>
+{{ template "admin-layout-end" . }}
+{{ end }}

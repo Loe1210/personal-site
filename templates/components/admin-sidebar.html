@@ -1,0 +1,12 @@
+﻿{{ define "admin-sidebar" }}
+<aside class="admin-sidebar">
+  <a class="admin-sidebar__brand" href="/admin">Loe Admin</a>
+  <p class="admin-sidebar__hint">Personal Site Console</p>
+  <nav class="admin-sidebar__nav">
+    <a class="admin-sidebar__link{{ if eq .Active "dashboard" }} is-active{{ end }}" href="/admin">Dashboard</a>
+    <a class="admin-sidebar__link{{ if eq .Active "articles" }} is-active{{ end }}" href="/admin/articles">Articles</a>
+    <a class="admin-sidebar__link{{ if eq .Active "taxonomy" }} is-active{{ end }}" href="/admin/taxonomy">Taxonomy</a>
+    <a class="admin-sidebar__link" href="/" target="_blank" rel="noreferrer">View Site</a>
+  </nav>
+</aside>
+{{ end }}

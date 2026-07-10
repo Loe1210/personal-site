@@ -14,14 +14,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Loe1210/personal-site/biz/dal/db"
+	"github.com/Loe1210/personal-site/biz/router"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/hertz-contrib/sessions"
 	"github.com/hertz-contrib/sessions/cookie"
-
-	"github.com/Loe1210/personal-site/biz/dal/db"
-	"github.com/Loe1210/personal-site/biz/router"
 )
 
 func mustAbs(base string, parts ...string) string {
@@ -40,12 +39,10 @@ func staticFileHandler(staticRoot string) app.HandlerFunc {
 			c.String(consts.StatusNotFound, "Not Found")
 			return
 		}
-
 		if _, err := os.Stat(target); err != nil {
 			c.String(consts.StatusNotFound, "Not Found")
 			return
 		}
-
 		c.File(target)
 	}
 }
@@ -59,7 +56,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	staticRoot := mustAbs(root, "static")
 
 	h := server.Default()
@@ -67,10 +63,18 @@ func main() {
 		mustAbs(root, "templates", "components", "layout.html"),
 		mustAbs(root, "templates", "components", "nav.html"),
 		mustAbs(root, "templates", "components", "article-card.html"),
+		mustAbs(root, "templates", "components", "admin-layout.html"),
+		mustAbs(root, "templates", "components", "admin-sidebar.html"),
+		mustAbs(root, "templates", "components", "admin-topbar.html"),
 		mustAbs(root, "templates", "pages", "home", "index.html"),
 		mustAbs(root, "templates", "pages", "blog", "index.html"),
 		mustAbs(root, "templates", "pages", "article", "detail.html"),
 		mustAbs(root, "templates", "pages", "about", "index.html"),
+		mustAbs(root, "templates", "pages", "admin", "login.html"),
+		mustAbs(root, "templates", "pages", "admin", "dashboard.html"),
+		mustAbs(root, "templates", "pages", "admin", "articles.html"),
+		mustAbs(root, "templates", "pages", "admin", "article-edit.html"),
+		mustAbs(root, "templates", "pages", "admin", "taxonomy.html"),
 	)
 
 	store := cookie.NewStore([]byte("personal-site-session-secret"))
@@ -82,6 +86,5 @@ func main() {
 	h.HEAD("/static/*filepath", staticFileHandler(staticRoot))
 
 	router.Register(h)
-
 	h.Spin()
 }
