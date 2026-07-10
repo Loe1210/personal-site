@@ -82,3 +82,35 @@ ALTER TABLE articles DROP COLUMN tag_ids;
 1. 进入 `upload` 模块，建立本地文件存储版上传能力
 2. 完成上传记录表、上传 IDL、service、handler 和 router
 3. 将文章封面字段与上传结果 URL 正式打通
+
+## 补充迭代 - 文章列表筛选落地
+
+### 目标
+
+把 `ListArticles` / `ListAdminArticles` 里已经预留的 `category`、`tag` 查询参数真正落地，避免 IDL 和实际行为不一致。
+
+### 本次完成
+
+1. 在 `service/article.go` 中集中补齐文章列表筛选逻辑
+2. 公共文章列表支持按 `category` slug 过滤
+3. 公共文章列表支持按 `tag` slug 过滤
+4. 后台文章列表同步支持按 `category` slug 过滤
+5. 后台文章列表同步支持按 `tag` slug 过滤
+6. 联表查询时使用 `Distinct("articles.*")`，避免文章因标签关联而重复返回
+7. 公共文章列表排序调整为优先按 `published_at` 倒序，其次按 `id` 倒序
+
+### 验证
+
+在隔离验证端口创建临时已发布文章后，完成了以下验证：
+
+- `GET /api/articles?category=go-backend` 返回命中文章
+- `GET /api/articles?tag=hertz` 返回命中文章
+- `GET /api/articles?category=intern-notes` 返回空列表
+- `GET /api/admin/articles?category=go-backend` 返回匹配该分类的文章列表
+
+验证后已删除临时文章，不保留测试脏数据。
+
+### 说明
+
+- 这里的 `category` 和 `tag` 查询参数当前按 slug 工作，而不是按数值 id 工作。
+- 这样更适合后续前台 Blog 页基于 URL 查询串做分类页、标签页和筛选联动。

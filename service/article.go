@@ -1,16 +1,15 @@
-﻿package service
+package service
 
 import (
 	"context"
 	"strings"
 	"time"
-	"gorm.io/gorm"
-	mysqlDriver "github.com/go-sql-driver/mysql"
 
-	dbmodel "github.com/Loe1210/personal-site/dal/db"
 	articlemodel "github.com/Loe1210/personal-site/biz/model/article"
+	dbmodel "github.com/Loe1210/personal-site/dal/db"
 	"github.com/Loe1210/personal-site/pkg/errno"
-	
+	mysqlDriver "github.com/go-sql-driver/mysql"
+	"gorm.io/gorm"
 )
 
 const timeLayout = "2006-01-02 15:04:05"
@@ -32,13 +31,10 @@ func formatTimePtr(t *time.Time) string {
 func ListPublicArticles(_ context.Context, req *articlemodel.ListArticlesRequest) (*articlemodel.ListArticlesResponse, error) {
 	var records []dbmodel.Article
 
-	query := dbmodel.DB.Where("status = ?", "published")
-	keyword := strings.TrimSpace(req.Keyword)
-	if keyword != "" {
-		query = query.Where("title LIKE ?", "%"+keyword+"%")
-	}
+	query := dbmodel.DB.Model(&dbmodel.Article{}).Where("articles.status = ?", "published")
+	query = applyArticleListFilters(query, req)
 
-	if err := query.Find(&records).Error; err != nil {
+	if err := query.Distinct("articles.*").Order("articles.published_at DESC").Order("articles.id DESC").Find(&records).Error; err != nil {
 		return nil, err
 	}
 
@@ -81,17 +77,13 @@ func ListAdminArticles(_ context.Context, req *articlemodel.ListArticlesRequest)
 	var records []dbmodel.Article
 
 	query := dbmodel.DB.Model(&dbmodel.Article{})
-
-	keyword := strings.TrimSpace(req.Keyword)
-	if keyword != "" {
-		query = query.Where("title LIKE ?", "%"+keyword+"%")
-	}
+	query = applyArticleListFilters(query, req)
 
 	if strings.TrimSpace(req.Status) != "" {
-		query = query.Where("status = ?", req.Status)
+		query = query.Where("articles.status = ?", req.Status)
 	}
 
-	if err := query.Order("id DESC").Find(&records).Error; err != nil {
+	if err := query.Distinct("articles.*").Order("articles.id DESC").Find(&records).Error; err != nil {
 		return nil, err
 	}
 
@@ -115,6 +107,28 @@ func ListAdminArticles(_ context.Context, req *articlemodel.ListArticlesRequest)
 		Page:     page,
 		PageSize: pageSize,
 	}, nil
+}
+
+func applyArticleListFilters(query *gorm.DB, req *articlemodel.ListArticlesRequest) *gorm.DB {
+	keyword := strings.TrimSpace(req.Keyword)
+	if keyword != "" {
+		query = query.Where("articles.title LIKE ?", "%"+keyword+"%")
+	}
+
+	categorySlug := strings.TrimSpace(req.Category)
+	if categorySlug != "" {
+		query = query.Joins("JOIN categories ON categories.id = articles.category_id").
+			Where("categories.slug = ?", categorySlug)
+	}
+
+	tagSlug := strings.TrimSpace(req.Tag)
+	if tagSlug != "" {
+		query = query.Joins("JOIN article_tags ON article_tags.article_id = articles.id").
+			Joins("JOIN tags ON tags.id = article_tags.tag_id").
+			Where("tags.slug = ?", tagSlug)
+	}
+
+	return query
 }
 
 func CreateArticle(_ context.Context, req *articlemodel.CreateArticleRequest) (*articlemodel.CreateArticleResponse, error) {
@@ -200,7 +214,6 @@ func UpdateArticle(_ context.Context, req *articlemodel.UpdateArticleRequest) (*
 		record.PublishedAt = nil
 	}
 
-
 	if err := dbmodel.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Save(&record).Error; err != nil {
 			if mysqlErr, ok := err.(*mysqlDriver.MySQLError); ok && mysqlErr.Number == 1062 {
@@ -256,8 +269,6 @@ func DeleteArticle(_ context.Context, req *articlemodel.DeleteArticleRequest) (*
 	}, nil
 }
 
-
-
 func toArticleModel(tx *gorm.DB, item *dbmodel.Article) *articlemodel.Article {
 	if item == nil {
 		return nil
@@ -284,8 +295,6 @@ func toArticleModel(tx *gorm.DB, item *dbmodel.Article) *articlemodel.Article {
 		PublishedAt: formatTimePtr(item.PublishedAt),
 	}
 }
-
-
 
 func ensureCategoryExists(tx *gorm.DB, categoryID int64) error {
 	if categoryID == 0 {
