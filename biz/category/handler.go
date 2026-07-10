@@ -1,0 +1,57 @@
+package category
+
+import (
+	"context"
+
+	"github.com/cloudwego/hertz/pkg/app"
+	"github.com/cloudwego/hertz/pkg/protocol/consts"
+
+	categorymodel "github.com/Loe1210/personal-site/biz/model/category"
+	"github.com/Loe1210/personal-site/pkg/errno"
+	"github.com/Loe1210/personal-site/pkg/response"
+	categoryservice "github.com/Loe1210/personal-site/service"
+)
+
+func ListCategories(ctx context.Context, c *app.RequestContext) {
+	var req categorymodel.ListCategoriesRequest
+
+	resp, err := categoryservice.ListCategories(ctx, &req)
+	if err != nil {
+		c.JSON(consts.StatusBadRequest, response.Error(errno.ErrorCode, err.Error()))
+		return
+	}
+
+	c.JSON(consts.StatusOK, response.Success(resp))
+}
+
+func ListAdminCategories(ctx context.Context, c *app.RequestContext) {
+	var req categorymodel.ListCategoriesRequest
+
+	resp, err := categoryservice.ListCategories(ctx, &req)
+	if err != nil {
+		c.JSON(consts.StatusBadRequest, response.Error(errno.ErrorCode, err.Error()))
+		return
+	}
+
+	c.JSON(consts.StatusOK, response.Success(resp))
+}
+
+func CreateCategory(ctx context.Context, c *app.RequestContext) {
+	var req categorymodel.CreateCategoryRequest
+	if err := c.BindAndValidate(&req); err != nil {
+		response.WriteError(c, errno.BadRequest)
+		return
+	}
+
+	resp, err := categoryservice.CreateCategory(ctx, &req)
+	if err != nil {
+		if appErr, ok := err.(*errno.AppError); ok {
+			response.WriteError(c, appErr)
+			return
+		}
+		response.WriteError(c, errno.Internal)
+		return
+	}
+
+	response.WriteSuccess(c, resp)
+}

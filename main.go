@@ -14,8 +14,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Loe1210/personal-site/biz/dal/db"
-	"github.com/Loe1210/personal-site/biz/router"
+	"github.com/Loe1210/personal-site/biz"
+	"github.com/Loe1210/personal-site/dal/db"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
@@ -85,6 +85,6 @@ func main() {
 	h.GET("/static/*filepath", staticFileHandler(staticRoot))
 	h.HEAD("/static/*filepath", staticFileHandler(staticRoot))
 
-	router.Register(h)
+	biz.Register(h)
 	h.Spin()
 }
