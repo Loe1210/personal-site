@@ -127,3 +127,27 @@ Bring the admin console into the same `Terminal Gallery` design system as the pu
 - This redesign preserved the current admin JS contract by keeping the important DOM ids unchanged.
 - Backend routes and session-based admin APIs were not changed in this round.
 - The admin console now has a frontend structure aligned with the public `Terminal Gallery` system.
+
+## Phase 09.2 - Final Admin Polish Pass
+
+### Goal
+
+Polish the last admin presentation details after the redesign and verify the newest admin UI from a fresh isolated local instance.
+
+### Completed
+
+- Added page-specific visible admin headings and descriptions in `biz/site/handler.go` so browser titles and on-page titles are no longer forced to be identical.
+- Updated the shared admin topbar template to use polished visible headings.
+- Rebuilt and restarted the latest code on verification port `:8890`.
+- Re-verified latest admin page shells from the running `:8890` instance:
+  - `/admin/login`
+  - `/admin`
+  - `/admin/articles/new`
+  - `/admin/taxonomy`
+- Confirmed the new admin shell, title treatment, sidebar, and page descriptions are now served by the latest running code.
+
+### Notes
+
+- This pass was a visual polish pass, not a behavior rewrite.
+- Existing admin DOM ids and JS contracts remain intact.
+- `APP_HOST_PORT` support now also helps future admin visual review without disturbing the default local service.

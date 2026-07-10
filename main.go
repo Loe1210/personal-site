@@ -47,6 +47,14 @@ func staticFileHandler(staticRoot string) app.HandlerFunc {
 	}
 }
 
+func resolveHostPort() string {
+	hostPort := os.Getenv("APP_HOST_PORT")
+	if hostPort == "" {
+		return ":8888"
+	}
+	return hostPort
+}
+
 func main() {
 	if err := db.Init(); err != nil {
 		log.Fatal(err)
@@ -58,7 +66,7 @@ func main() {
 	}
 	staticRoot := mustAbs(root, "static")
 
-	h := server.Default()
+	h := server.Default(server.WithHostPorts(resolveHostPort()))
 	h.LoadHTMLFiles(
 		mustAbs(root, "templates", "components", "layout.html"),
 		mustAbs(root, "templates", "components", "nav.html"),

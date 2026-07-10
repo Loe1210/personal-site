@@ -109,3 +109,24 @@ Replace the first public frontend release with the approved `Terminal Gallery` d
 - This redesign only changed the public frontend layer.
 - Existing backend APIs and admin frontend routes were not modified in this round.
 - The approved visual direction is now `Terminal Gallery` and can be used as the basis for later admin visual unification.
+
+## Phase 08.2 - Final Frontend Verification Pass
+
+### Goal
+
+Run the redesigned frontend on an isolated verification port and confirm the new public pages are being served from the latest code instead of a stale local process.
+
+### Completed
+
+- Added `APP_HOST_PORT` support in `main.go` so local verification can run on a custom port without conflicting with the default `:8888` process.
+- Started the latest site successfully on `:8890`.
+- Re-verified public page shells from the latest running instance:
+  - `/`
+  - `/blog`
+  - `/about`
+- Confirmed the latest public HTML includes the approved `Terminal Gallery` structure and assets.
+
+### Notes
+
+- Public article API still returned no published articles during this pass, so article detail rendering could not be validated against a real published slug.
+- The custom verification port support is intentionally kept because it makes future UI review much easier.
