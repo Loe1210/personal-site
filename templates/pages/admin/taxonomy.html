@@ -3,11 +3,13 @@
 {{ template "admin-sidebar" . }}
 <section class="admin-main">
   {{ template "admin-topbar" . }}
+
   <div class="taxonomy-grid">
     <section class="taxonomy-card">
       <div class="taxonomy-card__header">
-        <h2>Categories</h2>
-        <p>Create and review article categories.</p>
+        <p class="admin-panel__eyebrow">Categories</p>
+        <h2>分类结构</h2>
+        <p>为文章建立更稳定的主题归档结构。</p>
       </div>
       <form id="category-form" class="stack-form">
         <input id="category-name" class="admin-input" type="text" placeholder="Name" required>
@@ -18,10 +20,12 @@
       <div id="category-feedback" class="admin-feedback" hidden></div>
       <div id="category-list" class="taxonomy-list"><div class="admin-empty">Loading categories...</div></div>
     </section>
+
     <section class="taxonomy-card">
       <div class="taxonomy-card__header">
-        <h2>Tags</h2>
-        <p>Create and review article tags.</p>
+        <p class="admin-panel__eyebrow">Tags</p>
+        <h2>标签结构</h2>
+        <p>为内容打上更细粒度的主题标签和技术维度。</p>
       </div>
       <form id="tag-form" class="stack-form">
         <input id="tag-name" class="admin-input" type="text" placeholder="Name" required>

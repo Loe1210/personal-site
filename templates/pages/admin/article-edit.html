@@ -4,8 +4,14 @@
 <section class="admin-main article-editor-page" data-article-id="{{ .ArticleID }}">
   {{ template "admin-topbar" . }}
   <div id="editor-feedback" class="admin-feedback" hidden></div>
+
   <form id="article-editor-form" class="editor-layout">
     <div class="editor-main-card">
+      <div class="editor-section-head">
+        <p class="admin-panel__eyebrow">Writing Surface</p>
+        <h2>文章主体</h2>
+      </div>
+
       <label class="form-field">
         <span>Title</span>
         <input id="article-title" class="admin-input" type="text" required>
@@ -23,7 +29,13 @@
         <textarea id="article-content" class="admin-textarea admin-textarea--long" rows="18"></textarea>
       </label>
     </div>
+
     <aside class="editor-side-card">
+      <div class="editor-section-head">
+        <p class="admin-panel__eyebrow">Publishing</p>
+        <h2>发布设置</h2>
+      </div>
+
       <label class="form-field">
         <span>Status</span>
         <select id="article-status" class="admin-select">
