@@ -40,6 +40,7 @@ func Init() error {
 		&Category{},
 		&Tag{},
 		&ArticleTag{},
+		&UploadFile{},
 	); err != nil {
 		return err
 	}

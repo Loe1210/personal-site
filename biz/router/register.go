@@ -9,4 +9,5 @@ func Register(h *server.Hertz) {
 	registerArticle(h)
 	registerCategory(h)
 	registerTag(h)
+	registerUpload(h)
 }

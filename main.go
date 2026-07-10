@@ -30,7 +30,8 @@ func main() {
 
 	h.StaticFile("/swagger.json", "./docs/swagger.json")
 	h.StaticFile("/swagger.yaml", "./docs/swagger.yaml")
-
+	h.Static("/static", "./static")
+	
 	router.Register(h)
 
 	h.Spin()

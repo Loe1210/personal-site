@@ -421,6 +421,76 @@ paths:
       summary: 创建标签
       tags:
       - tag-admin
+  /api/admin/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 后台上传图片文件，返回上传记录和访问 URL
+      parameters:
+      - description: 业务类型，如 article_cover / site_asset
+        in: formData
+        name: biz_type
+        type: string
+      - description: 上传图片文件
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Body'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Body'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Body'
+      summary: 上传图片
+      tags:
+      - upload
+  /api/admin/uploads/{id}:
+    get:
+      consumes:
+      - application/json
+      description: 根据上传记录 ID 获取文件元信息
+      parameters:
+      - description: 上传记录 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Body'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Body'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Body'
+      summary: 获取上传文件信息
+      tags:
+      - upload
   /api/articles:
     get:
       consumes:
