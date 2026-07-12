@@ -9,12 +9,14 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/Loe1210/personal-site/biz"
+	"github.com/Loe1210/personal-site/configs"
 	"github.com/Loe1210/personal-site/dal/db"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
@@ -23,14 +25,33 @@ import (
 	"github.com/hertz-contrib/sessions/cookie"
 )
 
+var configPath = flag.String("config", "configs/config.yaml", "path to config file")
+
 func mustAbs(base string, parts ...string) string {
 	all := append([]string{base}, parts...)
 	return filepath.Join(all...)
 }
 
-func staticFileHandler(staticRoot string) app.HandlerFunc {
+func staticCacheMiddleware() app.HandlerFunc {
+	return func(_ context.Context, c *app.RequestContext) {
+		c.Next(context.Background())
+		c.Response.Header.Set("Cache-Control", "public, max-age=86400")
+	}
+}
+
+func serveSPA(staticRoot string) app.HandlerFunc {
 	return func(_ context.Context, c *app.RequestContext) {
 		reqPath := strings.TrimPrefix(c.Param("filepath"), "/")
+		if reqPath == "" {
+			c.File(filepath.Join(staticRoot, "index.html"))
+			return
+		}
+
+		if strings.HasPrefix(reqPath, "api/") {
+			c.String(consts.StatusNotFound, "Not Found")
+			return
+		}
+
 		cleanPath := filepath.Clean(filepath.FromSlash(reqPath))
 		target := filepath.Join(staticRoot, cleanPath)
 
@@ -39,25 +60,33 @@ func staticFileHandler(staticRoot string) app.HandlerFunc {
 			c.String(consts.StatusNotFound, "Not Found")
 			return
 		}
-		if _, err := os.Stat(target); err != nil {
-			c.String(consts.StatusNotFound, "Not Found")
+
+		if info, statErr := os.Stat(target); statErr == nil && !info.IsDir() {
+			c.File(target)
 			return
 		}
-		c.File(target)
-	}
-}
 
-func resolveHostPort() string {
-	hostPort := os.Getenv("APP_HOST_PORT")
-	if hostPort == "" {
-		return ":8888"
+		// SPA fallback: determine which app to serve based on path prefix
+		fallback := "index.html"
+		if strings.HasPrefix(reqPath, "blog/") || reqPath == "blog" {
+			fallback = filepath.Join("blog", "index.html")
+		} else if strings.HasPrefix(reqPath, "admin/") || reqPath == "admin" {
+			fallback = filepath.Join("admin", "index.html")
+		}
+		c.File(filepath.Join(staticRoot, fallback))
 	}
-	return hostPort
 }
 
 func main() {
+	flag.Parse()
+
+	cfg, err := configs.Load(*configPath)
+	if err != nil {
+		log.Printf("⚠️ Config load failed (using defaults): %v\n", err)
+	}
+
 	if err := db.Init(); err != nil {
-		log.Fatal(err)
+		log.Printf("⚠️ Database init failed (API will not work): %v\n", err)
 	}
 
 	root, err := os.Getwd()
@@ -66,33 +95,20 @@ func main() {
 	}
 	staticRoot := mustAbs(root, "static")
 
-	h := server.Default(server.WithHostPorts(resolveHostPort()))
-	h.LoadHTMLFiles(
-		mustAbs(root, "templates", "components", "layout.html"),
-		mustAbs(root, "templates", "components", "nav.html"),
-		mustAbs(root, "templates", "components", "article-card.html"),
-		mustAbs(root, "templates", "components", "admin-layout.html"),
-		mustAbs(root, "templates", "components", "admin-sidebar.html"),
-		mustAbs(root, "templates", "components", "admin-topbar.html"),
-		mustAbs(root, "templates", "pages", "home", "index.html"),
-		mustAbs(root, "templates", "pages", "blog", "index.html"),
-		mustAbs(root, "templates", "pages", "article", "detail.html"),
-		mustAbs(root, "templates", "pages", "about", "index.html"),
-		mustAbs(root, "templates", "pages", "admin", "login.html"),
-		mustAbs(root, "templates", "pages", "admin", "dashboard.html"),
-		mustAbs(root, "templates", "pages", "admin", "articles.html"),
-		mustAbs(root, "templates", "pages", "admin", "article-edit.html"),
-		mustAbs(root, "templates", "pages", "admin", "taxonomy.html"),
-	)
+	h := server.Default(server.WithHostPorts(configs.GetServerAddr()))
 
-	store := cookie.NewStore([]byte("personal-site-session-secret"))
+	store := cookie.NewStore([]byte(cfg.Session.Secret))
 	h.Use(sessions.New("personal_site_session", store))
 
 	h.StaticFile("/swagger.json", mustAbs(root, "docs", "swagger.json"))
 	h.StaticFile("/swagger.yaml", mustAbs(root, "docs", "swagger.yaml"))
-	h.GET("/static/*filepath", staticFileHandler(staticRoot))
-	h.HEAD("/static/*filepath", staticFileHandler(staticRoot))
+
+	h.Use(staticCacheMiddleware())
+
+	h.GET("/*filepath", serveSPA(staticRoot))
 
 	biz.Register(h)
+
+	log.Printf("🚀 Server starting on %s\n", configs.GetServerAddr())
 	h.Spin()
 }

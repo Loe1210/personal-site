@@ -37,4 +37,5 @@ var (
 	UploadFileTooLarge    = &AppError{Code: 20010, Message: "image size must be less than or equal to 5MB", HTTPStatus: 400}
 	UploadFileTypeInvalid = &AppError{Code: 20011, Message: "only jpg, jpeg, png, webp and gif images are allowed", HTTPStatus: 400}
 	UploadFileEmpty       = &AppError{Code: 20012, Message: "upload file is empty", HTTPStatus: 400}
+	InvalidCredentials    = &AppError{Code: 20013, Message: "invalid username or password", HTTPStatus: 401}
 )

@@ -3,13 +3,12 @@ package auth
 import (
 	"context"
 
-	dbmodel "github.com/Loe1210/personal-site/dal/db"
 	authmodel "github.com/Loe1210/personal-site/biz/model/auth"
+	dbmodel "github.com/Loe1210/personal-site/dal/db"
 	"github.com/Loe1210/personal-site/pkg/errno"
 	"github.com/Loe1210/personal-site/pkg/response"
 	authservice "github.com/Loe1210/personal-site/service"
 	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/hertz-contrib/sessions"
 )
 
@@ -22,7 +21,11 @@ func Login(ctx context.Context, c *app.RequestContext) {
 
 	resp, err := authservice.Login(ctx, req)
 	if err != nil {
-		c.JSON(consts.StatusUnauthorized, response.Error(errno.ErrorCode, err.Error()))
+		if appErr, ok := err.(*errno.AppError); ok {
+			response.WriteError(c, appErr)
+			return
+		}
+		response.WriteError(c, errno.Internal)
 		return
 	}
 
@@ -31,11 +34,11 @@ func Login(ctx context.Context, c *app.RequestContext) {
 	session.Set("username", resp.User.Username)
 
 	if err := session.Save(); err != nil {
-		c.JSON(consts.StatusInternalServerError, response.Error(errno.ErrorCode, "save session failed"))
+		response.WriteError(c, errno.Internal)
 		return
 	}
 
-	c.JSON(consts.StatusOK, response.Success(resp))
+	response.WriteSuccess(c, resp)
 }
 
 func Me(_ context.Context, c *app.RequestContext) {
@@ -44,28 +47,28 @@ func Me(_ context.Context, c *app.RequestContext) {
 	userIDValue := session.Get("user_id")
 	usernameValue := session.Get("username")
 	if userIDValue == nil || usernameValue == nil {
-		c.JSON(consts.StatusUnauthorized, response.Error(errno.Unauthorized.Code, "login required"))
+		response.WriteError(c, errno.Unauthorized)
 		return
 	}
 
 	userID, ok := userIDValue.(int64)
 	if !ok {
-		c.JSON(consts.StatusUnauthorized, response.Error(errno.Unauthorized.Code, "invalid session"))
+		response.WriteError(c, errno.Unauthorized)
 		return
 	}
 	username, ok := usernameValue.(string)
 	if !ok {
-		c.JSON(consts.StatusUnauthorized, response.Error(errno.Unauthorized.Code, "invalid session"))
+		response.WriteError(c, errno.Unauthorized)
 		return
 	}
 
 	var user dbmodel.User
 	if err := dbmodel.DB.First(&user, userID).Error; err != nil {
-		c.JSON(consts.StatusUnauthorized, response.Error(errno.ErrorCode, "user not found"))
+		response.WriteError(c, errno.Unauthorized)
 		return
 	}
 	if user.Username != username {
-		c.JSON(consts.StatusUnauthorized, response.Error(errno.Unauthorized.Code, "login required"))
+		response.WriteError(c, errno.Unauthorized)
 		return
 	}
 
@@ -79,7 +82,7 @@ func Me(_ context.Context, c *app.RequestContext) {
 		},
 	}
 
-	c.JSON(consts.StatusOK, response.Success(resp))
+	response.WriteSuccess(c, resp)
 }
 
 func Logout(_ context.Context, c *app.RequestContext) {
@@ -87,11 +90,11 @@ func Logout(_ context.Context, c *app.RequestContext) {
 	session.Clear()
 
 	if err := session.Save(); err != nil {
-		c.JSON(consts.StatusInternalServerError, response.Error(10000, "logout failed"))
+		response.WriteError(c, errno.Internal)
 		return
 	}
 
-	c.JSON(consts.StatusOK, response.Success(&authmodel.LogoutResponse{
+	response.WriteSuccess(c, &authmodel.LogoutResponse{
 		Message: "logout success",
-	}))
+	})
 }

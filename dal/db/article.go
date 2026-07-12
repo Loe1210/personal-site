@@ -12,6 +12,8 @@ type Article struct {
 	CoverImage  string     `gorm:"type:varchar(255)"`
 	CategoryID  int64      `gorm:"default:0"`
 	Status      string     `gorm:"type:varchar(32);index;default:'draft'"`
+	IsTop       int        `gorm:"type:tinyint(1);default:0;index"`
+	AuthorID    int64      `gorm:"default:0"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	PublishedAt *time.Time `gorm:"default:null"`

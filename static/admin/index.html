@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="博客后台管理">
+    <title>Hins · 博客管理</title>
+    <link rel="stylesheet" href="/assets/css/iconfont.css">
+    <link rel="stylesheet" href="/assets/css/vno.css">
+    <link rel="stylesheet" href="/admin/css/admin.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
+    <link rel="icon" href="/favicon.ico">
+    <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+</head>
+
+<body>
+    <div class="blog-overlay"></div>
+
+    <a href="/blog/" class="blog-back" title="返回博客">&larr; 博客</a>
+
+    <!-- 未登录遮罩 -->
+    <div id="authMask" class="auth-mask" style="display:none;"></div>
+
+    <!-- 主体 -->
+    <main id="adminApp" class="admin-container">
+        <header class="admin-header">
+            <h1 class="admin-title">博客管理</h1>
+            <div class="admin-header__actions">
+                <button id="logoutBtn" class="btn btn-ghost btn-sm">退出登录</button>
+            </div>
+        </header>
+
+        <!-- 标签页导航 -->
+        <nav class="admin-tabs">
+            <button class="admin-tab active" data-tab="posts">文章</button>
+            <button class="admin-tab" data-tab="categories">分类</button>
+            <button class="admin-tab" data-tab="tags">标签</button>
+        </nav>
+
+        <!-- 文章管理面板 -->
+        <section id="tab-posts" class="admin-panel active">
+            <div class="panel-header">
+                <h2 class="panel-title">文章列表</h2>
+                <button id="newPostBtn" class="btn btn-primary btn-sm">+ 新建文章</button>
+            </div>
+            <div class="status-filter" style="margin-bottom: 20px;">
+                <button class="status-filter__btn active" data-filter="all">全部</button>
+                <button class="status-filter__btn" data-filter="published">已发布</button>
+                <button class="status-filter__btn" data-filter="draft">草稿</button>
+            </div>
+            <div id="postList" class="post-manage-list">
+                <div class="admin-loading">加载中...</div>
+            </div>
+        </section>
+
+        <!-- 分类管理面板 -->
+        <section id="tab-categories" class="admin-panel">
+            <div class="panel-header">
+                <h2 class="panel-title">分类管理</h2>
+                <button id="newCategoryBtn" class="btn btn-primary btn-sm">+ 新建分类</button>
+            </div>
+            <div id="categoryList" class="tag-manage-list">
+                <div class="admin-loading">加载中...</div>
+            </div>
+        </section>
+
+        <!-- 标签管理面板 -->
+        <section id="tab-tags" class="admin-panel">
+            <div class="panel-header">
+                <h2 class="panel-title">标签管理</h2>
+                <button id="newTagBtn" class="btn btn-primary btn-sm">+ 新建标签</button>
+            </div>
+            <div id="tagList" class="tag-manage-list">
+                <div class="admin-loading">加载中...</div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 登录弹窗 -->
+    <div id="loginModal" class="modal" style="display:none;">
+        <div class="modal__overlay modal__overlay--solid"></div>
+        <div class="modal__content modal__content--small modal__content--login">
+            <header class="modal__header modal__header--center">
+                <a href="/blog/" class="login-back-btn" title="返回博客">&larr; 返回</a>
+                <h2 class="modal__title">后台登录</h2>
+            </header>
+            <form id="loginForm" class="modal__body">
+                <div class="form-group">
+                    <label class="form-label">用户名</label>
+                    <input type="text" id="loginUsername" class="form-input" required placeholder="请输入用户名" autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">密码</label>
+                    <input type="password" id="loginPassword" class="form-input" required placeholder="请输入密码" autocomplete="current-password">
+                </div>
+                <div id="loginError" class="form-error" style="display:none;"></div>
+                <footer class="modal__footer modal__footer--center">
+                    <button type="submit" class="btn btn-primary" style="width:100%;">登 录</button>
+                </footer>
+            </form>
+        </div>
+    </div>
+
+    <!-- 编辑文章弹窗 -->
+    <div id="editorModal" class="modal" style="display:none;">
+        <div class="modal__overlay"></div>
+        <div class="modal__content">
+            <header class="modal__header">
+                <h2 id="modalTitle" class="modal__title">新建文章</h2>
+                <button id="closeModalBtn" class="modal__close">&times;</button>
+            </header>
+            <form id="postForm" class="modal__body">
+                <input type="hidden" id="postId">
+
+                <div class="form-group">
+                    <label class="form-label">标题</label>
+                    <input type="text" id="postTitle" class="form-input" required placeholder="输入文章标题...">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">分类（单选）</label>
+                        <div id="postCategoryCheckboxes" class="tag-checkboxes category-checkboxes"></div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">标签（多选）</label>
+                        <div id="postTagCheckboxes" class="tag-checkboxes"></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">摘要</label>
+                    <textarea id="postSummary" class="form-input form-textarea" rows="2" placeholder="一句话概括文章内容..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <div class="form-row form-row--status">
+                        <div>
+                            <label class="form-label">发布状态</label>
+                            <div class="status-toggle">
+                                <label class="status-option">
+                                    <input type="radio" name="postStatus" value="published" checked>
+                                    <span class="status-option__label">已发布</span>
+                                </label>
+                                <label class="status-option">
+                                    <input type="radio" name="postStatus" value="draft">
+                                    <span class="status-option__label">草稿</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="editor-toolbar">
+                        <label class="form-label" style="margin-bottom:0;">正文（Markdown）</label>
+                        <button type="button" id="previewToggleBtn" class="btn btn-ghost btn-sm">预览</button>
+                    </div>
+                    <div class="editor-split">
+                        <textarea id="postContent" class="form-input form-textarea form-editor" rows="16" placeholder="使用 Markdown 语法书写文章..."></textarea>
+                        <div id="previewPane" class="preview-pane" style="display:none;">
+                            <div id="previewContent" class="preview-content"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <footer class="modal__footer">
+                    <button type="button" id="cancelBtn" class="btn btn-ghost">取消</button>
+                    <button type="submit" class="btn btn-primary">保存文章</button>
+                </footer>
+            </form>
+        </div>
+    </div>
+
+    <!-- 分类/标签编辑弹窗 -->
+    <div id="metaEditorModal" class="modal" style="display:none;">
+        <div class="modal__overlay"></div>
+        <div class="modal__content modal__content--small">
+            <header class="modal__header">
+                <h2 id="metaModalTitle" class="modal__title">新建分类</h2>
+                <button id="closeMetaModalBtn" class="modal__close">&times;</button>
+            </header>
+            <form id="metaForm" class="modal__body">
+                <input type="hidden" id="metaOldName">
+                <input type="hidden" id="metaType">
+                <div class="form-group">
+                    <label class="form-label" id="metaNameLabel">名称</label>
+                    <input type="text" id="metaName" class="form-input" required placeholder="输入名称...">
+                </div>
+                <footer class="modal__footer">
+                    <button type="button" id="cancelMetaBtn" class="btn btn-ghost">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </footer>
+            </form>
+        </div>
+    </div>
+
+    <!-- 删除确认弹窗 -->
+    <div id="confirmModal" class="modal" style="display:none;">
+        <div class="modal__overlay"></div>
+        <div class="modal__content modal__content--small">
+            <header class="modal__header">
+                <h2 id="confirmTitle" class="modal__title">确认删除</h2>
+            </header>
+            <div class="modal__body">
+                <p id="confirmText" class="confirm-text">确定要删除吗？此操作不可恢复。</p>
+                <p id="confirmWarn" class="confirm-warn" style="display:none;"></p>
+            </div>
+            <footer class="modal__footer">
+                <button type="button" id="cancelDeleteBtn" class="btn btn-ghost">取消</button>
+                <button type="button" id="confirmDeleteBtn" class="btn btn-danger">删除</button>
+            </footer>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+    <script src="/admin/js/admin.js"></script>
+</body>
+
+</html>

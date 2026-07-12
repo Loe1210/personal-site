@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <!-- Meta, title, CSS, favicons, etc. -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Hins Home">
+    <meta name="keywords" content="Hins,Homepage">
+    <meta name="author" content="Hins">
+    <title>Hins Home</title>
+    <link rel="stylesheet" type="text/css" href="assets/css/onlinewebfonts.css"/>
+    <link rel="stylesheet" type="text/css" href="assets/css/vno.css">
+    <link rel="stylesheet" type="text/css" href="assets/css/iconfont.css">
+    <link rel="stylesheet" type="text/css" href="assets/css/wakatime-theme.css">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="icon" href="favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <span class="mobile btn-mobile-menu">
+        <i class="social iconfont icon-list btn-mobile-menu__icon"></i>
+        <i class="social iconfont icon-angleup btn-mobile-close__icon hidden"></i>
+    </span>
+    <header id="panel" class="panel-cover">
+        <div class="panel-main">
+            <div class="panel-main__inner panel-inverted">
+                <div class="panel-main__content">
+                    <div class="ih-item circle effect right_to_left">            
+                        <a href="#" title="" class="blog-button">
+                            <div class="img"><img src="assets/img/logo3.jpg" alt="img" class="js-avatar iUp profilepic"></div>
+                            <div class="info iUp">
+                                <div class="info-back">
+                                    <h2> 
+                                        Be Brave
+                                    </h2>
+                                    <p>
+                                        2026 · 平静
+                                    </p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    <h1 class="panel-cover__title panel-title iUp" style="font-family: 'Cormorant Garamond', 'Times New Roman', serif; font-weight: 600; font-size: 2.8em; letter-spacing: 6px; line-height: 1.2; margin-top: 20px; margin-bottom: 10px;">
+                        <a href="#" title="Hins Home" style="color:#fff; text-decoration:none;">Hins</a>
+                    </h1>
+                    <p class="panel-cover__subtitle panel-subtitle iUp">Code Create Life</p>
+                    <hr class="panel-cover__divider iUp" />
+                    <p id="description" class="panel-cover__description iUp">慢慢走，静静写，认真生活。
+                        <br/>
+                        <strong>-「Hins」</strong>
+                    </p>
+                    <div class="navigation-wrapper iUp">
+                        <div>
+                            <nav class="cover-navigation cover-navigation--primary">
+                                <ul class="navigation">
+                                    <li class="navigation__item">
+                                        <a href="/blog/" class="blog-button">博客</a>
+                                    </li>
+                                    <li class="navigation__item">
+                                        <a href="javascript:showResumeModal();" class="blog-button">简历</a>
+                                    </li>
+                                    <li class="navigation__item">
+                                        <a href="javascript:showAboutModal();" class="blog-button">关于</a>
+                                    </li>
+                                </ul>
+                            </nav>
+                        </div>
+                        <div class="iUp">
+                            <nav class="cover-navigation navigation--social">
+                                <ul class="navigation">
+                                    <li class="navigation__item">
+                                        <a href="https://github.com/Loe1210" title="github" target="_blank">
+                                            <i class='social iconfont icon-github'></i>
+                                            <span class="label">github</span>
+                                        </a>
+                                    </li>
+                                    <li class="navigation__item">
+                                        <!-- 加密的邮箱地址, 请自行修改, 或者改用下方的明文方式 -->
+                                        <a href="javascript:decryptEmail('MjUwOTcxNzU3M0BxcS5jb20=');" title="email">
+                                            <i class='social iconfont icon-email'></i>
+                                            <span class="label">email</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="panel-cover--overlay cover-slate"></div>
+        </div>
+        <!-- <div class="beian iUp">
+            <a class="icp" href="http://www.miitbeian.gov.cn/publish/query/indexFirst.action" target="_blank">XXX</a>
+            <a class="gwab" href="http://www.beian.gov.cn/portal/recordQuery" target="_blank">XXX</a>
+        </div> -->
+        <div class="remark iUp">
+            <p class="power">Powered By 
+                <a href="https://github.com/features/actions" target="_blank"> GitHub Actions </a>
+            </p>
+        </div>
+    </header>
+    <!-- About Modal -->
+    <div id="aboutModal" class="about-modal" onclick="closeAboutModal()">
+        <div class="about-modal__card" onclick="event.stopPropagation()">
+            <button class="about-modal__close" onclick="closeAboutModal()" aria-label="关闭">&times;</button>
+            <h2 class="about-modal__title">About</h2>
+            <div class="about-modal__text">
+                <p>你好，我是 <strong>Hins</strong>，目前是一名学生，也是一名后端开发实习生。</p>
+                <p>主要方向是 <strong>Go</strong>、<strong>Java</strong>、<strong>分布式系统</strong>以及 <strong>AI Agent</strong>。</p>
+                <p>喜欢研究源码、记录学习过程，也喜欢构建稳定可靠的后端系统。</p>
+            </div>
+            <div class="about-modal__skills">
+                <div class="skill-group">
+                    <span class="skill-label">语言</span>
+                    <span class="skill-tags">
+                        <span class="skill-tag">Go</span>
+                        <span class="skill-tag">Java</span>
+                        <span class="skill-tag">Python</span>
+                        <span class="skill-tag">SQL</span>
+                    </span>
+                </div>
+                <div class="skill-group">
+                    <span class="skill-label">框架</span>
+                    <span class="skill-tags">
+                        <span class="skill-tag">Hertz</span>
+                        <span class="skill-tag">Kitex</span>
+                        <span class="skill-tag">Eino</span>
+                        <span class="skill-tag">SpringAI</span>
+                        <span class="skill-tag">SpringCloud</span>
+                    </span>
+                </div>
+                <div class="skill-group">
+                    <span class="skill-label">方向</span>
+                    <span class="skill-tags">
+                        <span class="skill-tag">后端</span>
+                        <span class="skill-tag">分布式系统</span>
+                        <span class="skill-tag">AI Agent</span>
+                    </span>
+                </div>
+            </div>
+            <div class="about-modal__social">
+                <a href="https://github.com/Loe1210" title="GitHub" target="_blank">
+                    <i class="social iconfont icon-github"></i>
+                </a>
+                <a href="javascript:decryptEmail('MjUwOTcxNzU3M0BxcS5jb20=');" title="Email">
+                    <i class="social iconfont icon-email"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resume Modal -->
+    <div id="resumeModal" class="about-modal" onclick="closeResumeModal()">
+        <div class="resume-modal" onclick="event.stopPropagation()">
+            <div class="resume-modal__header">
+                <h2 class="resume-modal__title">个人简历</h2>
+                <div class="resume-modal__actions">
+                    <a href="/assets/resume/resume.pdf" download="Hins_Resume.pdf" class="resume-btn resume-btn--download">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        <span>下载 PDF</span>
+                    </a>
+                    <button class="resume-modal__close" onclick="closeResumeModal()" aria-label="关闭">&times;</button>
+                </div>
+            </div>
+            <div class="resume-modal__body">
+                <!-- 基本信息 -->
+                <section class="resume-section">
+                    <div class="resume-profile">
+                        <h1 class="resume-name">刘峻轩</h1>
+                        <div class="resume-contact">
+                            <span class="resume-contact__item">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                                19905394383
+                            </span>
+                            <span class="resume-contact__item">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                                2509717573@qq.com
+                            </span>
+                            <span class="resume-contact__item">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                广州 / 深圳
+                            </span>
+                        </div>
+                        <p class="resume-intention">求职意向：后端开发（随时到岗）</p>
+                    </div>
+                </section>
+
+                <!-- 教育经历 -->
+                <section class="resume-section">
+                    <h3 class="resume-section__title">教育经历</h3>
+                    <div class="resume-item">
+                        <div class="resume-item__header">
+                            <h4 class="resume-item__title">广东工业大学</h4>
+                            <span class="resume-item__date">2023.08 - 2027.06</span>
+                        </div>
+                        <p class="resume-item__desc">工业软件 · 本科 · 计算机学院 · Vtmer后台组组长</p>
+                    </div>
+                </section>
+
+                <!-- 专业技能 -->
+                <section class="resume-section">
+                    <h3 class="resume-section__title">专业技能</h3>
+                    <ul class="resume-skills">
+                        <li><strong>Java：</strong>熟悉 Java 基础、集合、IO、反射、多线程、JVM、Java 并发编程，以及 Spring 框架。</li>
+                        <li><strong>数据库：</strong>熟悉 MySQL 数据库，熟悉索引、锁机制、事务、MVCC、事务机制、日志以及数据库的优化等。</li>
+                        <li><strong>Redis：</strong>熟悉 Redis，熟悉 Redis 五大基本数据类型以及其应用场景，实现分布式锁、缓存等。</li>
+                        <li><strong>计算机基础：</strong>熟悉计算机网络基础：HTTP/HTTPS、TCP/UDP 等。</li>
+                        <li><strong>AI 应用：</strong>了解 RAG、ReAct、Plan-Executor、Multi-Agent、MCP。</li>
+                    </ul>
+                </section>
+
+                <!-- 项目经历 -->
+                <section class="resume-section">
+                    <h3 class="resume-section__title">项目经历</h3>
+                    <div class="resume-item">
+                        <div class="resume-item__header">
+                            <h4 class="resume-item__title">课设通Agent助手</h4>
+                            <span class="resume-item__date">2026.04 - 2026.05</span>
+                        </div>
+                        <p class="resume-item__role">项目负责人</p>
+                        <div class="resume-item__block">
+                            <h5 class="resume-item__subtitle">项目描述</h5>
+                            <p class="resume-item__text">课设通 Agent 助手通过 AI Agent 解决大学生软件课程设计的真实痛点，整合知识库、对话、任务编排三大核心能力，实现课设选题辅助、方案自动生成和答辩准备的一站式服务。致力于降低学生完成软件课设的入门门槛，提升课设质量和效率。</p>
+                        </div>
+                        <div class="resume-item__block">
+                            <h5 class="resume-item__subtitle">技术栈</h5>
+                            <div class="resume-tags">
+                                <span class="resume-tag">SpringBoot</span>
+                                <span class="resume-tag">SpringAI-Alibaba</span>
+                                <span class="resume-tag">RAG</span>
+                                <span class="resume-tag">ReAct</span>
+                                <span class="resume-tag">Plan-Executor</span>
+                                <span class="resume-tag">Multi-Agent</span>
+                                <span class="resume-tag">MCP</span>
+                                <span class="resume-tag">DashScope</span>
+                                <span class="resume-tag">Milvus</span>
+                                <span class="resume-tag">SSE</span>
+                            </div>
+                        </div>
+                        <div class="resume-item__block">
+                            <h5 class="resume-item__subtitle">工作内容与产出</h5>
+                            <ul class="resume-list">
+                                <li><strong>AI Agent 架构设计：</strong>基于 Spring AI Alibaba 设计并实现了双主Agent模式，课设对话Agent负责自由问答、概念解释与即时工具调用，课设任务Agent基于 Supervisor 总控 + Planner 拆解规划 + Executor 执行反馈的多Agent编排体系，闭环完成完整课设方案生成。</li>
+                                <li><strong>设计并集成工具：</strong>设计并实现了多领域课设工具集（选题推荐、数据库设计、接口设计、报告生成、答辩准备等），包括通过 MCP 协议集成扩展工具，使 AI Agent 能够灵活调用本地和远程工具完成复杂课设任务。</li>
+                                <li><strong>RAG 知识库系统设计：</strong>设计了文档向量化存储与检索方案，针对文档分块大小和检索 TopK 参数的选择问题，经过测试验证确定了最优参数组合，使知识检索准确率达到 85%+。</li>
+                                <li><strong>对话功能优化：</strong>基于React模式实现对话Agent，支持多轮对话上下文记忆，并通过容错处理优化体验；同时基于 SSE 技术实现 AI 对话流式输出，解决大模型响应延迟问题。</li>
+                                <li><strong>课设全流程编排：</strong>基于Plan-Execute模式，实现了「根据用户选题 → 检索知识库 → 规划任务步骤 → 调用生成工具 → 分析完整性 → 产出完整方案」的完整业务流程，将原本需要数周的课设准备工作缩短至分钟级。</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="resume-item" style="margin-top: 20px;">
+                        <div class="resume-item__header">
+                            <h4 class="resume-item__title">广东工业大学本科教学质量评估监测中心 - 项目后台</h4>
+                            <span class="resume-item__date">2025.01 - 2026.05</span>
+                        </div>
+                        <p class="resume-item__role">项目后台负责人</p>
+                        <div class="resume-item__block">
+                            <h5 class="resume-item__subtitle">项目描述</h5>
+                            <p class="resume-item__text">该系统是一个面向教学质量评估全流程管理的数字化平台。它为课程负责人、评审专家和教学管理人员提供了专属功能模块，支持课程资料上传、在线评审和进度跟踪。整体采用微服务架构，实现了业务模块的高效解耦，为学校构建了一套低成本、高性能、高可用、可抽象、可扩展的本科教学质量评估与保障体系。</p>
+                        </div>
+                        <div class="resume-item__block">
+                            <h5 class="resume-item__subtitle">技术栈</h5>
+                            <div class="resume-tags">
+                                <span class="resume-tag">Spring Boot</span>
+                                <span class="resume-tag">Spring Cloud</span>
+                                <span class="resume-tag">Spring Cloud Gateway</span>
+                                <span class="resume-tag">Spring Security OAuth2</span>
+                                <span class="resume-tag">Nacos</span>
+                                <span class="resume-tag">RocketMQ</span>
+                                <span class="resume-tag">Redis</span>
+                                <span class="resume-tag">Caffeine</span>
+                                <span class="resume-tag">Sentinel</span>
+                                <span class="resume-tag">MyBatis-Plus</span>
+                                <span class="resume-tag">MySQL</span>
+                            </div>
+                        </div>
+                        <div class="resume-item__block">
+                            <h5 class="resume-item__subtitle">工作内容与产出</h5>
+                            <ul class="resume-list">
+                                <li><strong>微服务治理：</strong>独立分析项目架构设计与功能实现，采用微服务领域拆分思想，划分为5个微服务，达到业务解耦的效果。</li>
+                                <li><strong>多级缓存：</strong>对于热点key使用 Caffeine + Redis 搭建本地+远程两层缓存架构，大大提高读多写少的接口响应速度，降低数据库 IO 压力。</li>
+                                <li><strong>网关防御与无状态鉴权：</strong>基于 Gateway + Sentinel 构建三层防护，配置细粒度熔断限流防止雪崩；利用 Bloom Filter 拦截无效请求（节省 80% 资源）；采用 OAuth2 + JWT + RBAC 结合 Redis 黑名单替代 Session，解决 Token 注销难题。</li>
+                                <li><strong>高并发削峰与可靠投递：</strong>设计 RocketMQ 异步削峰链路，引入本地消息表确保消息投递最终一致性（成功率 99%）；利用 Redis 分布式锁保证任务幂等性，配合死信队列进行异常兜底，核心吞吐量提升 40%。</li>
+                                <li><strong>独立文件服务：</strong>单独抽出文件服务，解决大文件上传资源占用问题，采用分片上传/断点续传 + 临时区机制，并对上传接口限流和超时保护。</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+    <style>
+        .about-modal {
+            display: flex;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.35s;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+        .about-modal.open {
+            opacity: 1;
+            visibility: visible;
+        }
+        .about-modal__card {
+            position: relative;
+            max-width: 460px;
+            width: 90%;
+            padding: 48px 40px 40px;
+            background: rgba(255, 255, 255, 0.65);
+            border: none;
+            border-radius: 20px;
+            backdrop-filter: blur(24px) saturate(1.3);
+            -webkit-backdrop-filter: blur(24px) saturate(1.3);
+            color: #2c3e50;
+            text-align: center;
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
+            opacity: 0;
+            transform: scale(0.95) translateY(8px);
+            transition: opacity 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+                        transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .about-modal.open .about-modal__card {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+        .about-modal__close {
+            position: absolute;
+            top: 12px;
+            right: 16px;
+            background: none;
+            border: none;
+            color: rgba(0, 0, 0, 0.3);
+            font-size: 24px;
+            line-height: 1;
+            cursor: pointer;
+            transition: color 0.25s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .about-modal__close:hover {
+            color: #4e97d8;
+            transform: rotate(90deg) scale(1.15);
+        }
+        .about-modal__title {
+            font-family: 'Cormorant Garamond', 'Times New Roman', serif;
+            font-weight: 500;
+            font-size: 2.4em;
+            letter-spacing: 5px;
+            margin: 0 0 28px;
+            color: #2c3e50;
+        }
+        .about-modal__text {
+            font-family: 'ZCOOL XiaoWei', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            font-size: 1.05em;
+            line-height: 2.2;
+            font-weight: normal;
+            color: #34495e;
+            text-align: center;
+        }
+        .about-modal__text p {
+            margin: 0 0 14px;
+        }
+        .about-modal__text strong {
+            color: #4e97d8;
+            font-weight: normal;
+        }
+        .about-modal__social {
+            margin-top: 28px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(0, 0, 0, 0.08);
+        }
+        .about-modal__social a {
+            display: inline-block;
+            margin: 0 14px;
+            color: rgba(0, 0, 0, 0.35);
+            font-size: 1.4em;
+            text-decoration: none;
+            transition: color 0.25s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .about-modal__social a:hover {
+            color: #4e97d8;
+            transform: translateY(-3px) scale(1.1);
+        }
+        .about-modal__social a i {
+            color: inherit !important;
+        }
+        /* About 技能区 */
+        .about-modal__skills {
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(0, 0, 0, 0.08);
+            text-align: left;
+        }
+        .skill-group {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .skill-label {
+            font-family: 'ZCOOL XiaoWei', sans-serif;
+            font-size: .85em;
+            color: rgba(0, 0, 0, 0.4);
+            min-width: 48px;
+            text-align: right;
+            line-height: 1.8;
+        }
+        .skill-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .skill-tag {
+            display: inline-block;
+            padding: 3px 12px;
+            font-size: .8em;
+            font-family: 'ZCOOL XiaoWei', sans-serif;
+            color: #4e97d8;
+            background: rgba(78, 151, 216, 0.1);
+            border: 1px solid rgba(78, 151, 216, 0.2);
+            border-radius: 12px;
+            line-height: 1.6;
+        }
+        /* Resume 弹窗 - 深色毛玻璃风格 */
+        .resume-modal {
+            position: relative;
+            max-width: 820px;
+            width: 92%;
+            max-height: 88vh;
+            background: rgba(0, 0, 0, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            backdrop-filter: blur(24px) saturate(1.2);
+            -webkit-backdrop-filter: blur(24px) saturate(1.2);
+            color: #e8ecf1;
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
+            opacity: 0;
+            transform: scale(0.95) translateY(8px);
+            transition: opacity 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+                        transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .about-modal.open .resume-modal {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+        .resume-modal__header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 28px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            flex-shrink: 0;
+        }
+        .resume-modal__title {
+            font-family: 'LXGW WenKai', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            font-weight: 400;
+            font-size: 1.5em;
+            letter-spacing: 3px;
+            margin: 0;
+            color: #fff;
+        }
+        .resume-modal__actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .resume-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-family: 'LXGW WenKai', 'PingFang SC', sans-serif;
+            font-size: .85em;
+            transition: all 0.25s ease;
+            cursor: pointer;
+            letter-spacing: 1px;
+        }
+        .resume-btn--download {
+            color: #88acdb;
+            background: rgba(78, 151, 216, 0.1);
+            border: 1px solid rgba(78, 151, 216, 0.3);
+        }
+        .resume-btn--download:hover {
+            background: rgba(78, 151, 216, 0.2);
+            border-color: #4e97d8;
+            color: #fff;
+            transform: translateY(-1px);
+        }
+        .resume-modal__close {
+            position: static;
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 22px;
+            line-height: 1;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            transition: all 0.25s ease;
+        }
+        .resume-modal__close:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+            transform: rotate(90deg);
+        }
+        .resume-modal__body {
+            padding: 28px 32px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .resume-modal__body::-webkit-scrollbar {
+            width: 6px;
+        }
+        .resume-modal__body::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .resume-modal__body::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 3px;
+        }
+        .resume-modal__body::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .resume-section {
+            margin-bottom: 28px;
+        }
+        .resume-section:last-child {
+            margin-bottom: 0;
+        }
+        .resume-section__title {
+            font-family: 'LXGW WenKai', 'PingFang SC', sans-serif;
+            font-size: 1.05em;
+            font-weight: 400;
+            letter-spacing: 3px;
+            color: #88acdb;
+            margin: 0 0 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(78, 151, 216, 0.2);
+        }
+
+        /* 基本信息 */
+        .resume-profile {
+            text-align: center;
+        }
+        .resume-name {
+            font-family: 'LXGW WenKai', 'PingFang SC', sans-serif;
+            font-size: 2em;
+            font-weight: 400;
+            letter-spacing: 6px;
+            color: #fff;
+            margin: 0 0 16px;
+        }
+        .resume-contact {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 12px;
+        }
+        .resume-contact__item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: .88em;
+            color: rgba(255, 255, 255, 0.6);
+            font-family: 'LXGW WenKai', sans-serif;
+            letter-spacing: 0.5px;
+        }
+        .resume-contact__item svg {
+            color: #88acdb;
+        }
+        .resume-intention {
+            font-size: .9em;
+            color: rgba(255, 255, 255, 0.5);
+            margin: 0;
+            letter-spacing: 1px;
+        }
+
+        /* 经历条目 */
+        .resume-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px 24px;
+        }
+        .resume-item__header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .resume-item__title {
+            font-family: 'LXGW WenKai', 'PingFang SC', sans-serif;
+            font-size: 1.1em;
+            font-weight: 500;
+            color: #fff;
+            margin: 0;
+            letter-spacing: 1px;
+        }
+        .resume-item__date {
+            font-size: .82em;
+            color: rgba(255, 255, 255, 0.4);
+            font-family: 'LXGW WenKai', sans-serif;
+            letter-spacing: 1px;
+            white-space: nowrap;
+        }
+        .resume-item__desc,
+        .resume-item__role {
+            font-size: .88em;
+            color: rgba(255, 255, 255, 0.55);
+            margin: 0 0 12px;
+            letter-spacing: 0.5px;
+            line-height: 1.7;
+        }
+        .resume-item__block {
+            margin-top: 14px;
+        }
+        .resume-item__subtitle {
+            font-family: 'LXGW WenKai', 'PingFang SC', sans-serif;
+            font-size: .92em;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.8);
+            margin: 0 0 8px;
+            letter-spacing: 1px;
+        }
+        .resume-item__text {
+            font-size: .85em;
+            color: rgba(255, 255, 255, 0.6);
+            line-height: 1.8;
+            margin: 0;
+            letter-spacing: 0.3px;
+        }
+
+        /* 技能列表 */
+        .resume-skills {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .resume-skills li {
+            position: relative;
+            padding-left: 18px;
+            margin-bottom: 8px;
+            font-size: .88em;
+            color: rgba(255, 255, 255, 0.65);
+            line-height: 1.8;
+            letter-spacing: 0.3px;
+        }
+        .resume-skills li:before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 10px;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #4e97d8;
+        }
+        .resume-skills strong {
+            color: #88acdb;
+            font-weight: 500;
+        }
+
+        /* 标签 */
+        .resume-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .resume-tag {
+            display: inline-block;
+            padding: 4px 12px;
+            font-size: .78em;
+            font-family: 'LXGW WenKai', sans-serif;
+            color: #88acdb;
+            background: rgba(78, 151, 216, 0.1);
+            border: 1px solid rgba(78, 151, 216, 0.25);
+            border-radius: 12px;
+            letter-spacing: 0.5px;
+        }
+
+        /* 项目产出列表 */
+        .resume-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .resume-list li {
+            position: relative;
+            padding-left: 20px;
+            margin-bottom: 10px;
+            font-size: .85em;
+            color: rgba(255, 255, 255, 0.6);
+            line-height: 1.85;
+            letter-spacing: 0.3px;
+        }
+        .resume-list li:before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 10px;
+            width: 8px;
+            height: 1px;
+            background: rgba(78, 151, 216, 0.5);
+        }
+        .resume-list strong {
+            color: rgba(255, 255, 255, 0.85);
+            font-weight: 500;
+        }
+
+        @media (max-width: 768px) {
+            .resume-modal {
+                width: 96%;
+                max-height: 92vh;
+            }
+            .resume-modal__header {
+                padding: 16px 20px;
+            }
+            .resume-modal__body {
+                padding: 20px;
+            }
+            .resume-item__header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
+            .resume-contact {
+                gap: 12px;
+            }
+            .resume-name {
+                font-size: 1.6em;
+            }
+            .resume-btn--download span {
+                display: none;
+            }
+        }
+    </style>
+    <script type="text/javascript">
+        function showResumeModal() {
+            var modal = document.getElementById('resumeModal');
+            modal.classList.add('open');
+        }
+        function closeResumeModal() {
+            var modal = document.getElementById('resumeModal');
+            modal.classList.remove('open');
+        }
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeResumeModal();
+            }
+        });
+    </script>
+    <script type="text/javascript" src="assets/js/main.js"></script>
+    <script type="text/javascript" src="assets/js/theme-loader.js"></script>
+</body>
+</html>

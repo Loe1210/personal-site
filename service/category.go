@@ -25,6 +25,14 @@ func toCategoryModel(item *dbmodel.Category) *categorymodel.Category {
 	}
 }
 
+func GetCategory(_ context.Context, req *categorymodel.GetCategoryRequest) (*categorymodel.GetCategoryResponse, error) {
+	var record dbmodel.Category
+	if err := dbmodel.DB.First(&record, req.ID).Error; err != nil {
+		return nil, errno.CategoryNotFound
+	}
+	return &categorymodel.GetCategoryResponse{Category: toCategoryModel(&record)}, nil
+}
+
 func CreateCategory(_ context.Context, req *categorymodel.CreateCategoryRequest) (*categorymodel.CreateCategoryResponse, error) {
 	record := &dbmodel.Category{
 		Name:        req.Name,
@@ -93,7 +101,7 @@ func ListCategories(_ context.Context, _ *categorymodel.ListCategoriesRequest) (
 	var records []dbmodel.Category
 
 	if err := dbmodel.DB.Order("id DESC").Find(&records).Error; err != nil {
-		return nil, err
+		return nil, errno.Internal
 	}
 
 	list := make([]*categorymodel.Category, 0, len(records))

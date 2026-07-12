@@ -1,0 +1,14 @@
+server:
+  host: ""
+  port: "8888"
+
+mysql:
+  host: "127.0.0.1"
+  port: "3306"
+  user: "root"
+  password: "Vtmer!2023"
+  dbname: "personal_site"
+  charset: "utf8mb4"
+
+session:
+  secret: "personal-site-session-secret-change-in-production"

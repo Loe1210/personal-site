@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/cloudwego/hertz/pkg/protocol/consts"
 
 	categorymodel "github.com/Loe1210/personal-site/biz/model/category"
 	"github.com/Loe1210/personal-site/pkg/errno"
@@ -18,11 +17,15 @@ func ListCategories(ctx context.Context, c *app.RequestContext) {
 
 	resp, err := categoryservice.ListCategories(ctx, &req)
 	if err != nil {
-		c.JSON(consts.StatusBadRequest, response.Error(errno.ErrorCode, err.Error()))
+		if appErr, ok := err.(*errno.AppError); ok {
+			response.WriteError(c, appErr)
+			return
+		}
+		response.WriteError(c, errno.Internal)
 		return
 	}
 
-	c.JSON(consts.StatusOK, response.Success(resp))
+	response.WriteSuccess(c, resp)
 }
 
 func ListAdminCategories(ctx context.Context, c *app.RequestContext) {
@@ -30,11 +33,15 @@ func ListAdminCategories(ctx context.Context, c *app.RequestContext) {
 
 	resp, err := categoryservice.ListCategories(ctx, &req)
 	if err != nil {
-		c.JSON(consts.StatusBadRequest, response.Error(errno.ErrorCode, err.Error()))
+		if appErr, ok := err.(*errno.AppError); ok {
+			response.WriteError(c, appErr)
+			return
+		}
+		response.WriteError(c, errno.Internal)
 		return
 	}
 
-	c.JSON(consts.StatusOK, response.Success(resp))
+	response.WriteSuccess(c, resp)
 }
 
 func CreateCategory(ctx context.Context, c *app.RequestContext) {

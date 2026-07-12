@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/cloudwego/hertz/pkg/protocol/consts"
 
 	tagmodel "github.com/Loe1210/personal-site/biz/model/tag"
 	"github.com/Loe1210/personal-site/pkg/errno"
@@ -18,11 +17,15 @@ func ListTags(ctx context.Context, c *app.RequestContext) {
 
 	resp, err := tagservice.ListTags(ctx, &req)
 	if err != nil {
-		c.JSON(consts.StatusBadRequest, response.Error(errno.ErrorCode, err.Error()))
+		if appErr, ok := err.(*errno.AppError); ok {
+			response.WriteError(c, appErr)
+			return
+		}
+		response.WriteError(c, errno.Internal)
 		return
 	}
 
-	c.JSON(consts.StatusOK, response.Success(resp))
+	response.WriteSuccess(c, resp)
 }
 
 func ListAdminTags(ctx context.Context, c *app.RequestContext) {
@@ -30,11 +33,15 @@ func ListAdminTags(ctx context.Context, c *app.RequestContext) {
 
 	resp, err := tagservice.ListTags(ctx, &req)
 	if err != nil {
-		c.JSON(consts.StatusBadRequest, response.Error(errno.ErrorCode, err.Error()))
+		if appErr, ok := err.(*errno.AppError); ok {
+			response.WriteError(c, appErr)
+			return
+		}
+		response.WriteError(c, errno.Internal)
 		return
 	}
 
-	c.JSON(consts.StatusOK, response.Success(resp))
+	response.WriteSuccess(c, resp)
 }
 
 func CreateTag(ctx context.Context, c *app.RequestContext) {

@@ -1,4 +1,4 @@
-﻿# Personal Site Admin Frontend Plan
+# Personal Site Admin Frontend Plan
 
 ## 1. Goal
 

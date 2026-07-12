@@ -93,7 +93,7 @@ func ListTags(_ context.Context, _ *tagmodel.ListTagsRequest) (*tagmodel.ListTag
 	var records []dbmodel.Tag
 
 	if err := dbmodel.DB.Order("id DESC").Find(&records).Error; err != nil {
-		return nil, err
+		return nil, errno.Internal
 	}
 
 	list := make([]*tagmodel.Tag, 0, len(records))

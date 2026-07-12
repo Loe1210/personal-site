@@ -2,9 +2,12 @@ package db
 
 import (
 	"fmt"
+	"os"
+	"time"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 
 	"github.com/Loe1210/personal-site/configs"
 	"golang.org/x/crypto/bcrypt"
@@ -13,7 +16,12 @@ import (
 var DB *gorm.DB
 
 func Init() error {
-	cfg := configs.LoadMySQLConfig()
+	if configs.AppConfig == nil {
+		if _, err := configs.Load(""); err != nil {
+			return err
+		}
+	}
+	cfg := configs.AppConfig.MySQL
 
 	dsn := fmt.Sprintf(
 		"%s:%s@tcp(%s:%s)/%s?charset=%s&parseTime=True&loc=Local",
@@ -25,10 +33,25 @@ func Init() error {
 		cfg.Charset,
 	)
 
-	database, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	gormLogLevel := logger.Warn
+	if os.Getenv("GIN_MODE") == "debug" || os.Getenv("APP_DEBUG") == "true" {
+		gormLogLevel = logger.Info
+	}
+
+	database, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
+		Logger: logger.Default.LogMode(gormLogLevel),
+	})
 	if err != nil {
 		return err
 	}
+
+	sqlDB, err := database.DB()
+	if err != nil {
+		return err
+	}
+	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetMaxOpenConns(100)
+	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	if err := database.AutoMigrate(
 		&User{},
@@ -47,9 +70,6 @@ func Init() error {
 
 	DB = database
 	if err := seedDefaultUser(); err != nil {
-		return err
-	}
-	if err := seedTestUser(); err != nil {
 		return err
 	}
 	if err := seedRBAC(); err != nil {
@@ -78,32 +98,6 @@ func seedDefaultUser() error {
 		Username:     "admin",
 		PasswordHash: string(passwordHash),
 		Nickname:     "Loe",
-		Type:         "admin",
-		Status:       "active",
-	}
-
-	return DB.Create(user).Error
-}
-
-func seedTestUser() error {
-	var count int64
-	if err := DB.Model(&User{}).Where("username = ?", "editor1").Count(&count).Error; err != nil {
-		return err
-	}
-
-	if count > 0 {
-		return nil
-	}
-
-	passwordHash, err := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)
-	if err != nil {
-		return err
-	}
-
-	user := &User{
-		Username:     "editor1",
-		PasswordHash: string(passwordHash),
-		Nickname:     "Editor",
 		Type:         "admin",
 		Status:       "active",
 	}
@@ -181,14 +175,6 @@ func seedRBAC() error {
 		return err
 	}
 	if err := ensureUserRole(adminUser.ID, superAdminRole.ID); err != nil {
-		return err
-	}
-
-	var editorUser User
-	if err := DB.Where("username = ?", "editor1").First(&editorUser).Error; err != nil {
-		return err
-	}
-	if err := ensureUserRole(editorUser.ID, editorRole.ID); err != nil {
 		return err
 	}
 

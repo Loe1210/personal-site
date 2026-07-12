@@ -7,6 +7,7 @@ import (
 
 func Register(h *server.Hertz) {
 	h.GET("/api/articles", ListArticles)
+	h.GET("/api/articles/id/:id", GetArticleByID)
 	h.GET("/api/articles/:slug", GetArticleBySlug)
 
 	admin := h.Group("/api/admin", sessionmw.AuthMiddleware())

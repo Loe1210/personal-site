@@ -1,5 +1,13 @@
 package category
 
+type GetCategoryRequest struct {
+	ID uint `path:"id" json:"id" form:"id" query:"id"`
+}
+
+type GetCategoryResponse struct {
+	Category *Category `json:"category"`
+}
+
 type UpdateCategoryRequest struct {
 	ID          int64  `path:"id" json:"id" form:"id" query:"id"`
 	Name        string `json:"name" form:"name"`

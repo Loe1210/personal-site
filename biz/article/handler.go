@@ -2,9 +2,9 @@ package article
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/cloudwego/hertz/pkg/protocol/consts"
 
 	articlemodel "github.com/Loe1210/personal-site/biz/model/article"
 	"github.com/Loe1210/personal-site/pkg/errno"
@@ -15,53 +15,82 @@ import (
 func ListArticles(ctx context.Context, c *app.RequestContext) {
 	var req articlemodel.ListArticlesRequest
 	if err := c.BindAndValidate(&req); err != nil {
-		c.JSON(consts.StatusBadRequest, response.Error(errno.ErrorCode, err.Error()))
+		response.WriteError(c, errno.BadRequest)
 		return
 	}
 
 	resp, err := articleservice.ListPublicArticles(ctx, &req)
 	if err != nil {
-		c.JSON(consts.StatusBadRequest, response.Error(errno.ErrorCode, err.Error()))
+		if appErr, ok := err.(*errno.AppError); ok {
+			response.WriteError(c, appErr)
+			return
+		}
+		response.WriteError(c, errno.Internal)
 		return
 	}
 
-	c.JSON(consts.StatusOK, response.Success(resp))
+	response.WriteSuccess(c, resp)
 }
 
 func GetArticleBySlug(ctx context.Context, c *app.RequestContext) {
 	var req articlemodel.GetArticleBySlugRequest
 	if err := c.BindAndValidate(&req); err != nil {
-		c.JSON(consts.StatusBadRequest, response.Error(errno.ErrorCode, err.Error()))
+		response.WriteError(c, errno.BadRequest)
 		return
 	}
 
 	resp, err := articleservice.GetPublicArticleBySlug(ctx, &req)
 	if err != nil {
-		c.JSON(consts.StatusBadRequest, response.Error(errno.ErrorCode, err.Error()))
-		return
-	}
-	if resp == nil || resp.Article == nil {
-		c.JSON(consts.StatusNotFound, response.Error(errno.ErrorCode, "article not found"))
+		if appErr, ok := err.(*errno.AppError); ok {
+			response.WriteError(c, appErr)
+			return
+		}
+		response.WriteError(c, errno.Internal)
 		return
 	}
 
-	c.JSON(consts.StatusOK, response.Success(resp))
+	response.WriteSuccess(c, resp)
+}
+
+func GetArticleByID(ctx context.Context, c *app.RequestContext) {
+	idStr := c.Param("id")
+	var id int64
+	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil || id <= 0 {
+		response.WriteError(c, errno.BadRequest)
+		return
+	}
+
+	resp, err := articleservice.GetPublicArticleByID(ctx, id)
+	if err != nil {
+		if appErr, ok := err.(*errno.AppError); ok {
+			response.WriteError(c, appErr)
+			return
+		}
+		response.WriteError(c, errno.Internal)
+		return
+	}
+
+	response.WriteSuccess(c, resp)
 }
 
 func ListAdminArticles(ctx context.Context, c *app.RequestContext) {
 	var req articlemodel.ListArticlesRequest
 	if err := c.BindAndValidate(&req); err != nil {
-		c.JSON(consts.StatusBadRequest, response.Error(errno.ErrorCode, err.Error()))
+		response.WriteError(c, errno.BadRequest)
 		return
 	}
 
 	resp, err := articleservice.ListAdminArticles(ctx, &req)
 	if err != nil {
-		c.JSON(consts.StatusBadRequest, response.Error(errno.ErrorCode, err.Error()))
+		if appErr, ok := err.(*errno.AppError); ok {
+			response.WriteError(c, appErr)
+			return
+		}
+		response.WriteError(c, errno.Internal)
 		return
 	}
 
-	c.JSON(consts.StatusOK, response.Success(resp))
+	response.WriteSuccess(c, resp)
 }
 
 func CreateArticle(ctx context.Context, c *app.RequestContext) {
@@ -100,10 +129,6 @@ func UpdateArticle(ctx context.Context, c *app.RequestContext) {
 		response.WriteError(c, errno.Internal)
 		return
 	}
-	if resp == nil || resp.Article == nil {
-		response.WriteError(c, errno.ArticleNotFound)
-		return
-	}
 
 	response.WriteSuccess(c, resp)
 }
@@ -111,19 +136,19 @@ func UpdateArticle(ctx context.Context, c *app.RequestContext) {
 func DeleteArticle(ctx context.Context, c *app.RequestContext) {
 	var req articlemodel.DeleteArticleRequest
 	if err := c.BindAndValidate(&req); err != nil {
-		c.JSON(consts.StatusBadRequest, response.Error(errno.ErrorCode, err.Error()))
+		response.WriteError(c, errno.BadRequest)
 		return
 	}
 
 	resp, err := articleservice.DeleteArticle(ctx, &req)
 	if err != nil {
-		c.JSON(consts.StatusBadRequest, response.Error(errno.ErrorCode, err.Error()))
-		return
-	}
-	if resp == nil || !resp.Success {
-		c.JSON(consts.StatusNotFound, response.Error(errno.ErrorCode, "article not found"))
+		if appErr, ok := err.(*errno.AppError); ok {
+			response.WriteError(c, appErr)
+			return
+		}
+		response.WriteError(c, errno.Internal)
 		return
 	}
 
-	c.JSON(consts.StatusOK, response.Success(resp))
+	response.WriteSuccess(c, resp)
 }

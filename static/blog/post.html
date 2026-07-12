@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hins 的技术博客</title>
+    <link rel="stylesheet" href="/assets/css/iconfont.css">
+    <link rel="stylesheet" href="/assets/css/vno.css">
+    <link rel="stylesheet" href="/blog/css/blog.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
+    <link rel="icon" href="/favicon.ico">
+    <!-- Markdown 渲染 + 代码高亮（CDN，无构建步骤） -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github-dark.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11/lib/highlight.min.js"></script>
+</head>
+
+<body>
+    <div class="blog-overlay"></div>
+
+    <div id="readingProgress" class="reading-progress"></div>
+
+    <a href="/blog/" class="blog-back" title="返回列表">&larr; 列表</a>
+
+    <nav id="postToc" class="post-toc" style="display:none;"></nav>
+    <div id="postTocOverlay" class="post-toc__overlay" onclick="closeToc()"></div>
+
+    <!-- 主体 -->
+    <main class="blog-container">
+        <article id="postDetail" class="post-detail">
+            <div class="blog-loading">加载中...</div>
+        </article>
+    </main>
+
+    <button id="backToTop" class="back-to-top" title="返回顶部">&#8593;</button>
+
+    <script src="/blog/js/api.js"></script>
+    <script src="/blog/js/post.js"></script>
+</body>
+
+</html>

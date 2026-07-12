@@ -6,390 +6,439 @@ import (
 	"time"
 
 	articlemodel "github.com/Loe1210/personal-site/biz/model/article"
-	dbmodel "github.com/Loe1210/personal-site/dal/db"
+	tagmodel "github.com/Loe1210/personal-site/biz/model/tag"
+	"github.com/Loe1210/personal-site/dal/db"
 	"github.com/Loe1210/personal-site/pkg/errno"
-	mysqlDriver "github.com/go-sql-driver/mysql"
+
 	"gorm.io/gorm"
 )
 
-const timeLayout = "2006-01-02 15:04:05"
-
 func formatTime(t time.Time) string {
-	if t.IsZero() {
-		return ""
-	}
-	return t.Local().Format(timeLayout)
+	return t.Format("2006-01-02 15:04:05")
 }
 
-func formatTimePtr(t *time.Time) string {
-	if t == nil || t.IsZero() {
-		return ""
+func ListPublicArticles(ctx context.Context, req *articlemodel.ListArticlesRequest) (*articlemodel.ListArticlesResponse, error) {
+	page := req.Page
+	pageSize := req.PageSize
+	if page <= 0 {
+		page = 1
 	}
-	return t.Local().Format(timeLayout)
+	if pageSize <= 0 || pageSize > 100 {
+		pageSize = 10
+	}
+	return List(ctx, page, pageSize, "published", req.Category, req.Tag, req.Keyword, false)
 }
 
-func ListPublicArticles(_ context.Context, req *articlemodel.ListArticlesRequest) (*articlemodel.ListArticlesResponse, error) {
-	var records []dbmodel.Article
+func ListAdminArticles(ctx context.Context, req *articlemodel.ListArticlesRequest) (*articlemodel.ListArticlesResponse, error) {
+	page := req.Page
+	pageSize := req.PageSize
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 || pageSize > 100 {
+		pageSize = 10
+	}
+	return List(ctx, page, pageSize, req.Status, req.Category, req.Tag, req.Keyword, false)
+}
 
-	query := dbmodel.DB.Model(&dbmodel.Article{}).Where("articles.status = ?", "published")
-	query = applyArticleListFilters(query, req)
+func List(_ context.Context, page, pageSize int64, status string, categoryName string, tagName string, keyword string, is_all bool) (*articlemodel.ListArticlesResponse, error) {
+	var total int64
+	var records []db.Article
 
-	if err := query.Distinct("articles.*").Order("articles.published_at DESC").Order("articles.id DESC").Find(&records).Error; err != nil {
+	query := db.DB.Model(&db.Article{})
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	if categoryName != "" {
+		var category db.Category
+		if err := db.DB.Where("name = ? OR slug = ?", categoryName, categoryName).First(&category).Error; err == nil {
+			query = query.Where("category_id = ?", category.ID)
+		} else {
+			return &articlemodel.ListArticlesResponse{
+				List:     []*articlemodel.Article{},
+				Total:    0,
+				Page:     page,
+				PageSize: pageSize,
+			}, nil
+		}
+	}
+	if tagName != "" {
+		var tag db.Tag
+		if err := db.DB.Where("name = ? OR slug = ?", tagName, tagName).First(&tag).Error; err == nil {
+			query = query.Joins("JOIN article_tags ON article_tags.article_id = articles.id").Where("article_tags.tag_id = ?", tag.ID)
+		} else {
+			return &articlemodel.ListArticlesResponse{
+				List:     []*articlemodel.Article{},
+				Total:    0,
+				Page:     page,
+				PageSize: pageSize,
+			}, nil
+		}
+	}
+	if keyword != "" {
+		keyword = "%" + keyword + "%"
+		query = query.Where("title LIKE ? OR summary LIKE ?", keyword, keyword)
+	}
+	query = query.Distinct()
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, errno.Internal
+	}
+
+	if is_all {
+		if err := query.Order("is_top DESC, published_at DESC, created_at DESC").Find(&records).Error; err != nil {
+			return nil, errno.Internal
+		}
+	} else {
+		offset := (page - 1) * pageSize
+		if err := query.Order("is_top DESC, published_at DESC, created_at DESC").Offset(int(offset)).Limit(int(pageSize)).Find(&records).Error; err != nil {
+			return nil, errno.Internal
+		}
+	}
+
+	tagsByArticleID, err := getTagsForArticles(records)
+	if err != nil {
 		return nil, err
 	}
 
-	list := make([]*articlemodel.Article, 0, len(records))
-	for i := range records {
-		list = append(list, toArticleModel(dbmodel.DB, &records[i]))
-	}
-
-	page := int64(1)
-	pageSize := int64(len(list))
-	if req.Page > 0 {
-		page = req.Page
-	}
-	if req.PageSize > 0 {
-		pageSize = req.PageSize
+	items := make([]*articlemodel.Article, 0, len(records))
+	for _, record := range records {
+		item := toArticleModel(record, tagsByArticleID[record.ID])
+		if item != nil {
+			items = append(items, item)
+		}
 	}
 
 	return &articlemodel.ListArticlesResponse{
-		List:     list,
-		Total:    int64(len(list)),
+		List:     items,
+		Total:    total,
 		Page:     page,
 		PageSize: pageSize,
+	}, nil
+}
+
+func getTagsForArticles(articles []db.Article) (map[int64][]*tagmodel.Tag, error) {
+	result := make(map[int64][]*tagmodel.Tag)
+	if len(articles) == 0 {
+		return result, nil
+	}
+
+	articleIDs := make([]int64, len(articles))
+	for i, a := range articles {
+		articleIDs[i] = a.ID
+	}
+
+	var articleTags []db.ArticleTag
+	if err := db.DB.Where("article_id IN ?", articleIDs).Find(&articleTags).Error; err != nil {
+		return nil, errno.Internal
+	}
+
+	tagIDs := make([]int64, 0, len(articleTags))
+	tagMapByArticleID := make(map[int64][]int64)
+	for _, at := range articleTags {
+		tagIDs = append(tagIDs, at.TagID)
+		tagMapByArticleID[at.ArticleID] = append(tagMapByArticleID[at.ArticleID], at.TagID)
+	}
+
+	tagResp, err := ListTags(context.Background(), &tagmodel.ListTagsRequest{})
+	if err != nil {
+		return nil, err
+	}
+	tagMap := make(map[int64]*tagmodel.Tag)
+	for _, t := range tagResp.List {
+		tagMap[t.ID] = t
+	}
+
+	for articleID, tids := range tagMapByArticleID {
+		for _, tid := range tids {
+			if t, ok := tagMap[tid]; ok {
+				result[articleID] = append(result[articleID], t)
+			}
+		}
+	}
+
+	return result, nil
+}
+
+func GetPublicArticleByID(_ context.Context, id int64) (*articlemodel.GetArticleResponse, error) {
+	var record db.Article
+	if err := db.DB.Where("id = ? AND status = 'published'", id).First(&record).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, errno.ArticleNotFound
+		}
+		return nil, errno.Internal
+	}
+
+	var tagRecords []db.Tag
+	if err := db.DB.Joins("JOIN article_tags ON article_tags.tag_id = tags.id").
+		Where("article_tags.article_id = ?", record.ID).
+		Find(&tagRecords).Error; err != nil {
+		return nil, errno.Internal
+	}
+	tags := make([]*tagmodel.Tag, 0, len(tagRecords))
+	for _, t := range tagRecords {
+		tags = append(tags, toTagModel(&t))
+	}
+
+	return &articlemodel.GetArticleResponse{
+		Article: toArticleDetailModel(record, tags),
 	}, nil
 }
 
 func GetPublicArticleBySlug(_ context.Context, req *articlemodel.GetArticleBySlugRequest) (*articlemodel.GetArticleResponse, error) {
-	var record dbmodel.Article
-
-	err := dbmodel.DB.Where("slug = ? AND status = ?", req.Slug, "published").First(&record).Error
-	if err != nil {
-		return nil, nil
-	}
-
-	return &articlemodel.GetArticleResponse{
-		Article: toArticleModel(dbmodel.DB, &record),
-	}, nil
-}
-
-func ListAdminArticles(_ context.Context, req *articlemodel.ListArticlesRequest) (*articlemodel.ListArticlesResponse, error) {
-	var records []dbmodel.Article
-
-	query := dbmodel.DB.Model(&dbmodel.Article{})
-	query = applyArticleListFilters(query, req)
-
-	if strings.TrimSpace(req.Status) != "" {
-		query = query.Where("articles.status = ?", req.Status)
-	}
-
-	if err := query.Distinct("articles.*").Order("articles.id DESC").Find(&records).Error; err != nil {
-		return nil, err
-	}
-
-	list := make([]*articlemodel.Article, 0, len(records))
-	for i := range records {
-		list = append(list, toArticleModel(dbmodel.DB, &records[i]))
-	}
-
-	page := int64(1)
-	pageSize := int64(len(list))
-	if req.Page > 0 {
-		page = req.Page
-	}
-	if req.PageSize > 0 {
-		pageSize = req.PageSize
-	}
-
-	return &articlemodel.ListArticlesResponse{
-		List:     list,
-		Total:    int64(len(list)),
-		Page:     page,
-		PageSize: pageSize,
-	}, nil
-}
-
-func applyArticleListFilters(query *gorm.DB, req *articlemodel.ListArticlesRequest) *gorm.DB {
-	keyword := strings.TrimSpace(req.Keyword)
-	if keyword != "" {
-		query = query.Where("articles.title LIKE ?", "%"+keyword+"%")
-	}
-
-	categorySlug := strings.TrimSpace(req.Category)
-	if categorySlug != "" {
-		query = query.Joins("JOIN categories ON categories.id = articles.category_id").
-			Where("categories.slug = ?", categorySlug)
-	}
-
-	tagSlug := strings.TrimSpace(req.Tag)
-	if tagSlug != "" {
-		query = query.Joins("JOIN article_tags ON article_tags.article_id = articles.id").
-			Joins("JOIN tags ON tags.id = article_tags.tag_id").
-			Where("tags.slug = ?", tagSlug)
-	}
-
-	return query
-}
-
-func CreateArticle(_ context.Context, req *articlemodel.CreateArticleRequest) (*articlemodel.CreateArticleResponse, error) {
-	status := req.Status
-	if status == "" {
-		status = "draft"
-	}
-
-	if err := ensureCategoryExists(dbmodel.DB, req.CategoryID); err != nil {
-		return nil, err
-	}
-	if err := ensureTagsExist(dbmodel.DB, req.TagIds); err != nil {
-		return nil, err
-	}
-
-	record := &dbmodel.Article{
-		Title:       req.Title,
-		Slug:        req.Slug,
-		Summary:     req.Summary,
-		ContentMd:   req.ContentMd,
-		ContentHTML: req.ContentMd,
-		CoverImage:  req.CoverImage,
-		CategoryID:  req.CategoryID,
-		Status:      status,
-	}
-
-	if status == "published" {
-		now := time.Now()
-		record.PublishedAt = &now
-	}
-
-	if err := dbmodel.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(record).Error; err != nil {
-			if mysqlErr, ok := err.(*mysqlDriver.MySQLError); ok && mysqlErr.Number == 1062 {
-				return errno.SlugConflict
-			}
-			return errno.Internal
+	var record db.Article
+	if err := db.DB.Where("slug = ? AND status = 'published'", req.Slug).First(&record).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, errno.ArticleNotFound
 		}
-
-		if err := replaceArticleTags(tx, record.ID, req.TagIds); err != nil {
-			return err
-		}
-
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-
-	return &articlemodel.CreateArticleResponse{
-		Article: toArticleModel(dbmodel.DB, record),
-		Message: "article created",
-	}, nil
-}
-
-func UpdateArticle(_ context.Context, req *articlemodel.UpdateArticleRequest) (*articlemodel.UpdateArticleResponse, error) {
-	var record dbmodel.Article
-
-	if err := dbmodel.DB.First(&record, req.ID).Error; err != nil {
-		return nil, nil
-	}
-	if err := ensureCategoryExists(dbmodel.DB, req.CategoryID); err != nil {
-		return nil, err
-	}
-	if err := ensureTagsExist(dbmodel.DB, req.TagIds); err != nil {
-		return nil, err
-	}
-
-	record.Title = req.Title
-	record.Slug = req.Slug
-	record.Summary = req.Summary
-	record.ContentMd = req.ContentMd
-	record.ContentHTML = req.ContentMd
-	record.CoverImage = req.CoverImage
-	record.CategoryID = req.CategoryID
-	record.Status = req.Status
-
-	if record.Status == "published" {
-		if record.PublishedAt == nil {
-			now := time.Now()
-			record.PublishedAt = &now
-		}
-	} else {
-		record.PublishedAt = nil
-	}
-
-	if err := dbmodel.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Save(&record).Error; err != nil {
-			if mysqlErr, ok := err.(*mysqlDriver.MySQLError); ok && mysqlErr.Number == 1062 {
-				return errno.SlugConflict
-			}
-			return errno.Internal
-		}
-
-		if err := replaceArticleTags(tx, record.ID, req.TagIds); err != nil {
-			return err
-		}
-
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-
-	return &articlemodel.UpdateArticleResponse{
-		Article: toArticleModel(dbmodel.DB, &record),
-		Message: "article updated",
-	}, nil
-}
-
-func DeleteArticle(_ context.Context, req *articlemodel.DeleteArticleRequest) (*articlemodel.DeleteArticleResponse, error) {
-	var rowsAffected int64
-
-	if err := dbmodel.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("article_id = ?", req.ID).Delete(&dbmodel.ArticleTag{}).Error; err != nil {
-			return errno.Internal
-		}
-
-		result := tx.Delete(&dbmodel.Article{}, req.ID)
-		if result.Error != nil {
-			return errno.Internal
-		}
-
-		rowsAffected = result.RowsAffected
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-
-	if rowsAffected == 0 {
-		return &articlemodel.DeleteArticleResponse{
-			Success: false,
-			Message: "article not found",
-		}, nil
-	}
-
-	return &articlemodel.DeleteArticleResponse{
-		Success: true,
-		Message: "article deleted",
-	}, nil
-}
-
-func toArticleModel(tx *gorm.DB, item *dbmodel.Article) *articlemodel.Article {
-	if item == nil {
-		return nil
-	}
-
-	tagIDs, err := getArticleTagIDs(tx, item.ID)
-	if err != nil {
-		tagIDs = []int64{}
-	}
-
-	return &articlemodel.Article{
-		ID:          item.ID,
-		Title:       item.Title,
-		Slug:        item.Slug,
-		Summary:     item.Summary,
-		ContentMd:   item.ContentMd,
-		ContentHTML: item.ContentHTML,
-		CoverImage:  item.CoverImage,
-		CategoryID:  item.CategoryID,
-		TagIds:      tagIDs,
-		Status:      item.Status,
-		CreatedAt:   formatTime(item.CreatedAt),
-		UpdatedAt:   formatTime(item.UpdatedAt),
-		PublishedAt: formatTimePtr(item.PublishedAt),
-	}
-}
-
-func ensureCategoryExists(tx *gorm.DB, categoryID int64) error {
-	if categoryID == 0 {
-		return nil
-	}
-
-	var count int64
-	if err := tx.Model(&dbmodel.Category{}).
-		Where("id = ?", categoryID).
-		Count(&count).Error; err != nil {
-		return errno.Internal
-	}
-
-	if count == 0 {
-		return errno.CategoryNotFound
-	}
-
-	return nil
-}
-
-func ensureTagsExist(tx *gorm.DB, tagIDs []int64) error {
-	tagIDs = uniqueInt64(tagIDs)
-	if len(tagIDs) == 0 {
-		return nil
-	}
-
-	var count int64
-	if err := tx.Model(&dbmodel.Tag{}).
-		Where("id IN ?", tagIDs).
-		Count(&count).Error; err != nil {
-		return errno.Internal
-	}
-
-	if count != int64(len(tagIDs)) {
-		return errno.TagNotFound
-	}
-
-	return nil
-}
-
-func uniqueInt64(ids []int64) []int64 {
-	if len(ids) == 0 {
-		return ids
-	}
-
-	seen := make(map[int64]struct{}, len(ids))
-	result := make([]int64, 0, len(ids))
-	for _, id := range ids {
-		if _, ok := seen[id]; ok {
-			continue
-		}
-		seen[id] = struct{}{}
-		result = append(result, id)
-	}
-	return result
-}
-
-func replaceArticleTags(tx *gorm.DB, articleID int64, tagIDs []int64) error {
-	tagIDs = uniqueInt64(tagIDs)
-
-	if err := tx.Where("article_id = ?", articleID).
-		Delete(&dbmodel.ArticleTag{}).Error; err != nil {
-		return errno.Internal
-	}
-
-	if len(tagIDs) == 0 {
-		return nil
-	}
-
-	relations := make([]dbmodel.ArticleTag, 0, len(tagIDs))
-	for _, tagID := range tagIDs {
-		relations = append(relations, dbmodel.ArticleTag{
-			ArticleID: articleID,
-			TagID:     tagID,
-		})
-	}
-
-	if err := tx.Create(&relations).Error; err != nil {
-		return errno.Internal
-	}
-
-	return nil
-}
-
-func getArticleTagIDs(tx *gorm.DB, articleID int64) ([]int64, error) {
-	var relations []dbmodel.ArticleTag
-	if err := tx.Where("article_id = ?", articleID).
-		Find(&relations).Error; err != nil {
 		return nil, errno.Internal
 	}
 
-	tagIDs := make([]int64, 0, len(relations))
-	for _, item := range relations {
-		tagIDs = append(tagIDs, item.TagID)
+	var tagRecords []db.Tag
+	if err := db.DB.Joins("JOIN article_tags ON article_tags.tag_id = tags.id").
+		Where("article_tags.article_id = ?", record.ID).
+		Find(&tagRecords).Error; err != nil {
+		return nil, errno.Internal
+	}
+	tags := make([]*tagmodel.Tag, 0, len(tagRecords))
+	for _, t := range tagRecords {
+		tags = append(tags, toTagModel(&t))
 	}
 
-	return tagIDs, nil
+	return &articlemodel.GetArticleResponse{
+		Article: toArticleDetailModel(record, tags),
+	}, nil
+}
+
+func Get(_ context.Context, id uint) (*articlemodel.GetArticleResponse, error) {
+	var record db.Article
+	if err := db.DB.First(&record, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, errno.ArticleNotFound
+		}
+		return nil, errno.Internal
+	}
+
+	var tagRecords []db.Tag
+	if err := db.DB.Joins("JOIN article_tags ON article_tags.tag_id = tags.id").
+		Where("article_tags.article_id = ?", record.ID).
+		Find(&tagRecords).Error; err != nil {
+		return nil, errno.Internal
+	}
+	tags := make([]*tagmodel.Tag, 0, len(tagRecords))
+	for _, t := range tagRecords {
+		tags = append(tags, toTagModel(&t))
+	}
+
+	return &articlemodel.GetArticleResponse{
+		Article: toArticleDetailModel(record, tags),
+	}, nil
+}
+
+func CreateArticle(_ context.Context, req *articlemodel.CreateArticleRequest) (*articlemodel.CreateArticleResponse, error) {
+	var count int64
+	if err := db.DB.Model(&db.Article{}).Where("slug = ?", req.Slug).Count(&count).Error; err != nil {
+		return nil, errno.Internal
+	}
+	if count > 0 {
+		return nil, errno.SlugConflict
+	}
+
+	slug := req.Slug
+	if slug == "" {
+		slug = generateSlug(req.Title)
+	}
+
+	now := time.Now()
+	record := &db.Article{
+		Title:       req.Title,
+		Slug:        slug,
+		Summary:     req.Summary,
+		ContentMd:   req.ContentMd,
+		ContentHTML: "",
+		CoverImage:  req.CoverImage,
+		CategoryID:  req.CategoryID,
+		Status:      req.Status,
+		IsTop:       0,
+		AuthorID:    0,
+	}
+
+	if req.Status == "published" {
+		record.PublishedAt = &now
+	}
+
+	if err := db.DB.Create(record).Error; err != nil {
+		return nil, errno.Internal
+	}
+
+	if err := syncArticleTags(record.ID, req.TagIds); err != nil {
+		return nil, err
+	}
+
+	resp, err := Get(context.Background(), uint(record.ID))
+	if err != nil {
+		return nil, err
+	}
+	return &articlemodel.CreateArticleResponse{Article: resp.Article, Message: "创建成功"}, nil
+}
+
+func UpdateArticle(_ context.Context, req *articlemodel.UpdateArticleRequest) (*articlemodel.UpdateArticleResponse, error) {
+	id := uint(req.ID)
+	var record db.Article
+	if err := db.DB.First(&record, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, errno.ArticleNotFound
+		}
+		return nil, errno.Internal
+	}
+
+	if req.Slug != "" && req.Slug != record.Slug {
+		var count int64
+		if err := db.DB.Model(&db.Article{}).Where("slug = ? AND id <> ?", req.Slug, id).Count(&count).Error; err != nil {
+			return nil, errno.Internal
+		}
+		if count > 0 {
+			return nil, errno.SlugConflict
+		}
+		record.Slug = req.Slug
+	}
+
+	if req.Title != "" {
+		record.Title = req.Title
+	}
+	if req.Summary != "" {
+		record.Summary = req.Summary
+	}
+	if req.ContentMd != "" {
+		record.ContentMd = req.ContentMd
+		record.ContentHTML = ""
+	}
+	if req.CoverImage != "" {
+		record.CoverImage = req.CoverImage
+	}
+	if req.CategoryID > 0 {
+		record.CategoryID = req.CategoryID
+	}
+	if req.Status != "" {
+		if record.Status != "published" && req.Status == "published" {
+			now := time.Now()
+			record.PublishedAt = &now
+		}
+		record.Status = req.Status
+	}
+	record.IsTop = 0
+
+	if err := db.DB.Save(&record).Error; err != nil {
+		return nil, errno.Internal
+	}
+
+	if err := syncArticleTags(record.ID, req.TagIds); err != nil {
+		return nil, err
+	}
+
+	resp, err := Get(context.Background(), id)
+	if err != nil {
+		return nil, err
+	}
+	return &articlemodel.UpdateArticleResponse{Article: resp.Article, Message: "更新成功"}, nil
+}
+
+func DeleteArticle(_ context.Context, req *articlemodel.DeleteArticleRequest) (*articlemodel.DeleteArticleResponse, error) {
+	id := uint(req.ID)
+	var record db.Article
+	if err := db.DB.First(&record, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, errno.ArticleNotFound
+		}
+		return nil, errno.Internal
+	}
+
+	if err := db.DB.Where("article_id = ?", id).Delete(&db.ArticleTag{}).Error; err != nil {
+		return nil, errno.Internal
+	}
+
+	if err := db.DB.Delete(&record).Error; err != nil {
+		return nil, errno.Internal
+	}
+
+	return &articlemodel.DeleteArticleResponse{Success: true, Message: "删除成功"}, nil
+}
+
+func generateSlug(title string) string {
+	slug := strings.ToLower(title)
+	slug = strings.ReplaceAll(slug, " ", "-")
+	slug = strings.ReplaceAll(slug, "_", "-")
+
+	var result strings.Builder
+	for _, r := range slug {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			result.WriteRune(r)
+		}
+	}
+	return result.String()
+}
+
+func syncArticleTags(articleID int64, tagIDs []int64) error {
+	if err := db.DB.Where("article_id = ?", articleID).Delete(&db.ArticleTag{}).Error; err != nil {
+		return errno.Internal
+	}
+
+	if len(tagIDs) == 0 {
+		return nil
+	}
+
+	var articleTags []db.ArticleTag
+	for _, tagID := range tagIDs {
+		if tagID > 0 {
+			articleTags = append(articleTags, db.ArticleTag{
+				ArticleID: articleID,
+				TagID:     tagID,
+			})
+		}
+	}
+
+	if len(articleTags) > 0 {
+		if err := db.DB.Create(&articleTags).Error; err != nil {
+			return errno.Internal
+		}
+	}
+
+	return nil
+}
+
+func toArticleModel(record db.Article, tags []*tagmodel.Tag) *articlemodel.Article {
+	publishedAt := ""
+	if record.PublishedAt != nil {
+		publishedAt = formatTime(*record.PublishedAt)
+	}
+	createdAt := formatTime(record.CreatedAt)
+
+	article := &articlemodel.Article{
+		ID:          record.ID,
+		Title:       record.Title,
+		Slug:        record.Slug,
+		Summary:     record.Summary,
+		CoverImage:  record.CoverImage,
+		CategoryID:  record.CategoryID,
+		Status:      record.Status,
+		CreatedAt:   createdAt,
+		UpdatedAt:   formatTime(record.UpdatedAt),
+		PublishedAt: publishedAt,
+	}
+
+	if tags != nil {
+		article.TagIds = make([]int64, 0, len(tags))
+		for _, t := range tags {
+			article.TagIds = append(article.TagIds, t.ID)
+		}
+	}
+
+	return article
+}
+
+func toArticleDetailModel(record db.Article, tags []*tagmodel.Tag) *articlemodel.Article {
+	article := toArticleModel(record, tags)
+	article.ContentMd = record.ContentMd
+	article.ContentHTML = record.ContentHTML
+	return article
 }
