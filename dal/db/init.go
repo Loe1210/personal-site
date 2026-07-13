@@ -21,8 +21,23 @@ func Init() error {
 			return err
 		}
 	}
-	cfg := configs.AppConfig.MySQL
 
+	database, err := openDatabase(configs.AppConfig.MySQL)
+	if err != nil {
+		return err
+	}
+	if err := configureConnectionPool(database); err != nil {
+		return err
+	}
+	if err := runMigrations(database); err != nil {
+		return err
+	}
+
+	DB = database
+	return seedInitialData()
+}
+
+func openDatabase(cfg configs.MySQLConfig) (*gorm.DB, error) {
 	dsn := fmt.Sprintf(
 		"%s:%s@tcp(%s:%s)/%s?charset=%s&parseTime=True&loc=Local",
 		cfg.User,
@@ -38,22 +53,25 @@ func Init() error {
 		gormLogLevel = logger.Info
 	}
 
-	database, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
+	return gorm.Open(mysql.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(gormLogLevel),
 	})
-	if err != nil {
-		return err
-	}
+}
 
+func configureConnectionPool(database *gorm.DB) error {
 	sqlDB, err := database.DB()
 	if err != nil {
 		return err
 	}
+
 	sqlDB.SetMaxIdleConns(10)
 	sqlDB.SetMaxOpenConns(100)
 	sqlDB.SetConnMaxLifetime(time.Hour)
+	return nil
+}
 
-	if err := database.AutoMigrate(
+func runMigrations(database *gorm.DB) error {
+	return database.AutoMigrate(
 		&User{},
 		&Role{},
 		&Permission{},
@@ -64,18 +82,16 @@ func Init() error {
 		&Tag{},
 		&ArticleTag{},
 		&UploadFile{},
-	); err != nil {
-		return err
-	}
+	)
+}
 
-	DB = database
+func seedInitialData() error {
 	if err := seedDefaultUser(); err != nil {
 		return err
 	}
 	if err := seedRBAC(); err != nil {
 		return err
 	}
-
 	return nil
 }
 

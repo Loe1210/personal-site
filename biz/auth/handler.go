@@ -4,13 +4,19 @@ import (
 	"context"
 
 	authmodel "github.com/Loe1210/personal-site/biz/model/auth"
-	dbmodel "github.com/Loe1210/personal-site/dal/db"
+	"github.com/Loe1210/personal-site/dal/db"
 	"github.com/Loe1210/personal-site/pkg/errno"
 	"github.com/Loe1210/personal-site/pkg/response"
+	"github.com/Loe1210/personal-site/pkg/xauth"
+	"github.com/Loe1210/personal-site/pkg/xtrace"
 	authservice "github.com/Loe1210/personal-site/service"
 	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/hertz-contrib/sessions"
 )
+
+type loginResponse struct {
+	User          *authmodel.User      `json:"user"`
+	SessionBundle *xauth.SessionBundle `json:"session_bundle"`
+}
 
 func Login(ctx context.Context, c *app.RequestContext) {
 	req, err := bindLoginRequest(c)
@@ -29,45 +35,36 @@ func Login(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	session := sessions.Default(c)
-	session.Set("user_id", resp.User.ID)
-	session.Set("username", resp.User.Username)
-
-	if err := session.Save(); err != nil {
+	roles, err := loadUserRoles(resp.User.ID)
+	if err != nil {
 		response.WriteError(c, errno.Internal)
 		return
 	}
 
-	response.WriteSuccess(c, resp)
+	traceID := xtrace.EnsureTraceID(c)
+	bundle, err := xauth.CreateSessionBundleWithTrace(resp.User.ID, resp.User.Username, roles, traceID)
+	if err != nil {
+		response.WriteError(c, errno.Internal)
+		return
+	}
+
+	xauth.WriteSessionCookie(c, bundle)
+	response.WriteSuccess(c, &loginResponse{User: resp.User, SessionBundle: bundle})
 }
 
 func Me(_ context.Context, c *app.RequestContext) {
-	session := sessions.Default(c)
-
-	userIDValue := session.Get("user_id")
-	usernameValue := session.Get("username")
-	if userIDValue == nil || usernameValue == nil {
-		response.WriteError(c, errno.Unauthorized)
-		return
-	}
-
-	userID, ok := userIDValue.(int64)
-	if !ok {
-		response.WriteError(c, errno.Unauthorized)
-		return
-	}
-	username, ok := usernameValue.(string)
+	claims, ok := xauth.ClaimsFromContext(c)
 	if !ok {
 		response.WriteError(c, errno.Unauthorized)
 		return
 	}
 
-	var user dbmodel.User
-	if err := dbmodel.DB.First(&user, userID).Error; err != nil {
+	var user db.User
+	if err := db.DB.First(&user, claims.UserID).Error; err != nil {
 		response.WriteError(c, errno.Unauthorized)
 		return
 	}
-	if user.Username != username {
+	if user.Username != claims.Username {
 		response.WriteError(c, errno.Unauthorized)
 		return
 	}
@@ -86,15 +83,25 @@ func Me(_ context.Context, c *app.RequestContext) {
 }
 
 func Logout(_ context.Context, c *app.RequestContext) {
-	session := sessions.Default(c)
-	session.Clear()
-
-	if err := session.Save(); err != nil {
-		response.WriteError(c, errno.Internal)
-		return
-	}
+	sessionID := xauth.SessionIDFromRequest(c)
+	_ = xauth.DestroySession(sessionID)
+	xauth.ClearSessionCookie(c)
 
 	response.WriteSuccess(c, &authmodel.LogoutResponse{
 		Message: "logout success",
 	})
+}
+
+func loadUserRoles(userID int64) ([]string, error) {
+	var roles []string
+	if err := db.DB.
+		Table("roles").
+		Select("roles.code").
+		Joins("JOIN user_roles ON user_roles.role_id = roles.id").
+		Where("user_roles.user_id = ?", userID).
+		Order("roles.id ASC").
+		Scan(&roles).Error; err != nil {
+		return nil, err
+	}
+	return roles, nil
 }

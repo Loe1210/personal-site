@@ -21,6 +21,8 @@ go run .
 - `server`
 - `mysql`
 - `session`
+- `session_store`
+- `redis`
 - `upload`
 - `site`
 
@@ -35,6 +37,12 @@ go run .
 - `MYSQL_DBNAME`
 - `MYSQL_CHARSET`
 - `SESSION_SECRET`
+- `SESSION_STORE_PREFIX`
+- `SESSION_STORE_EXPIRE_HOUR`
+- `SESSION_STORE_COOKIE_NAME`
+- `REDIS_ADDR`
+- `REDIS_PASSWORD`
+- `REDIS_DB`
 - `UPLOAD_ROOT_DIR`
 - `UPLOAD_PUBLIC_BASE_PATH`
 - `UPLOAD_MAX_IMAGE_SIZE_MB`
@@ -65,3 +73,12 @@ docker compose up --build
 go test ./...
 go build ./...
 ```
+
+
+## 认证说明
+
+当前正在为微服务拆分做认证链路预重构，现阶段使用 `session + cookie + redis` 作为目标会话模型。
+
+- 登录成功后会返回会话信息，并写入浏览器 cookie
+- 调试受保护接口时，需要携带浏览器返回的 session cookie
+- 当前仓库仍处于单体阶段，Redis 共享会话的完整接入会在后续 `auth-service` 拆分阶段完成

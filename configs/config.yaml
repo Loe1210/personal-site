@@ -6,9 +6,28 @@ mysql:
   host: "127.0.0.1"
   port: "3306"
   user: "root"
-  password: "Vtmer!2023"
+  password: "123456"
   dbname: "personal_site"
   charset: "utf8mb4"
 
 session:
   secret: "personal-site-session-secret-change-in-production"
+
+session_store:
+  prefix: "session:"
+  expire_hour: 2
+  cookie_name: "session_id"
+
+redis:
+  addr: "127.0.0.1:6379"
+  password: ""
+  db: 0
+
+upload:
+  root_dir: "static/uploads/images"
+  public_base_path: "/static/uploads/images"
+  max_image_size_mb: 5
+
+site:
+  title: "Personal Site"
+  base_url: "http://localhost:8888"

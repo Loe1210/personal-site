@@ -4,28 +4,23 @@ import (
 	"context"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/hertz-contrib/sessions"
 
 	"github.com/Loe1210/personal-site/pkg/errno"
 	"github.com/Loe1210/personal-site/pkg/response"
+	"github.com/Loe1210/personal-site/pkg/xauth"
 )
 
 func AuthMiddleware() app.HandlerFunc {
 	return func(ctx context.Context, c *app.RequestContext) {
-		session := sessions.Default(c)
-
-		userID := session.Get("user_id")
-		username := session.Get("username")
-
-		if userID == nil || username == nil {
+		sessionID := xauth.SessionIDFromRequest(c)
+		claims, err := xauth.ParseSession(sessionID)
+		if err != nil {
 			response.WriteErrorMessage(c, errno.Unauthorized, "login required")
 			c.Abort()
 			return
 		}
 
-		c.Set("user_id", userID)
-		c.Set("username", username)
-
+		xauth.SetClaims(c, claims)
 		c.Next(ctx)
 	}
 }
