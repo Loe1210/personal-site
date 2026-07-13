@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
+	"os"
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app/server"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/Loe1210/personal-site/configs"
 	"github.com/Loe1210/personal-site/pkg/xauth"
+	"github.com/Loe1210/personal-site/pkg/xotel"
 	"github.com/Loe1210/personal-site/services/auth-service/internal/application"
 	httpHandler "github.com/Loe1210/personal-site/services/auth-service/internal/handler/http"
 	infra "github.com/Loe1210/personal-site/services/auth-service/internal/infra/mysql"
@@ -20,10 +23,16 @@ var configPath = flag.String("config", "services/auth-service/configs/config.yam
 
 func main() {
 	flag.Parse()
+	ctx := context.Background()
 	cfg, err := configs.Load(*configPath)
 	if err != nil {
 		log.Fatal(err)
 	}
+	shutdown, err := xotel.SetupTracerProvider(ctx, "auth-service", os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer shutdown(ctx)
 	redisPool := &redis.Pool{
 		MaxIdle:     5,
 		MaxActive:   20,

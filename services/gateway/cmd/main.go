@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app/server"
 
 	"github.com/Loe1210/personal-site/configs"
+	"github.com/Loe1210/personal-site/pkg/xotel"
 	"github.com/Loe1210/personal-site/services/gateway/internal/router"
 )
 
@@ -15,10 +17,16 @@ var configPath = flag.String("config", "configs/config.yaml", "gateway config pa
 
 func main() {
 	flag.Parse()
+	ctx := context.Background()
 	_, err := configs.Load(*configPath)
 	if err != nil {
 		log.Fatal(err)
 	}
+	shutdown, err := xotel.SetupTracerProvider(ctx, "gateway", os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer shutdown(ctx)
 	h := server.Default(server.WithHostPorts(configs.GetServerAddr()))
 	deps := router.Dependencies{
 		AuthServiceName: "auth-service",
