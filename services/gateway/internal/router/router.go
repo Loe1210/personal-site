@@ -7,11 +7,14 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
+
+	"github.com/Loe1210/personal-site/services/gateway/internal/proxy"
 )
 
 type Dependencies struct {
 	AuthServiceName string
 	BFFServiceName  string
+	AuthBaseURL     string
 	ContentBaseURL  string
 	MediaBaseURL    string
 	BFFBaseURL      string
@@ -32,6 +35,10 @@ func RegisterRoutes(h *server.Hertz, deps Dependencies) error {
 		return err
 	}
 	h.GET("/healthz", Health)
+	h.Any("/api/auth/*path", proxy.NewReverseProxy(deps.AuthBaseURL, "/api/auth"))
+	h.Any("/api/media/*path", proxy.NewReverseProxy(deps.MediaBaseURL, "/api/media"))
+	h.Any("/api/content/*path", proxy.NewReverseProxy(deps.ContentBaseURL, "/api/content"))
+	h.Any("/api/blog/*path", proxy.NewReverseProxy(deps.BFFBaseURL, "/api/blog"))
 	return nil
 }
 

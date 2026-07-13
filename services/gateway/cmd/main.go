@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"log"
+	"os"
 
 	"github.com/cloudwego/hertz/pkg/app/server"
 
@@ -19,10 +20,25 @@ func main() {
 		log.Fatal(err)
 	}
 	h := server.Default(server.WithHostPorts(configs.GetServerAddr()))
-	deps := router.Dependencies{AuthServiceName: "auth-service", BFFServiceName: "web-bff"}
+	deps := router.Dependencies{
+		AuthServiceName: "auth-service",
+		BFFServiceName:  "web-bff",
+		AuthBaseURL:     envOrDefault("AUTH_SERVICE_URL", "http://127.0.0.1:9001"),
+		MediaBaseURL:    envOrDefault("MEDIA_SERVICE_URL", "http://127.0.0.1:9002"),
+		ContentBaseURL:  envOrDefault("CONTENT_SERVICE_URL", "http://127.0.0.1:9003"),
+		BFFBaseURL:      envOrDefault("WEB_BFF_URL", "http://127.0.0.1:9004"),
+	}
 	if err := router.RegisterRoutes(h, deps); err != nil {
 		log.Fatal(err)
 	}
 	log.Printf("gateway listening on %s", configs.GetServerAddr())
 	h.Spin()
+}
+
+func envOrDefault(key string, fallback string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback
+	}
+	return value
 }
