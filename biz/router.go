@@ -6,7 +6,6 @@ import (
 	articlebiz "github.com/Loe1210/personal-site/biz/article"
 	authbiz "github.com/Loe1210/personal-site/biz/auth"
 	categorybiz "github.com/Loe1210/personal-site/biz/category"
-	sitebiz "github.com/Loe1210/personal-site/biz/site"
 	tagbiz "github.com/Loe1210/personal-site/biz/tag"
 	uploadbiz "github.com/Loe1210/personal-site/biz/upload"
 	"github.com/Loe1210/personal-site/pkg/response"
@@ -16,7 +15,6 @@ import (
 )
 
 func Register(h *server.Hertz) {
-	sitebiz.Register(h)
 	authbiz.Register(h)
 	articlebiz.Register(h)
 	categorybiz.Register(h)

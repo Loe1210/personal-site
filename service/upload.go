@@ -7,17 +7,17 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
 
 	uploadmodel "github.com/Loe1210/personal-site/biz/model/upload"
+	"github.com/Loe1210/personal-site/configs"
 	dbmodel "github.com/Loe1210/personal-site/dal/db"
 	"github.com/Loe1210/personal-site/pkg/errno"
 )
-
-const maxUploadImageSize = 5 * 1024 * 1024
 
 var (
 	allowedUploadImageTypes = map[string]string{
@@ -32,6 +32,24 @@ var (
 type validatedImageMeta struct {
 	mimeType string
 	ext      string
+}
+
+func uploadConfig() configs.UploadConfig {
+	if configs.AppConfig == nil {
+		_, _ = configs.Load("")
+	}
+	if configs.AppConfig == nil {
+		return configs.UploadConfig{
+			RootDir:        "static/uploads/images",
+			PublicBasePath: "/static/uploads/images",
+			MaxImageSizeMB: 5,
+		}
+	}
+	return configs.AppConfig.Upload
+}
+
+func maxUploadImageSizeBytes() int64 {
+	return uploadConfig().MaxImageSizeMB * 1024 * 1024
 }
 
 func toUploadModel(item *dbmodel.UploadFile) *uploadmodel.UploadFile {
@@ -83,7 +101,7 @@ func validateAndDetectImage(header *multipart.FileHeader) (*validatedImageMeta, 
 	if header.Size <= 0 {
 		return nil, errno.UploadFileEmpty
 	}
-	if header.Size > maxUploadImageSize {
+	if header.Size > maxUploadImageSizeBytes() {
 		return nil, errno.UploadFileTooLarge
 	}
 
@@ -120,12 +138,14 @@ func UploadImage(_ context.Context, req *uploadmodel.UploadImageRequest, header 
 		return nil, err
 	}
 
+	cfg := uploadConfig()
 	bizType := normalizeBizType(req.BizType)
 	dateDir := time.Now().Format("20060102")
 	fileName := fmt.Sprintf("%d%s", time.Now().UnixNano(), meta.ext)
-	relativeDir := filepath.Join("static", "uploads", "images", bizType, dateDir)
+	relativeDir := filepath.Join(cfg.RootDir, bizType, dateDir)
 	relativePath := filepath.Join(relativeDir, fileName)
-	fileURL := "/" + filepath.ToSlash(relativePath)
+	publicBasePath := "/" + strings.Trim(strings.TrimSpace(cfg.PublicBasePath), "/")
+	fileURL := path.Join(publicBasePath, bizType, dateDir, fileName)
 
 	if err := os.MkdirAll(relativeDir, 0o755); err != nil {
 		return nil, errno.Internal

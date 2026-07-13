@@ -341,7 +341,12 @@
             return;
         }
 
-        BlogAPI.getPost(id).then(renderPost).catch(function (err) {
+        Promise.all([
+            BlogAPI.getCategories().catch(function() { return []; }),
+            BlogAPI.getTags().catch(function() { return []; })
+        ]).then(function() {
+            return BlogAPI.getPost(id);
+        }).then(renderPost).catch(function (err) {
             renderError('文章加载失败：' + err.message);
         });
 

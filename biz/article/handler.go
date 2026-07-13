@@ -3,6 +3,7 @@ package article
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
 
@@ -73,6 +74,27 @@ func GetArticleByID(ctx context.Context, c *app.RequestContext) {
 	response.WriteSuccess(c, resp)
 }
 
+func GetAdjacentArticlesByID(ctx context.Context, c *app.RequestContext) {
+	idStr := c.Param("id")
+	var id int64
+	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil || id <= 0 {
+		response.WriteError(c, errno.BadRequest)
+		return
+	}
+
+	resp, err := articleservice.GetAdjacentPublicArticles(ctx, id)
+	if err != nil {
+		if appErr, ok := err.(*errno.AppError); ok {
+			response.WriteError(c, appErr)
+			return
+		}
+		response.WriteError(c, errno.Internal)
+		return
+	}
+
+	response.WriteSuccess(c, resp)
+}
+
 func ListAdminArticles(ctx context.Context, c *app.RequestContext) {
 	var req articlemodel.ListArticlesRequest
 	if err := c.BindAndValidate(&req); err != nil {
@@ -81,6 +103,26 @@ func ListAdminArticles(ctx context.Context, c *app.RequestContext) {
 	}
 
 	resp, err := articleservice.ListAdminArticles(ctx, &req)
+	if err != nil {
+		if appErr, ok := err.(*errno.AppError); ok {
+			response.WriteError(c, appErr)
+			return
+		}
+		response.WriteError(c, errno.Internal)
+		return
+	}
+
+	response.WriteSuccess(c, resp)
+}
+
+func GetAdminArticleByID(ctx context.Context, c *app.RequestContext) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		response.WriteError(c, errno.BadRequest)
+		return
+	}
+
+	resp, err := articleservice.Get(ctx, uint(id))
 	if err != nil {
 		if appErr, ok := err.(*errno.AppError); ok {
 			response.WriteError(c, appErr)
@@ -114,11 +156,18 @@ func CreateArticle(ctx context.Context, c *app.RequestContext) {
 }
 
 func UpdateArticle(ctx context.Context, c *app.RequestContext) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		response.WriteError(c, errno.BadRequest)
+		return
+	}
+
 	var req articlemodel.UpdateArticleRequest
 	if err := c.BindAndValidate(&req); err != nil {
 		response.WriteError(c, errno.BadRequest)
 		return
 	}
+	req.ID = id
 
 	resp, err := articleservice.UpdateArticle(ctx, &req)
 	if err != nil {
@@ -134,13 +183,13 @@ func UpdateArticle(ctx context.Context, c *app.RequestContext) {
 }
 
 func DeleteArticle(ctx context.Context, c *app.RequestContext) {
-	var req articlemodel.DeleteArticleRequest
-	if err := c.BindAndValidate(&req); err != nil {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
 		response.WriteError(c, errno.BadRequest)
 		return
 	}
 
-	resp, err := articleservice.DeleteArticle(ctx, &req)
+	resp, err := articleservice.DeleteArticle(ctx, &articlemodel.DeleteArticleRequest{ID: id})
 	if err != nil {
 		if appErr, ok := err.(*errno.AppError); ok {
 			response.WriteError(c, appErr)

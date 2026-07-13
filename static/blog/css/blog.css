@@ -20,12 +20,11 @@ body {
     line-height: 1.85;
     letter-spacing: 0.3px;
     color: #fff;
-    background: center center no-repeat #666;
-    background-attachment: fixed;
-    background-size: cover;
+    background: center center / cover no-repeat fixed #0b1220;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
+    overscroll-behavior-y: none;
     width: 100%;
 }
 

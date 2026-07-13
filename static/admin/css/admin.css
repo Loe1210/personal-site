@@ -18,11 +18,10 @@ body {
     line-height: 1.85;
     letter-spacing: 0.3px;
     color: #fff;
-    background: center center no-repeat #666;
-    background-attachment: fixed;
-    background-size: cover;
+    background: center center / cover no-repeat fixed #0b1220;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior-y: none;
 }
 
 .blog-overlay {
@@ -99,6 +98,11 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 0 0 40px;
+}
+
+.admin-header__actions {
+    display: flex;
+    align-items: center;
 }
 
 .admin-title {
@@ -557,6 +561,7 @@ body {
     -webkit-backdrop-filter: blur(8px);
     border: 1px solid rgba(255, 255, 255, 0.06);
     width: fit-content;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
 }
 
 .admin-tab {
@@ -591,6 +596,12 @@ body {
 
 .admin-panel.active {
     display: block;
+    padding: 24px 28px;
+    background: rgba(0, 0, 0, 0.28);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 18px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }
 
 @keyframes panelFadeIn {
@@ -608,6 +619,8 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
     margin-bottom: 20px;
 }
 
@@ -1009,7 +1022,12 @@ body {
         padding-bottom: 20px;
     }
 
-    .admin-title {
+    .admin-header__actions {
+    display: flex;
+    align-items: center;
+}
+
+.admin-title {
         font-size: 1.8em;
     }
 

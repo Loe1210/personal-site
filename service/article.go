@@ -235,6 +235,26 @@ func Get(_ context.Context, id uint) (*articlemodel.GetArticleResponse, error) {
 	}, nil
 }
 
+func GetAdjacentPublicArticles(_ context.Context, id int64) (*articlemodel.GetAdjacentArticlesResponse, error) {
+	var current db.Article
+	if err := db.DB.Where("id = ? AND status = 'published'", id).First(&current).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, errno.ArticleNotFound
+		}
+		return nil, errno.Internal
+	}
+
+	var records []db.Article
+	if err := db.DB.Where("status = ?", "published").Order("is_top DESC, published_at DESC, created_at DESC").Find(&records).Error; err != nil {
+		return nil, errno.Internal
+	}
+
+	prev, next := findAdjacentArticles(records, id)
+	return &articlemodel.GetAdjacentArticlesResponse{
+		Prev: prev,
+		Next: next,
+	}, nil
+}
 func CreateArticle(_ context.Context, req *articlemodel.CreateArticleRequest) (*articlemodel.CreateArticleResponse, error) {
 	var count int64
 	if err := db.DB.Model(&db.Article{}).Where("slug = ?", req.Slug).Count(&count).Error; err != nil {
@@ -406,6 +426,41 @@ func syncArticleTags(articleID int64, tagIDs []int64) error {
 	return nil
 }
 
+func findAdjacentArticles(records []db.Article, currentID int64) (*articlemodel.AdjacentArticle, *articlemodel.AdjacentArticle) {
+	currentIndex := -1
+	for i, record := range records {
+		if record.ID == currentID {
+			currentIndex = i
+			break
+		}
+	}
+	if currentIndex == -1 {
+		return nil, nil
+	}
+
+	var prev *articlemodel.AdjacentArticle
+	var next *articlemodel.AdjacentArticle
+	if currentIndex > 0 {
+		prev = toAdjacentArticle(records[currentIndex-1])
+	}
+	if currentIndex < len(records)-1 {
+		next = toAdjacentArticle(records[currentIndex+1])
+	}
+	return prev, next
+}
+
+func toAdjacentArticle(record db.Article) *articlemodel.AdjacentArticle {
+	publishedAt := ""
+	if record.PublishedAt != nil {
+		publishedAt = formatTime(*record.PublishedAt)
+	}
+	return &articlemodel.AdjacentArticle{
+		ID:          record.ID,
+		Title:       record.Title,
+		Slug:        record.Slug,
+		PublishedAt: publishedAt,
+	}
+}
 func toArticleModel(record db.Article, tags []*tagmodel.Tag) *articlemodel.Article {
 	publishedAt := ""
 	if record.PublishedAt != nil {

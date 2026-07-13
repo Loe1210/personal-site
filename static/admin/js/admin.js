@@ -181,6 +181,12 @@
         return fetchPage();
     }
 
+    function loadPost(id) {
+        return request('/articles/' + encodeURIComponent(id)).then(function (data) {
+            return mapArticle(data.article || {});
+        });
+    }
+
     function loadCategories() {
         return request('/categories').then(function (data) {
             cachedCategories = (data.list || []).map(function (c) {
@@ -375,21 +381,17 @@
         if (postId) {
             modalTitle.textContent = '编辑文章';
             document.getElementById('postId').value = postId;
-            fetchAllPosts().then(function (posts) {
-                for (var i = 0; i < posts.length; i++) {
-                    if (posts[i].id === postId) {
-                        var post = posts[i];
-                        document.getElementById('postTitle').value = post.title || '';
-                        populateCategoryCheckboxes(post.category_id);
-                        populateTagCheckboxes(post.tag_ids || []);
-                        document.getElementById('postSummary').value = post.summary || '';
-                        document.getElementById('postContent').value = post.content_md || '';
-                        var status = post.status || 'published';
-                        var radio = document.querySelector('input[name="postStatus"][value="' + status + '"]');
-                        if (radio) radio.checked = true;
-                        break;
-                    }
-                }
+            loadPost(postId).then(function (post) {
+                document.getElementById('postTitle').value = post.title || '';
+                populateCategoryCheckboxes(post.category_id);
+                populateTagCheckboxes(post.tag_ids || []);
+                document.getElementById('postSummary').value = post.summary || '';
+                document.getElementById('postContent').value = post.content_md || '';
+                var status = post.status || 'published';
+                var radio = document.querySelector('input[name="postStatus"][value="' + status + '"]');
+                if (radio) radio.checked = true;
+            }).catch(function (err) {
+                alert('加载文章失败：' + (err.message || err));
             });
         } else {
             modalTitle.textContent = '新建文章';

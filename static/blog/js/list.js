@@ -355,12 +355,20 @@
         bindAdminButton();
         bindPostCardClicks();
 
-        loadPosts();
-        BlogAPI.getCategories().then(renderCategories).catch(function () {
+        var catPromise = BlogAPI.getCategories();
+        var tagPromise = BlogAPI.getTags();
+
+        catPromise.then(renderCategories).catch(function () {
             document.getElementById('categoryChips').innerHTML = '<span class="blog-empty">加载失败</span>';
         });
-        BlogAPI.getTags().then(renderTags).catch(function () {
+        tagPromise.then(renderTags).catch(function () {
             document.getElementById('tagChips').innerHTML = '<span class="blog-empty">加载失败</span>';
+        });
+        Promise.all([
+            catPromise.catch(function() { return []; }),
+            tagPromise.catch(function() { return []; })
+        ]).then(function() {
+            loadPosts();
         });
         loadBingBackground();
     });
