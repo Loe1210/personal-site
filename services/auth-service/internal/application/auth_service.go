@@ -42,7 +42,7 @@ func (s *Service) CreateSession(ctx context.Context, username string, password s
 		return nil, err
 	}
 
-	bundle, err := xauth.CreateSessionBundle(user.ID, user.Username, roles)
+	bundle, err := xauth.CreateSessionBundleWithContext(ctx, user.ID, user.Username, roles)
 	if err != nil {
 		return nil, err
 	}
@@ -55,8 +55,8 @@ func (s *Service) CreateSession(ctx context.Context, username string, password s
 	}, nil
 }
 
-func (s *Service) ValidateSession(_ context.Context, sessionID string) (*AuthContext, error) {
-	claims, err := xauth.ParseSession(sessionID)
+func (s *Service) ValidateSession(ctx context.Context, sessionID string) (*AuthContext, error) {
+	claims, err := xauth.ParseSessionWithContext(ctx, sessionID)
 	if err != nil {
 		return nil, err
 	}

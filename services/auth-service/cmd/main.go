@@ -3,10 +3,13 @@ package main
 import (
 	"flag"
 	"log"
+	"time"
 
 	"github.com/cloudwego/hertz/pkg/app/server"
+	"github.com/gomodule/redigo/redis"
 
 	"github.com/Loe1210/personal-site/configs"
+	"github.com/Loe1210/personal-site/pkg/xauth"
 	"github.com/Loe1210/personal-site/services/auth-service/internal/application"
 	httpHandler "github.com/Loe1210/personal-site/services/auth-service/internal/handler/http"
 	infra "github.com/Loe1210/personal-site/services/auth-service/internal/infra/mysql"
@@ -21,6 +24,18 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	redisPool := &redis.Pool{
+		MaxIdle:     5,
+		MaxActive:   20,
+		IdleTimeout: 240 * time.Second,
+		Dial: func() (redis.Conn, error) {
+			return redis.Dial("tcp", cfg.Redis.Addr,
+				redis.DialPassword(cfg.Redis.Password),
+				redis.DialDatabase(cfg.Redis.DB),
+			)
+		},
+	}
+	xauth.UseStore(xauth.NewRedisStore(redisPool, cfg.SessionStore.Prefix))
 	database, err := infra.Open(cfg.MySQL)
 	if err != nil {
 		log.Fatal(err)

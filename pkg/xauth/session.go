@@ -1,6 +1,7 @@
 package xauth
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -14,16 +15,74 @@ import (
 )
 
 const (
-	placeholderBackend = "monolith-memory"
-	claimsContextKey   = "session_claims"
+	memoryBackend    = "monolith-memory"
+	redisBackend     = "redis"
+	claimsContextKey = "session_claims"
 )
 
 var errSessionNotFound = errors.New("session not found")
 
-var (
-	sessionMu    sync.RWMutex
-	sessionStore = make(map[string]Claims)
-)
+type Store interface {
+	Save(ctx context.Context, sessionID string, claims *Claims, ttl time.Duration) error
+	Get(ctx context.Context, sessionID string) (*Claims, error)
+	Delete(ctx context.Context, sessionID string) error
+	Backend() string
+}
+
+var activeStore Store = newMemoryStoreForTest()
+
+type memoryStore struct {
+	mu       sync.RWMutex
+	sessions map[string]Claims
+}
+
+func newMemoryStoreForTest() Store {
+	return &memoryStore{sessions: make(map[string]Claims)}
+}
+
+func (s *memoryStore) Save(_ context.Context, sessionID string, claims *Claims, _ time.Duration) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	copyClaims := *claims
+	copyClaims.Roles = append([]string(nil), claims.Roles...)
+	s.sessions[sessionID] = copyClaims
+	return nil
+}
+
+func (s *memoryStore) Get(_ context.Context, sessionID string) (*Claims, error) {
+	s.mu.RLock()
+	claims, ok := s.sessions[sessionID]
+	s.mu.RUnlock()
+	if !ok {
+		return nil, errSessionNotFound
+	}
+	if time.Now().After(claims.ExpiresAt) {
+		_ = s.Delete(context.Background(), sessionID)
+		return nil, errSessionNotFound
+	}
+	copyClaims := claims
+	copyClaims.Roles = append([]string(nil), claims.Roles...)
+	return &copyClaims, nil
+}
+
+func (s *memoryStore) Delete(_ context.Context, sessionID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.sessions, sessionID)
+	return nil
+}
+
+func (s *memoryStore) Backend() string {
+	return memoryBackend
+}
+
+func UseStore(store Store) {
+	if store == nil {
+		activeStore = newMemoryStoreForTest()
+		return
+	}
+	activeStore = store
+}
 
 type SessionMetadata struct {
 	CreatedAt time.Time `json:"created_at"`
@@ -53,7 +112,11 @@ type storeConfig struct {
 }
 
 func CreateSession(userID int64, username string, roles []string) (string, error) {
-	bundle, err := CreateSessionBundle(userID, username, roles)
+	return CreateSessionWithContext(context.Background(), userID, username, roles)
+}
+
+func CreateSessionWithContext(ctx context.Context, userID int64, username string, roles []string) (string, error) {
+	bundle, err := CreateSessionBundleWithContext(ctx, userID, username, roles)
 	if err != nil {
 		return "", err
 	}
@@ -61,23 +124,32 @@ func CreateSession(userID int64, username string, roles []string) (string, error
 }
 
 func CreateSessionBundle(userID int64, username string, roles []string) (*SessionBundle, error) {
-	return CreateSessionBundleWithTrace(userID, username, roles, "")
+	return CreateSessionBundleWithContext(context.Background(), userID, username, roles)
+}
+
+func CreateSessionBundleWithContext(ctx context.Context, userID int64, username string, roles []string) (*SessionBundle, error) {
+	return CreateSessionBundleWithTraceContext(ctx, userID, username, roles, "")
 }
 
 func CreateSessionBundleWithTrace(userID int64, username string, roles []string, traceID string) (*SessionBundle, error) {
+	return CreateSessionBundleWithTraceContext(context.Background(), userID, username, roles, traceID)
+}
+
+func CreateSessionBundleWithTraceContext(ctx context.Context, userID int64, username string, roles []string, traceID string) (*SessionBundle, error) {
 	cfg, err := loadStoreConfig()
 	if err != nil {
 		return nil, err
 	}
 
 	now := time.Now()
+	ttl := time.Duration(cfg.ExpireHour) * time.Hour
 	claims := Claims{
 		UserID:   userID,
 		Username: username,
 		Roles:    append([]string(nil), roles...),
 		SessionMetadata: SessionMetadata{
 			CreatedAt: now,
-			ExpiresAt: now.Add(time.Duration(cfg.ExpireHour) * time.Hour),
+			ExpiresAt: now.Add(ttl),
 			TraceID:   traceID,
 		},
 	}
@@ -86,15 +158,14 @@ func CreateSessionBundleWithTrace(userID int64, username string, roles []string,
 	if err != nil {
 		return nil, err
 	}
-
-	sessionMu.Lock()
-	sessionStore[sessionID] = claims
-	sessionMu.Unlock()
+	if err := activeStore.Save(ctx, sessionID, &claims, ttl); err != nil {
+		return nil, err
+	}
 
 	return &SessionBundle{
 		SessionID:  sessionID,
 		CookieName: cfg.CookieName,
-		Backend:    placeholderBackend,
+		Backend:    activeStore.Backend(),
 		ExpiresAt:  claims.ExpiresAt,
 		TraceID:    traceID,
 	}, nil
@@ -107,37 +178,27 @@ func newSessionID(prefix string) (string, error) {
 	}
 	return prefix + hex.EncodeToString(randomBytes), nil
 }
+
 func ParseSession(raw string) (*Claims, error) {
+	return ParseSessionWithContext(context.Background(), raw)
+}
+
+func ParseSessionWithContext(ctx context.Context, raw string) (*Claims, error) {
 	if raw == "" {
 		return nil, errors.New("empty session id")
 	}
-
-	sessionMu.RLock()
-	claims, ok := sessionStore[raw]
-	sessionMu.RUnlock()
-	if !ok {
-		return nil, errSessionNotFound
-	}
-
-	if time.Now().After(claims.ExpiresAt) {
-		_ = DestroySession(raw)
-		return nil, errSessionNotFound
-	}
-
-	copyClaims := claims
-	copyClaims.Roles = append([]string(nil), claims.Roles...)
-	return &copyClaims, nil
+	return activeStore.Get(ctx, raw)
 }
 
 func DestroySession(raw string) error {
+	return DestroySessionWithContext(context.Background(), raw)
+}
+
+func DestroySessionWithContext(ctx context.Context, raw string) error {
 	if raw == "" {
 		return nil
 	}
-
-	sessionMu.Lock()
-	delete(sessionStore, raw)
-	sessionMu.Unlock()
-	return nil
+	return activeStore.Delete(ctx, raw)
 }
 
 func SessionIDFromRequest(c *app.RequestContext) string {
