@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - gateway/deployment.yaml
+  - auth-service/deployment.yaml
+  - media-service/deployment.yaml
+  - content-service/deployment.yaml
+  - web-bff/deployment.yaml
+  - otel-collector/deployment.yaml
+  - nacos/deployment.yaml
+configMapGenerator:
+  - name: personal-site-config
+    literals:
+      - REDIS_ADDR=redis:6379
+      - NACOS_ADDR=nacos:8848
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+secretGenerator:
+  - name: personal-site-secret
+    literals:
+      - MYSQL_PASSWORD=change-me

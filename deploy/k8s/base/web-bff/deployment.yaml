@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-bff
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web-bff
+  template:
+    metadata:
+      labels:
+        app: web-bff
+    spec:
+      containers:
+        - name: web-bff
+          image: personal-site/web-bff:latest
+          ports:
+            - containerPort: 9004
+          envFrom:
+            - configMapRef:
+                name: personal-site-config
+            - secretRef:
+                name: personal-site-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-bff
+spec:
+  selector:
+    app: web-bff
+  ports:
+    - name: http
+      port: 9004
+      targetPort: 9004

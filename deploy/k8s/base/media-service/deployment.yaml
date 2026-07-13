@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: media-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: media-service
+  template:
+    metadata:
+      labels:
+        app: media-service
+    spec:
+      containers:
+        - name: media-service
+          image: personal-site/media-service:latest
+          ports:
+            - containerPort: 9002
+          envFrom:
+            - configMapRef:
+                name: personal-site-config
+            - secretRef:
+                name: personal-site-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: media-service
+spec:
+  selector:
+    app: media-service
+  ports:
+    - name: http
+      port: 9002
+      targetPort: 9002

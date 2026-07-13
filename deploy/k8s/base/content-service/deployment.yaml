@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: content-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: content-service
+  template:
+    metadata:
+      labels:
+        app: content-service
+    spec:
+      containers:
+        - name: content-service
+          image: personal-site/content-service:latest
+          ports:
+            - containerPort: 9003
+          envFrom:
+            - configMapRef:
+                name: personal-site-config
+            - secretRef:
+                name: personal-site-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: content-service
+spec:
+  selector:
+    app: content-service
+  ports:
+    - name: http
+      port: 9003
+      targetPort: 9003
