@@ -35,6 +35,8 @@ make micro-test
 make micro-smoke
 ```
 
+`make micro-smoke` 会执行 `scripts/smoke/microservices_smoke.ps1`，验证 gateway 健康检查、auth 登录 cookie 流程、content 文章列表等基础链路。
+
 ## 服务端口
 
 - gateway: `http://127.0.0.1:8888`

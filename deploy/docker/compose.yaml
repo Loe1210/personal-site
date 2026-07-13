@@ -149,6 +149,10 @@ services:
     environment:
       <<: *go-env
       APP_PORT: "8888"
+      AUTH_SERVICE_URL: http://auth-service:9001
+      MEDIA_SERVICE_URL: http://media-service:9002
+      CONTENT_SERVICE_URL: http://content-service:9003
+      WEB_BFF_URL: http://web-bff:9004
     ports:
       - "8888:8888"
 
