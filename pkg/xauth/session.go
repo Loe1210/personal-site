@@ -171,12 +171,12 @@ func CreateSessionBundleWithTraceContext(ctx context.Context, userID int64, user
 	}, nil
 }
 
-func newSessionID(prefix string) (string, error) {
+func newSessionID(_ string) (string, error) {
 	randomBytes := make([]byte, 16)
 	if _, err := rand.Read(randomBytes); err != nil {
 		return "", err
 	}
-	return prefix + hex.EncodeToString(randomBytes), nil
+	return hex.EncodeToString(randomBytes), nil
 }
 
 func ParseSession(raw string) (*Claims, error) {

@@ -35,6 +35,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if err := filerepo.Migrate(database); err != nil {
+		log.Fatal(err)
+	}
 	store := storage.NewLocalStorage(cfg.Upload.RootDir, cfg.Upload.PublicBasePath)
 	service := application.NewMediaService(store, filerepo.NewFileRepository(database))
 	handler := httpHandler.NewHandler(service)

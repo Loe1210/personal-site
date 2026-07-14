@@ -33,6 +33,16 @@ func main() {
 		log.Fatal(err)
 	}
 	defer shutdown(ctx)
+	database, err := infra.Open(cfg.MySQL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := userrepo.Migrate(database); err != nil {
+		log.Fatal(err)
+	}
+	if err := userrepo.Seed(database); err != nil {
+		log.Fatal(err)
+	}
 	redisPool := &redis.Pool{
 		MaxIdle:     5,
 		MaxActive:   20,
@@ -45,10 +55,6 @@ func main() {
 		},
 	}
 	xauth.UseStore(xauth.NewRedisStore(redisPool, cfg.SessionStore.Prefix))
-	database, err := infra.Open(cfg.MySQL)
-	if err != nil {
-		log.Fatal(err)
-	}
 	service := application.NewAuthService(userrepo.NewUserRepository(database))
 	handler := httpHandler.NewHandler(service)
 	h := server.Default(server.WithHostPorts(configs.GetServerAddr()))

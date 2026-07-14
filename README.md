@@ -51,19 +51,33 @@ go run .
 
 ## Docker 运行
 
-构建镜像：
+当前容器化运行入口已经切换为微服务版 Compose：
 
 ```bash
-docker build -t personal-site .
+make micro-up
 ```
 
-使用 Compose 启动应用和 MySQL：
+该命令会使用 `deploy/docker/compose.yaml` 启动 MySQL、Redis、Nacos、OTel Collector 以及各业务服务。
+
+如果本机没有 `make`，可以执行等价命令：
 
 ```bash
-docker compose up --build
+docker compose -f deploy/docker/compose.yaml up -d --build
 ```
 
-启动后访问：`http://localhost:8888`
+启动后优先访问 gateway：`http://localhost:8888`
+
+运行 smoke 验证：
+
+```bash
+make micro-smoke
+```
+
+关闭本地微服务环境：
+
+```bash
+make micro-down
+```
 
 ## 验证
 

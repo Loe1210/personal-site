@@ -34,6 +34,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if err := articlerepo.Migrate(database); err != nil {
+		log.Fatal(err)
+	}
 	articles := application.NewArticleService(articlerepo.NewArticleRepository(database))
 	handler := httpHandler.NewHandler(articles)
 	h := server.Default(server.WithHostPorts(configs.GetServerAddr()))

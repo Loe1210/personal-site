@@ -4,6 +4,13 @@ FROM golang:1.26 AS builder
 WORKDIR /app
 
 ARG SERVICE_PATH=./
+ARG GOPROXY=https://goproxy.cn,direct
+ARG GOSUMDB=sum.golang.google.cn
+ARG GOPRIVATE=gitlab.tanwan.com
+
+ENV GOPROXY=$GOPROXY
+ENV GOSUMDB=$GOSUMDB
+ENV GOPRIVATE=$GOPRIVATE
 
 COPY go.mod go.sum ./
 RUN go mod download
