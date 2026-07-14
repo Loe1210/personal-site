@@ -9,7 +9,7 @@ x-go-env: &go-env
   REDIS_ADDR: redis:6379
   NACOS_ADDR: nacos:8848
   OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
-  SESSION_STORE_PREFIX: session:
+  SESSION_STORE_PREFIX: "session:"
   SESSION_STORE_COOKIE_NAME: session_id
   SESSION_STORE_EXPIRE_HOUR: "2"
 
