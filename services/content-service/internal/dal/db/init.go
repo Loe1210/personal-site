@@ -1,13 +1,13 @@
-package mysql
+package db
 
 import (
 	"fmt"
 	"time"
 
+	"github.com/Loe1210/personal-site/configs"
+	"github.com/Loe1210/personal-site/services/content-service/internal/model"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-
-	"github.com/Loe1210/personal-site/configs"
 )
 
 func Open(cfg configs.MySQLConfig) (*gorm.DB, error) {
@@ -31,4 +31,8 @@ func Open(cfg configs.MySQLConfig) (*gorm.DB, error) {
 	sqlDB.SetMaxOpenConns(20)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 	return db, nil
+}
+
+func Migrate(db *gorm.DB) error {
+	return db.AutoMigrate(&model.Category{}, &Tag{}, &Article{}, &ArticleTag{})
 }

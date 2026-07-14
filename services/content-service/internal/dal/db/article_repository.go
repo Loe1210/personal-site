@@ -1,12 +1,11 @@
-package mysql
+package db
 
 import (
 	"context"
 	"time"
 
+	"github.com/Loe1210/personal-site/services/content-service/internal/model"
 	"gorm.io/gorm"
-
-	"github.com/Loe1210/personal-site/services/content-service/internal/application"
 )
 
 type Article struct {
@@ -45,7 +44,7 @@ func NewArticleRepository(db *gorm.DB) *ArticleRepository {
 	return &ArticleRepository{db: db}
 }
 
-func (r *ArticleRepository) GetByID(ctx context.Context, id int64) (*application.ArticleDetail, error) {
+func (r *ArticleRepository) GetByID(ctx context.Context, id int64) (*model.ArticleDetail, error) {
 	var article Article
 	if err := r.db.WithContext(ctx).First(&article, id).Error; err != nil {
 		return nil, err
@@ -57,7 +56,7 @@ func (r *ArticleRepository) GetByID(ctx context.Context, id int64) (*application
 	return toArticleDetail(article, tags), nil
 }
 
-func (r *ArticleRepository) List(ctx context.Context, filter application.ListFilter) (*application.ListResult, error) {
+func (r *ArticleRepository) List(ctx context.Context, filter model.ListFilter) (*model.ListResult, error) {
 	var articles []Article
 	query := r.db.WithContext(ctx).Model(&Article{})
 	if filter.Status != "" {
@@ -75,14 +74,14 @@ func (r *ArticleRepository) List(ctx context.Context, filter application.ListFil
 	if err := query.Order("is_top DESC, published_at DESC, id DESC").Offset(int(offset)).Limit(int(filter.PageSize)).Find(&articles).Error; err != nil {
 		return nil, err
 	}
-	result := make([]*application.ArticleDetail, 0, len(articles))
+	result := make([]*model.ArticleDetail, 0, len(articles))
 	for _, article := range articles {
 		result = append(result, toArticleDetail(article, nil))
 	}
-	return &application.ListResult{List: result, Total: total}, nil
+	return &model.ListResult{List: result, Total: total}, nil
 }
 
-func (r *ArticleRepository) Create(ctx context.Context, detail *application.ArticleDetail) error {
+func (r *ArticleRepository) Create(ctx context.Context, detail *model.ArticleDetail) error {
 	article := fromArticleDetail(detail)
 	if err := r.db.WithContext(ctx).Create(&article).Error; err != nil {
 		return err
@@ -91,7 +90,7 @@ func (r *ArticleRepository) Create(ctx context.Context, detail *application.Arti
 	return r.syncTags(ctx, article.ID, detail.TagIDs)
 }
 
-func (r *ArticleRepository) Update(ctx context.Context, detail *application.ArticleDetail) error {
+func (r *ArticleRepository) Update(ctx context.Context, detail *model.ArticleDetail) error {
 	article := fromArticleDetail(detail)
 	if err := r.db.WithContext(ctx).Model(&Article{}).Where("id = ?", detail.ID).Updates(article).Error; err != nil {
 		return err
@@ -106,7 +105,7 @@ func (r *ArticleRepository) Delete(ctx context.Context, id int64) error {
 	return r.db.WithContext(ctx).Delete(&Article{}, id).Error
 }
 
-func (r *ArticleRepository) tagsForArticle(ctx context.Context, articleID int64) ([]application.TagDTO, error) {
+func (r *ArticleRepository) tagsForArticle(ctx context.Context, articleID int64) ([]model.TagDTO, error) {
 	var tags []Tag
 	err := r.db.WithContext(ctx).
 		Joins("JOIN article_tags ON article_tags.tag_id = tags.id").
@@ -115,9 +114,9 @@ func (r *ArticleRepository) tagsForArticle(ctx context.Context, articleID int64)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]application.TagDTO, 0, len(tags))
+	result := make([]model.TagDTO, 0, len(tags))
 	for _, tag := range tags {
-		result = append(result, application.TagDTO{ID: tag.ID, Name: tag.Name, Slug: tag.Slug})
+		result = append(result, model.TagDTO{ID: tag.ID, Name: tag.Name, Slug: tag.Slug})
 	}
 	return result, nil
 }
@@ -141,12 +140,12 @@ func (r *ArticleRepository) syncTags(ctx context.Context, articleID int64, tagID
 	return r.db.WithContext(ctx).Create(&rows).Error
 }
 
-func toArticleDetail(article Article, tags []application.TagDTO) *application.ArticleDetail {
+func toArticleDetail(article Article, tags []model.TagDTO) *model.ArticleDetail {
 	tagIDs := make([]int64, 0, len(tags))
 	for _, tag := range tags {
 		tagIDs = append(tagIDs, tag.ID)
 	}
-	return &application.ArticleDetail{
+	return &model.ArticleDetail{
 		ID:          article.ID,
 		Title:       article.Title,
 		Slug:        article.Slug,
@@ -161,7 +160,7 @@ func toArticleDetail(article Article, tags []application.TagDTO) *application.Ar
 	}
 }
 
-func fromArticleDetail(detail *application.ArticleDetail) Article {
+func fromArticleDetail(detail *model.ArticleDetail) Article {
 	return Article{
 		ID:          detail.ID,
 		Title:       detail.Title,

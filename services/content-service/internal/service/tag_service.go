@@ -1,13 +1,12 @@
-package application
+package service
 
-import "context"
+import (
+	"context"
 
-type Tag struct {
-	ID          int64  `json:"id"`
-	Name        string `json:"name"`
-	Slug        string `json:"slug"`
-	Description string `json:"description"`
-}
+	"github.com/Loe1210/personal-site/services/content-service/internal/model"
+)
+
+type Tag = model.Tag
 
 type TagRepository interface {
 	List(ctx context.Context) ([]*Tag, error)

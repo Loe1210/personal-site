@@ -6,14 +6,10 @@ import (
 	"log"
 	"os"
 
-	"github.com/cloudwego/hertz/pkg/app/server"
-
 	"github.com/Loe1210/personal-site/configs"
 	"github.com/Loe1210/personal-site/pkg/xotel"
-	"github.com/Loe1210/personal-site/services/content-service/internal/application"
-	httpHandler "github.com/Loe1210/personal-site/services/content-service/internal/handler/http"
-	infra "github.com/Loe1210/personal-site/services/content-service/internal/infra/mysql"
-	articlerepo "github.com/Loe1210/personal-site/services/content-service/internal/repository/mysql"
+	"github.com/Loe1210/personal-site/services/content-service/internal/dal/db"
+	"github.com/Loe1210/personal-site/services/content-service/internal/service"
 )
 
 var configPath = flag.String("config", "services/content-service/configs/config.yaml", "content service config path")
@@ -30,17 +26,15 @@ func main() {
 		log.Fatal(err)
 	}
 	defer shutdown(ctx)
-	database, err := infra.Open(cfg.MySQL)
+	database, err := db.Open(cfg.MySQL)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := articlerepo.Migrate(database); err != nil {
+	if err := db.Migrate(database); err != nil {
 		log.Fatal(err)
 	}
-	articles := application.NewArticleService(articlerepo.NewArticleRepository(database))
-	handler := httpHandler.NewHandler(articles)
-	h := server.Default(server.WithHostPorts(configs.GetServerAddr()))
-	handler.RegisterRoutes(h)
+	articles := service.NewArticleService(db.NewArticleRepository(database))
+	h := newRouter(articles, configs.GetServerAddr())
 	log.Printf("content-service listening on %s", configs.GetServerAddr())
 	h.Spin()
 }
