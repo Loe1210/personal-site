@@ -3,19 +3,18 @@ package rpc
 import (
 	"context"
 
-	"github.com/Loe1210/personal-site/services/auth-service/internal/application"
+	"github.com/Loe1210/personal-site/services/auth-service/internal/service"
 )
 
-// Handler 是后续 Kitex 服务端的适配层，避免 RPC 类型渗入应用层。
 type Handler struct {
-	service *application.Service
+	service *service.Service
 }
 
-func NewHandler(service *application.Service) *Handler {
+func NewHandler(service *service.Service) *Handler {
 	return &Handler{service: service}
 }
 
-func (h *Handler) ValidateSession(ctx context.Context, sessionID string) (*application.AuthContext, error) {
+func (h *Handler) ValidateSession(ctx context.Context, sessionID string) (*service.AuthContext, error) {
 	return h.service.ValidateSession(ctx, sessionID)
 }
 

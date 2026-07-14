@@ -13,10 +13,9 @@ import (
 	"github.com/Loe1210/personal-site/configs"
 	"github.com/Loe1210/personal-site/pkg/xauth"
 	"github.com/Loe1210/personal-site/pkg/xotel"
-	"github.com/Loe1210/personal-site/services/auth-service/internal/application"
-	httpHandler "github.com/Loe1210/personal-site/services/auth-service/internal/handler/http"
+	"github.com/Loe1210/personal-site/services/auth-service/internal/dal/db"
 	infra "github.com/Loe1210/personal-site/services/auth-service/internal/infra/mysql"
-	userrepo "github.com/Loe1210/personal-site/services/auth-service/internal/repository/mysql"
+	"github.com/Loe1210/personal-site/services/auth-service/internal/service"
 )
 
 var configPath = flag.String("config", "services/auth-service/configs/config.yaml", "auth service config path")
@@ -37,10 +36,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := userrepo.Migrate(database); err != nil {
+	if err := db.Migrate(database); err != nil {
 		log.Fatal(err)
 	}
-	if err := userrepo.Seed(database); err != nil {
+	if err := db.Seed(database); err != nil {
 		log.Fatal(err)
 	}
 	redisPool := &redis.Pool{
@@ -55,10 +54,9 @@ func main() {
 		},
 	}
 	xauth.UseStore(xauth.NewRedisStore(redisPool, cfg.SessionStore.Prefix))
-	service := application.NewAuthService(userrepo.NewUserRepository(database))
-	handler := httpHandler.NewHandler(service)
+	authService := service.NewAuthService(db.NewUserRepository(database))
 	h := server.Default(server.WithHostPorts(configs.GetServerAddr()))
-	handler.RegisterRoutes(h)
+	registerRoutes(h, authService)
 	log.Printf("auth-service listening on %s", configs.GetServerAddr())
 	h.Spin()
 }
