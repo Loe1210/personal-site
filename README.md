@@ -1,32 +1,73 @@
 # 个人小站
 
-这是一个基于 Go + Hertz + MySQL 的个人小站项目，当前前台与后台都采用静态 SPA 方式交付，后端主要负责 API、认证、上传与静态资源分发。
+这是一个基于 Go + Hertz + MySQL 的个人小站项目。当前后端已经从单体入口迁移到微服务运行方式，外部 HTTP 流量统一从 `gateway` 进入，再转发到 `auth-service`、`content-service`、`media-service` 和 `web-bff`。
 
-## 本地直接运行
+## 当前架构
 
-1. 按需修改 `configs/config.yaml`
-2. 启动 MySQL，并确保数据库存在
-3. 运行：
+- `services/gateway`：统一 HTTP 入口，默认监听 `http://localhost:8888`
+- `services/auth-service`：登录、登出、当前用户、权限校验基础能力
+- `services/content-service`：文章内容域，包含文章列表和文章详情等接口
+- `services/media-service`：上传和文件元数据能力
+- `services/web-bff`：面向前台页面的聚合层
+- `deploy/docker/compose.yaml`：本地微服务运行环境
+
+## 本地运行
+
+推荐使用微服务版 Docker Compose：
 
 ```bash
-go run .
+make micro-up
 ```
 
-默认监听地址：`http://localhost:8888`
+如果本机没有 `make`，可以执行等价命令：
+
+```bash
+docker compose -f deploy/docker/compose.yaml up -d --build
+```
+
+启动后优先访问 gateway：
+
+```text
+http://localhost:8888
+```
+
+## 验证
+
+基础 Go 测试：
+
+```bash
+go test ./...
+```
+
+端到端 smoke 验证：
+
+```bash
+make micro-smoke
+```
+
+如果本机没有 `make`，可以执行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/smoke/microservices_smoke.ps1
+```
+
+smoke 会验证 gateway 健康检查、auth 未登录态、content 文章列表，以及 `session cookie + Redis` 登录态闭环。
+
+## 停止本地环境
+
+```bash
+make micro-down
+```
+
+等价命令：
+
+```bash
+docker compose -f deploy/docker/compose.yaml down
+```
 
 ## 配置说明
 
-当前配置按领域拆分为：
-
-- `server`
-- `mysql`
-- `session`
-- `session_store`
-- `redis`
-- `upload`
-- `site`
-
-同时支持通过环境变量覆盖关键配置，例如：
+配置支持通过 YAML 和环境变量覆盖。常用环境变量包括：
 
 - `APP_HOST`
 - `APP_PORT`
@@ -36,7 +77,6 @@ go run .
 - `MYSQL_PASSWORD`
 - `MYSQL_DBNAME`
 - `MYSQL_CHARSET`
-- `SESSION_SECRET`
 - `SESSION_STORE_PREFIX`
 - `SESSION_STORE_EXPIRE_HOUR`
 - `SESSION_STORE_COOKIE_NAME`
@@ -49,50 +89,15 @@ go run .
 - `SITE_TITLE`
 - `SITE_BASE_URL`
 
-## Docker 运行
-
-当前容器化运行入口已经切换为微服务版 Compose：
-
-```bash
-make micro-up
-```
-
-该命令会使用 `deploy/docker/compose.yaml` 启动 MySQL、Redis、Nacos、OTel Collector 以及各业务服务。
-
-如果本机没有 `make`，可以执行等价命令：
-
-```bash
-docker compose -f deploy/docker/compose.yaml up -d --build
-```
-
-启动后优先访问 gateway：`http://localhost:8888`
-
-运行 smoke 验证：
-
-```bash
-make micro-smoke
-```
-
-关闭本地微服务环境：
-
-```bash
-make micro-down
-```
-
-## 验证
-
-项目当前可通过以下命令做基础验证：
-
-```bash
-go test ./...
-go build ./...
-```
-
-
 ## 认证说明
 
-当前正在为微服务拆分做认证链路预重构，现阶段使用 `session + cookie + redis` 作为目标会话模型。
+认证使用 `session cookie + Redis`：
 
-- 登录成功后会返回会话信息，并写入浏览器 cookie
-- 调试受保护接口时，需要携带浏览器返回的 session cookie
-- 当前仓库仍处于单体阶段，Redis 共享会话的完整接入会在后续 `auth-service` 拆分阶段完成
+- 登录成功后服务端写入 session cookie
+- session 内容存储在 Redis 中
+- 受保护接口通过 cookie 中的 session id 查询 Redis 并恢复用户信息
+- 默认本地 smoke 使用 `admin/admin` 验证登录链路
+
+## 遗留单体说明
+
+旧单体入口、`biz/`、`service/`、`dal/db/` 和根目录旧 IDL 已删除。后续新增功能应优先落在对应 `services/*` 服务内，不再恢复旧单体分层。
