@@ -6,15 +6,11 @@ import (
 	"log"
 	"os"
 
-	"github.com/cloudwego/hertz/pkg/app/server"
-
 	"github.com/Loe1210/personal-site/configs"
 	"github.com/Loe1210/personal-site/pkg/xotel"
-	"github.com/Loe1210/personal-site/services/media-service/internal/application"
-	httpHandler "github.com/Loe1210/personal-site/services/media-service/internal/handler/http"
-	infra "github.com/Loe1210/personal-site/services/media-service/internal/infra/mysql"
-	"github.com/Loe1210/personal-site/services/media-service/internal/infra/storage"
-	filerepo "github.com/Loe1210/personal-site/services/media-service/internal/repository/mysql"
+	db "github.com/Loe1210/personal-site/services/media-service/internal/dal/db"
+	"github.com/Loe1210/personal-site/services/media-service/internal/dal/storage"
+	"github.com/Loe1210/personal-site/services/media-service/internal/service"
 )
 
 var configPath = flag.String("config", "services/media-service/configs/config.yaml", "media service config path")
@@ -31,18 +27,16 @@ func main() {
 		log.Fatal(err)
 	}
 	defer shutdown(ctx)
-	database, err := infra.Open(cfg.MySQL)
+	database, err := db.Open(cfg.MySQL)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := filerepo.Migrate(database); err != nil {
+	if err := db.Migrate(database); err != nil {
 		log.Fatal(err)
 	}
 	store := storage.NewLocalStorage(cfg.Upload.RootDir, cfg.Upload.PublicBasePath)
-	service := application.NewMediaService(store, filerepo.NewFileRepository(database))
-	handler := httpHandler.NewHandler(service)
-	h := server.Default(server.WithHostPorts(configs.GetServerAddr()))
-	handler.RegisterRoutes(h)
+	media := service.NewMediaService(store, db.NewFileRepository(database))
+	h := newRouter(media, configs.GetServerAddr())
 	log.Printf("media-service listening on %s", configs.GetServerAddr())
 	h.Spin()
 }

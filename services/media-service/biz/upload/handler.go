@@ -1,4 +1,4 @@
-package http
+package upload
 
 import (
 	"context"
@@ -6,23 +6,18 @@ import (
 	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 
-	"github.com/Loe1210/personal-site/services/media-service/internal/application"
+	"github.com/Loe1210/personal-site/services/media-service/internal/model"
+	"github.com/Loe1210/personal-site/services/media-service/internal/service"
 )
 
 type Handler struct {
-	service *application.Service
+	service *service.Service
 }
 
-func NewHandler(service *application.Service) *Handler {
+func NewHandler(service *service.Service) *Handler {
 	return &Handler{service: service}
-}
-
-func (h *Handler) RegisterRoutes(hertz *server.Hertz) {
-	hertz.POST("/upload", h.Upload)
-	hertz.GET("/files/:id", h.GetFile)
 }
 
 func (h *Handler) Upload(ctx context.Context, c *app.RequestContext) {
@@ -42,7 +37,7 @@ func (h *Handler) Upload(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusInternalServerError, map[string]any{"code": 50000, "message": "read upload file failed"})
 		return
 	}
-	record, err := h.service.Upload(ctx, application.UploadInput{
+	record, err := h.service.Upload(ctx, model.UploadInput{
 		FileName:    header.Filename,
 		Content:     content,
 		ContentType: string(header.Header.Get("Content-Type")),

@@ -1,12 +1,11 @@
-package mysql
+package db
 
 import (
 	"context"
 	"time"
 
+	"github.com/Loe1210/personal-site/services/media-service/internal/model"
 	"gorm.io/gorm"
-
-	"github.com/Loe1210/personal-site/services/media-service/internal/domain"
 )
 
 type FileRecord struct {
@@ -32,8 +31,8 @@ func NewFileRepository(db *gorm.DB) *FileRepository {
 	return &FileRepository{db: db}
 }
 
-func (r *FileRepository) Save(ctx context.Context, record *domain.FileRecord) error {
-	model := &FileRecord{
+func (r *FileRepository) Save(ctx context.Context, record *model.FileRecord) error {
+	modelRecord := &FileRecord{
 		OriginalName: record.OriginalName,
 		URL:          record.URL,
 		Path:         record.Path,
@@ -41,27 +40,27 @@ func (r *FileRepository) Save(ctx context.Context, record *domain.FileRecord) er
 		Size:         record.Size,
 		BizType:      record.BizType,
 	}
-	if err := r.db.WithContext(ctx).Create(model).Error; err != nil {
+	if err := r.db.WithContext(ctx).Create(modelRecord).Error; err != nil {
 		return err
 	}
-	record.ID = model.ID
-	record.CreatedAt = model.CreatedAt
+	record.ID = modelRecord.ID
+	record.CreatedAt = modelRecord.CreatedAt
 	return nil
 }
 
-func (r *FileRepository) GetByID(ctx context.Context, id int64) (*domain.FileRecord, error) {
-	var model FileRecord
-	if err := r.db.WithContext(ctx).First(&model, id).Error; err != nil {
+func (r *FileRepository) GetByID(ctx context.Context, id int64) (*model.FileRecord, error) {
+	var modelRecord FileRecord
+	if err := r.db.WithContext(ctx).First(&modelRecord, id).Error; err != nil {
 		return nil, err
 	}
-	return &domain.FileRecord{
-		ID:           model.ID,
-		OriginalName: model.OriginalName,
-		URL:          model.URL,
-		Path:         model.Path,
-		ContentType:  model.ContentType,
-		Size:         model.Size,
-		BizType:      model.BizType,
-		CreatedAt:    model.CreatedAt,
+	return &model.FileRecord{
+		ID:           modelRecord.ID,
+		OriginalName: modelRecord.OriginalName,
+		URL:          modelRecord.URL,
+		Path:         modelRecord.Path,
+		ContentType:  modelRecord.ContentType,
+		Size:         modelRecord.Size,
+		BizType:      modelRecord.BizType,
+		CreatedAt:    modelRecord.CreatedAt,
 	}, nil
 }

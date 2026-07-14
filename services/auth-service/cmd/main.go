@@ -14,7 +14,6 @@ import (
 	"github.com/Loe1210/personal-site/pkg/xauth"
 	"github.com/Loe1210/personal-site/pkg/xotel"
 	"github.com/Loe1210/personal-site/services/auth-service/internal/dal/db"
-	infra "github.com/Loe1210/personal-site/services/auth-service/internal/infra/mysql"
 	"github.com/Loe1210/personal-site/services/auth-service/internal/service"
 )
 
@@ -32,7 +31,7 @@ func main() {
 		log.Fatal(err)
 	}
 	defer shutdown(ctx)
-	database, err := infra.Open(cfg.MySQL)
+	database, err := db.Open(cfg.MySQL)
 	if err != nil {
 		log.Fatal(err)
 	}

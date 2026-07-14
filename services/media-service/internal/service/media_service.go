@@ -1,11 +1,11 @@
-package application
+package service
 
 import (
 	"context"
 	"errors"
 	"strings"
 
-	"github.com/Loe1210/personal-site/services/media-service/internal/domain"
+	"github.com/Loe1210/personal-site/services/media-service/internal/model"
 )
 
 type Storage interface {
@@ -13,18 +13,9 @@ type Storage interface {
 }
 
 type Repository interface {
-	Save(ctx context.Context, record *domain.FileRecord) error
-	GetByID(ctx context.Context, id int64) (*domain.FileRecord, error)
+	Save(ctx context.Context, record *model.FileRecord) error
+	GetByID(ctx context.Context, id int64) (*model.FileRecord, error)
 }
-
-type UploadInput struct {
-	FileName    string
-	Content     []byte
-	ContentType string
-	BizType     string
-}
-
-type FileRecord = domain.FileRecord
 
 type Service struct {
 	storage Storage
@@ -35,7 +26,7 @@ func NewMediaService(storage Storage, repo Repository) *Service {
 	return &Service{storage: storage, repo: repo}
 }
 
-func (s *Service) Upload(ctx context.Context, in UploadInput) (*FileRecord, error) {
+func (s *Service) Upload(ctx context.Context, in model.UploadInput) (*model.FileRecord, error) {
 	if s == nil || s.storage == nil {
 		return nil, errors.New("storage is required")
 	}
@@ -49,7 +40,7 @@ func (s *Service) Upload(ctx context.Context, in UploadInput) (*FileRecord, erro
 	if err != nil {
 		return nil, err
 	}
-	record := &domain.FileRecord{
+	record := &model.FileRecord{
 		OriginalName: in.FileName,
 		URL:          url,
 		Path:         url,
@@ -65,7 +56,7 @@ func (s *Service) Upload(ctx context.Context, in UploadInput) (*FileRecord, erro
 	return record, nil
 }
 
-func (s *Service) GetFile(ctx context.Context, id int64) (*FileRecord, error) {
+func (s *Service) GetFile(ctx context.Context, id int64) (*model.FileRecord, error) {
 	if s == nil || s.repo == nil {
 		return nil, errors.New("repository is required")
 	}
