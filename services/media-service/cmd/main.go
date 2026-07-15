@@ -37,8 +37,11 @@ func main() {
 	}
 	store := storage.NewLocalStorage(cfg.Upload.RootDir, cfg.Upload.PublicBasePath)
 	fileRepo := db.NewFileRepository(database)
-	uploadTasks := service.NewUploadTaskService(&cfg.Upload, db.NewUploadTaskRepository(database), db.NewUploadChunkRepository(database))
-	chunks := service.NewChunkService(db.NewUploadTaskRepository(database), db.NewUploadChunkRepository(database), storage.NewTmpStorage(""))
+	uploadTaskRepo := db.NewUploadTaskRepository(database)
+	uploadChunkRepo := db.NewUploadChunkRepository(database)
+	uploadTasks := service.NewUploadTaskService(&cfg.Upload, uploadTaskRepo, uploadChunkRepo)
+	tmpStore := storage.NewTmpStorage(cfg.Upload.TmpRootDir)
+	chunks := service.NewChunkService(uploadTaskRepo, uploadChunkRepo, tmpStore)
 	media := service.NewMediaService(store, fileRepo)
 	startMediaRPCServer(cfg.RPC.Port, kitexmediahandler.NewHandler(media))
 	h := newRouter(media, uploadTasks, chunks, configs.GetServerAddr())

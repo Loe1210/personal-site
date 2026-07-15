@@ -17,16 +17,12 @@ import (
 )
 
 type failingTaskStore struct {
-	task errorTask
-}
-
-type errorTask struct {
-	*model.UploadTask
+	task *model.UploadTask
 }
 
 func (s failingTaskStore) GetByUploadID(ctx context.Context, uploadID string, userID int64) (*model.UploadTask, error) {
-	if s.task.UploadTask != nil && s.task.UploadID == uploadID && s.task.UserID == userID {
-		return s.task.UploadTask, nil
+	if s.task != nil && s.task.UploadID == uploadID && s.task.UserID == userID {
+		return s.task, nil
 	}
 	return nil, errors.New("task not found")
 }
@@ -129,7 +125,7 @@ func TestChunkServiceRollsBackChunkOnProgressError(t *testing.T) {
 		ChunkCount: 2,
 		Status:     model.UploadTaskStatusUploading,
 	}
-	svc := NewChunkService(failingTaskStore{task: errorTask{UploadTask: task}}, chunkRepo, tmpStorage)
+	svc := NewChunkService(failingTaskStore{task: task}, chunkRepo, tmpStorage)
 
 	_, err = svc.UploadChunk(context.Background(), ChunkInput{
 		UserID:     task.UserID,

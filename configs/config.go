@@ -55,6 +55,7 @@ type MySQLConfig struct {
 type UploadConfig struct {
 	RootDir        string `yaml:"root_dir"`
 	PublicBasePath string `yaml:"public_base_path"`
+	TmpRootDir     string `yaml:"tmp_root_dir"`
 	MaxImageSizeMB int64  `yaml:"max_image_size_mb"`
 }
 
@@ -94,6 +95,7 @@ func Load(configPath string) (*Config, error) {
 	overrideInt(&cfg.Redis.DB, "REDIS_DB")
 	overrideString(&cfg.Upload.RootDir, "UPLOAD_ROOT_DIR")
 	overrideString(&cfg.Upload.PublicBasePath, "UPLOAD_PUBLIC_BASE_PATH")
+	overrideString(&cfg.Upload.TmpRootDir, "UPLOAD_TMP_ROOT_DIR")
 	overrideInt64(&cfg.Upload.MaxImageSizeMB, "UPLOAD_MAX_IMAGE_SIZE_MB")
 	overrideString(&cfg.Site.Title, "SITE_TITLE")
 	overrideString(&cfg.Site.BaseURL, "SITE_BASE_URL")
@@ -109,6 +111,9 @@ func Load(configPath string) (*Config, error) {
 	}
 	if cfg.RPC.Port == "" {
 		cfg.RPC.Port = "9100"
+	}
+	if cfg.Upload.TmpRootDir == "" {
+		cfg.Upload.TmpRootDir = "static/uploads/tmp"
 	}
 	if cfg.Upload.MaxImageSizeMB <= 0 {
 		cfg.Upload.MaxImageSizeMB = 5
@@ -126,7 +131,7 @@ func defaultConfig() *Config {
 		Session:      SessionConfig{Secret: "personal-site-session-secret"},
 		SessionStore: SessionStoreConfig{Prefix: "session:", ExpireHour: 2, CookieName: "session_id"},
 		Redis:        RedisConfig{Addr: "127.0.0.1:6379", DB: 0},
-		Upload:       UploadConfig{RootDir: "static/uploads/images", PublicBasePath: "/static/uploads/images", MaxImageSizeMB: 5},
+		Upload:       UploadConfig{RootDir: "static/uploads/images", PublicBasePath: "/static/uploads/images", TmpRootDir: "static/uploads/tmp", MaxImageSizeMB: 5},
 		Site:         SiteConfig{Title: "Personal Site", BaseURL: "http://localhost:8888"},
 	}
 }

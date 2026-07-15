@@ -87,6 +87,13 @@ func (s *ChunkService) UploadChunk(ctx context.Context, in ChunkInput) (*model.U
 		return nil, err
 	}
 
+	task, err = s.tasks.GetByUploadID(ctx, in.UploadID, in.UserID)
+	if err != nil {
+		_ = s.chunks.Delete(ctx, in.UploadID, in.ChunkIndex)
+		_ = s.storage.RemoveChunk(storagePath)
+		return nil, err
+	}
+
 	uploadedChunks := mergeUploadedChunks(task.UploadedChunks, in.ChunkIndex)
 	if err := s.tasks.UpdateProgress(ctx, task.UploadID, task.UserID, uploadedChunks, task.Status); err != nil {
 		rollbackErr := s.chunks.Delete(ctx, in.UploadID, in.ChunkIndex)
