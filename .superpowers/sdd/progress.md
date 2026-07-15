@@ -5,3 +5,4 @@ Task 2: complete (commit 7cbdaeb, go test ./services/auth-service/... -v and go 
 Task 3: complete (go test ./services/media-service/... -v and go test ./... passed)
 Task 4: complete (go test ./services/content-service/... ./services/web-bff/... -v and go test ./... passed)
 Task 5: complete (go test ./services/gateway/internal/router -v and go test ./... passed)
+Upload hardening Task 1: complete (commit b003256, go test ./services/media-service/... passed)
