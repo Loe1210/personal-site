@@ -10,11 +10,13 @@ Status: DONE
 - Wired the chunk service into `media-service` startup and route registration.
 - Fixed retry safety so re-sending the same chunk index replaces the previous chunk cleanly.
 - Fixed rollback safety so a failed progress update removes both the chunk file and its metadata row.
+- Fixed the tmp storage root wiring so chunk files respect the configured upload root.
+- Tightened config coverage for the new `upload.tmp_root_dir` setting.
 
 ## Verification
-- `go test ./services/media-service/internal/dal/storage -run TestTmpStorageWritesChunkToTmpPath -count=1`
-- `go test ./services/media-service/internal/service -run TestChunkServiceWritesChunkToTmpPath -count=1`
-- `go test ./services/media-service/internal/service -run TestChunkServiceRollsBackChunkOnProgressError -count=1`
+- `go test ./configs -run 'TestLoadUsesDefaultsWhenConfigFileMissing|TestLoadMergesYamlAndEnvOverrides' -count=1`
+- `go test ./services/media-service/internal/dal/storage -run 'TestTmpStorageWritesChunkToTmpPath|TestTmpStorageReplacesExistingChunk' -count=1`
+- `go test ./services/media-service/internal/service -run 'TestChunkServiceWritesChunkToTmpPath|TestChunkServiceRollsBackChunkOnProgressError' -count=1`
 - `go test ./services/media-service/...`
 
 ## Notes
@@ -22,4 +24,4 @@ Status: DONE
 - The task still relies on the request-supplied user id for now; later auth integration should replace that with shared session context.
 
 ## Commit
-- `a30d6c3`
+- `8e900c3`
