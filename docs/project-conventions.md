@@ -1,30 +1,33 @@
-﻿# 个人小站项目规范
+# 个人小站项目规范
 
 ## 1. 当前目标
 
-当前阶段的唯一目标是：
+当前阶段的目标是：
 
-**完成一个基于 Hertz 的单体个人小站，并在开发过程中持续记录开发日志，保证后续易于 review、易于回顾、易于演进。**
+**完成一个可本地运行、可持续演进的 Hertz + 微服务个人小站，并在开发过程中持续记录开发日志，保证后续易于 review、易于回顾、易于演进。**
 
-这个项目当前不追求一次性做全，而是按阶段推进：
+这个项目当前的工作方式是：
 
-1. 先完成单体闭环
-2. 再补完管理能力
-3. 最后为 `Kitex` 和 `Eino` 预留演进空间
+1. 浏览器入口走 `frontend` + `Nginx`
+2. 外部 HTTP 统一进入 `gateway`
+3. 业务能力拆到 `auth-service`、`content-service`、`media-service`、`web-bff`
+4. 认证使用 `session cookie + Redis`
+5. 后续 RPC 通过 `proto` 和 `Kitex` 逐步演进
 
 ## 2. 开发原则
 
 ### 2.1 项目形态
 
-- 当前是单体项目
+- 当前是微服务项目，不再回到旧单体入口
 - 核心接口采用 `proto` 做 IDL
+- 每个服务都要有自己的 `internal/model`
 - `handler/service/dal` 边界必须清晰
-- 页面渲染和内容接口可以共存
+- `frontend` 只负责静态页面和 `/api` 转发，不承载业务逻辑
 
 ### 2.2 不做的事
 
-- 不做过早微服务拆分
-- 不做过重后台系统
+- 不恢复旧单体入口、旧 `biz/`、旧 `service/` 和旧根 IDL
+- 不做过早耦合的服务间 RPC
 - 不把页面 view model 全部 proto 化
 - 不把所有功能一次性塞进第一版
 
@@ -32,7 +35,7 @@
 
 - 核心接口优先走 IDL
 - 登录逻辑自己写 handler，不使用库内置登录 handler
-- JWT 只负责签发和校验
+- Session 通过 cookie + Redis 共享
 - 每完成一个阶段都补开发日志
 - 每个功能闭环完成后再提交合并
 
@@ -42,35 +45,23 @@
 
 ```text
 personal_site/
+├── frontend/
+├── services/
+│   ├── gateway/
+│   ├── auth-service/
+│   ├── content-service/
+│   ├── media-service/
+│   └── web-bff/
 ├── idl/
-│   ├── article.proto
-│   ├── auth.proto
-│   ├── upload.proto
-│   ├── tag.proto
-│   └── category.proto
-├── biz/
-│   ├── handler/
-│   ├── service/
-│   ├── dal/
-│   │   └── db/
-│   ├── model/
-│   ├── router/
-│   └── mw/
-├── pkg/
-│   ├── configs/
-│   ├── constants/
-│   ├── errno/
-│   ├── response/
-│   └── utils/
-├── templates/
-├── static/
+│   ├── auth/
+│   ├── content/
+│   └── media/
 ├── docs/
 │   ├── devlog/
-│   ├── personal-site-ui-spec.md
-│   ├── personal-site-backend-plan.md
-│   ├── personal-site-idl-plan.md
-│   └── project-conventions.md
-└── main.go
+│   ├── runbooks/
+│   └── superpowers/
+├── deploy/
+└── README.md
 ```
 
 ## 4. Git 工作流
@@ -92,41 +83,11 @@ personal_site/
 4. 推送到功能分支
 5. 合并到主分支
 
-这条流程是后续默认工作方式。
-
 ### 4.2 分支策略
 
 不按“模块”分支，而按“阶段 / 功能闭环”分支。
 
-推荐分支：
-
-- `main`
-  稳定分支
-
-- `feat/project-bootstrap`
-- `feat/idl-article-auth-upload`
-- `feat/auth-login-jwt`
-- `feat/article-crud`
-- `feat/upload-image`
-- `feat/tag-category`
-- `feat/blog-pages`
-- `feat/release-prep`
-
-### 4.3 为什么不按模块分支
-
-因为一个真实功能通常会同时修改：
-
-- `idl`
-- `handler`
-- `service`
-- `dal`
-- `router`
-- 页面
-- 文档
-
-如果按模块分支，后面合并会很乱。
-
-### 4.4 合并原则
+### 4.3 合并原则
 
 - 一个分支只承载一个明确阶段目标
 - 阶段未完成前，不急着合并
@@ -140,7 +101,7 @@ personal_site/
 
 ```text
 feat: add article proto
-feat: implement admin login with jwt
+feat: implement admin login with session
 docs: add phase 01 development log
 refactor: simplify article service flow
 fix: handle empty article slug
@@ -154,85 +115,19 @@ fix: handle empty article slug
 docs/devlog/
 ```
 
-文件命名：
-
-```text
-phase-01.md
-phase-02.md
-phase-03.md
-```
-
-每篇开发日志建议固定结构：
-
-```md
-# Phase X
-
-## 目标
-
-## 完成内容
-
-## 设计决策
-
-## 遇到的问题
-
-## 当前结果
-
-## 下一步
-```
-
 ## 7. IDL 规范
 
-### 7.1 每个领域一个 proto
+- 核心接口使用 `proto`
+- 每个 proto 独立 `package`
+- 每个 proto 独立 `go_package`
+- 避免多个 proto 生成到同一个 Go 包
 
-第一批 proto：
-
-- `article.proto`
-- `auth.proto`
-- `upload.proto`
-
-后续 proto：
-
-- `tag.proto`
-- `category.proto`
-
-### 7.2 每个 proto 独立 package
-
-例如：
-
-```proto
-package article;
-option go_package = "personal_site/biz/model/article;article";
-```
-
-### 7.3 不同 proto 不生成到同一 Go 包
-
-这是为了避免互相覆盖和命名冲突。
-
-## 8. 第一阶段范围
-
-第一阶段只做三件事：
-
-1. 确定目录和规范
-2. 起草第一版 IDL
-3. 建立第一篇开发日志
-
-不要在这一阶段直接扩展业务逻辑。
-
-## 9. 下一步顺序
-
-Phase 01 结束后，下一步建议按这个顺序做：
-
-1. 初始化项目骨架
-2. 接数据库和配置
-3. 实现 JWT
-4. 实现认证接口
-5. 实现文章主链路
-
-## 10. 当前阶段的成功标准
+## 8. 当前阶段成功标准
 
 当前阶段完成后，应当具备：
 
+- 浏览器入口明确
+- 微服务入口明确
 - 目录规范明确
 - 开发日志规范明确
-- 第一批 proto 初稿已存在
 - 后续开发可以按文档和 proto 直接进入实现

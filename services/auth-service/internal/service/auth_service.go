@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/Loe1210/personal-site/pkg/xauth"
 	"github.com/Loe1210/personal-site/services/auth-service/internal/model"
+	"github.com/Loe1210/personal-site/services/auth-service/pkg/xauth"
 )
 
 type User = model.User

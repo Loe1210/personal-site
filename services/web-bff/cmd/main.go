@@ -9,9 +9,9 @@ import (
 	"github.com/cloudwego/hertz/pkg/app/server"
 
 	"github.com/Loe1210/personal-site/configs"
-	"github.com/Loe1210/personal-site/pkg/xotel"
 	"github.com/Loe1210/personal-site/services/web-bff/internal/assembler"
 	httpHandler "github.com/Loe1210/personal-site/services/web-bff/internal/handler/http"
+	"github.com/Loe1210/personal-site/services/web-bff/pkg/xotel"
 )
 
 var (

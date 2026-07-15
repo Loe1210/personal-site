@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Loe1210/personal-site/pkg/xauth"
 	"github.com/Loe1210/personal-site/services/auth-service/internal/model"
+	"github.com/Loe1210/personal-site/services/auth-service/pkg/xauth"
 )
 
 type fakeUserRepository struct {

@@ -7,9 +7,10 @@ import (
 	"os"
 
 	"github.com/Loe1210/personal-site/configs"
-	"github.com/Loe1210/personal-site/pkg/xotel"
 	"github.com/Loe1210/personal-site/services/content-service/internal/dal/db"
+	kitexcontenthandler "github.com/Loe1210/personal-site/services/content-service/internal/handler/rpc"
 	"github.com/Loe1210/personal-site/services/content-service/internal/service"
+	"github.com/Loe1210/personal-site/services/content-service/pkg/xotel"
 )
 
 var configPath = flag.String("config", "services/content-service/configs/config.yaml", "content service config path")
@@ -33,8 +34,12 @@ func main() {
 	if err := db.Migrate(database); err != nil {
 		log.Fatal(err)
 	}
-	articles := service.NewArticleService(db.NewArticleRepository(database))
-	h := newRouter(articles, configs.GetServerAddr())
+	repo := db.NewArticleRepository(database)
+	articles := service.NewArticleService(repo)
+	categories := service.NewCategoryService(repo)
+	tags := service.NewTagService(repo)
+	startContentRPCServer(cfg.RPC.Port, kitexcontenthandler.NewHandler(articles))
+	h := newRouter(articles, categories, tags, configs.GetServerAddr())
 	log.Printf("content-service listening on %s", configs.GetServerAddr())
 	h.Spin()
 }

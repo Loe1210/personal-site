@@ -7,9 +7,9 @@ import (
 	"github.com/cloudwego/hertz/pkg/protocol"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 
-	"github.com/Loe1210/personal-site/pkg/xauth"
 	bizmodel "github.com/Loe1210/personal-site/services/auth-service/biz/model"
 	"github.com/Loe1210/personal-site/services/auth-service/internal/service"
+	"github.com/Loe1210/personal-site/services/auth-service/pkg/xauth"
 )
 
 type Handler struct {

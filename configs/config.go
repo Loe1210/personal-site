@@ -1,11 +1,15 @@
 package configs
 
 import (
-	"github.com/Loe1210/personal-site/pkg/xconfig"
+	"os"
+	"strconv"
+
+	"gopkg.in/yaml.v2"
 )
 
 type Config struct {
 	Server       ServerConfig       `yaml:"server"`
+	RPC          RPCConfig          `yaml:"rpc"`
 	MySQL        MySQLConfig        `yaml:"mysql"`
 	Session      SessionConfig      `yaml:"session"`
 	SessionStore SessionStoreConfig `yaml:"session_store"`
@@ -16,6 +20,10 @@ type Config struct {
 
 type ServerConfig struct {
 	Host string `yaml:"host"`
+	Port string `yaml:"port"`
+}
+
+type RPCConfig struct {
 	Port string `yaml:"port"`
 }
 
@@ -64,30 +72,31 @@ func Load(configPath string) (*Config, error) {
 		configPath = "configs/config.yaml"
 	}
 
-	if err := xconfig.LoadYAML(configPath, cfg); err != nil {
+	if err := loadYAML(configPath, cfg); err != nil {
 		return nil, err
 	}
 
-	xconfig.OverrideString(&cfg.Server.Host, "APP_HOST")
-	xconfig.OverrideString(&cfg.Server.Port, "APP_PORT")
-	xconfig.OverrideString(&cfg.MySQL.Host, "MYSQL_HOST")
-	xconfig.OverrideString(&cfg.MySQL.Port, "MYSQL_PORT")
-	xconfig.OverrideString(&cfg.MySQL.User, "MYSQL_USER")
-	xconfig.OverrideString(&cfg.MySQL.Password, "MYSQL_PASSWORD")
-	xconfig.OverrideString(&cfg.MySQL.DBName, "MYSQL_DBNAME")
-	xconfig.OverrideString(&cfg.MySQL.Charset, "MYSQL_CHARSET")
-	xconfig.OverrideString(&cfg.Session.Secret, "SESSION_SECRET")
-	xconfig.OverrideString(&cfg.SessionStore.Prefix, "SESSION_STORE_PREFIX")
-	xconfig.OverrideInt(&cfg.SessionStore.ExpireHour, "SESSION_STORE_EXPIRE_HOUR")
-	xconfig.OverrideString(&cfg.SessionStore.CookieName, "SESSION_STORE_COOKIE_NAME")
-	xconfig.OverrideString(&cfg.Redis.Addr, "REDIS_ADDR")
-	xconfig.OverrideString(&cfg.Redis.Password, "REDIS_PASSWORD")
-	xconfig.OverrideInt(&cfg.Redis.DB, "REDIS_DB")
-	xconfig.OverrideString(&cfg.Upload.RootDir, "UPLOAD_ROOT_DIR")
-	xconfig.OverrideString(&cfg.Upload.PublicBasePath, "UPLOAD_PUBLIC_BASE_PATH")
-	xconfig.OverrideInt64(&cfg.Upload.MaxImageSizeMB, "UPLOAD_MAX_IMAGE_SIZE_MB")
-	xconfig.OverrideString(&cfg.Site.Title, "SITE_TITLE")
-	xconfig.OverrideString(&cfg.Site.BaseURL, "SITE_BASE_URL")
+	overrideString(&cfg.Server.Host, "APP_HOST")
+	overrideString(&cfg.Server.Port, "APP_PORT")
+	overrideString(&cfg.RPC.Port, "RPC_PORT")
+	overrideString(&cfg.MySQL.Host, "MYSQL_HOST")
+	overrideString(&cfg.MySQL.Port, "MYSQL_PORT")
+	overrideString(&cfg.MySQL.User, "MYSQL_USER")
+	overrideString(&cfg.MySQL.Password, "MYSQL_PASSWORD")
+	overrideString(&cfg.MySQL.DBName, "MYSQL_DBNAME")
+	overrideString(&cfg.MySQL.Charset, "MYSQL_CHARSET")
+	overrideString(&cfg.Session.Secret, "SESSION_SECRET")
+	overrideString(&cfg.SessionStore.Prefix, "SESSION_STORE_PREFIX")
+	overrideInt(&cfg.SessionStore.ExpireHour, "SESSION_STORE_EXPIRE_HOUR")
+	overrideString(&cfg.SessionStore.CookieName, "SESSION_STORE_COOKIE_NAME")
+	overrideString(&cfg.Redis.Addr, "REDIS_ADDR")
+	overrideString(&cfg.Redis.Password, "REDIS_PASSWORD")
+	overrideInt(&cfg.Redis.DB, "REDIS_DB")
+	overrideString(&cfg.Upload.RootDir, "UPLOAD_ROOT_DIR")
+	overrideString(&cfg.Upload.PublicBasePath, "UPLOAD_PUBLIC_BASE_PATH")
+	overrideInt64(&cfg.Upload.MaxImageSizeMB, "UPLOAD_MAX_IMAGE_SIZE_MB")
+	overrideString(&cfg.Site.Title, "SITE_TITLE")
+	overrideString(&cfg.Site.BaseURL, "SITE_BASE_URL")
 
 	if cfg.SessionStore.Prefix == "" {
 		cfg.SessionStore.Prefix = "session:"
@@ -97,6 +106,9 @@ func Load(configPath string) (*Config, error) {
 	}
 	if cfg.SessionStore.ExpireHour <= 0 {
 		cfg.SessionStore.ExpireHour = 2
+	}
+	if cfg.RPC.Port == "" {
+		cfg.RPC.Port = "9100"
 	}
 	if cfg.Upload.MaxImageSizeMB <= 0 {
 		cfg.Upload.MaxImageSizeMB = 5
@@ -108,37 +120,14 @@ func Load(configPath string) (*Config, error) {
 
 func defaultConfig() *Config {
 	return &Config{
-		Server: ServerConfig{
-			Host: "",
-			Port: "8888",
-		},
-		MySQL: MySQLConfig{
-			Host:    "127.0.0.1",
-			Port:    "3306",
-			User:    "root",
-			Charset: "utf8mb4",
-		},
-		Session: SessionConfig{
-			Secret: "personal-site-session-secret",
-		},
-		SessionStore: SessionStoreConfig{
-			Prefix:     "session:",
-			ExpireHour: 2,
-			CookieName: "session_id",
-		},
-		Redis: RedisConfig{
-			Addr: "127.0.0.1:6379",
-			DB:   0,
-		},
-		Upload: UploadConfig{
-			RootDir:        "static/uploads/images",
-			PublicBasePath: "/static/uploads/images",
-			MaxImageSizeMB: 5,
-		},
-		Site: SiteConfig{
-			Title:   "Personal Site",
-			BaseURL: "http://localhost:8888",
-		},
+		Server:       ServerConfig{Host: "", Port: "8888"},
+		RPC:          RPCConfig{Port: "9100"},
+		MySQL:        MySQLConfig{Host: "127.0.0.1", Port: "3306", User: "root", Charset: "utf8mb4"},
+		Session:      SessionConfig{Secret: "personal-site-session-secret"},
+		SessionStore: SessionStoreConfig{Prefix: "session:", ExpireHour: 2, CookieName: "session_id"},
+		Redis:        RedisConfig{Addr: "127.0.0.1:6379", DB: 0},
+		Upload:       UploadConfig{RootDir: "static/uploads/images", PublicBasePath: "/static/uploads/images", MaxImageSizeMB: 5},
+		Site:         SiteConfig{Title: "Personal Site", BaseURL: "http://localhost:8888"},
 	}
 }
 
@@ -147,4 +136,47 @@ func GetServerAddr() string {
 		return ":8888"
 	}
 	return AppConfig.Server.Host + ":" + AppConfig.Server.Port
+}
+
+func GetRPCAddr() string {
+	if AppConfig == nil {
+		return ":9100"
+	}
+	return AppConfig.Server.Host + ":" + AppConfig.RPC.Port
+}
+
+func loadYAML(path string, target interface{}) error {
+	if path == "" {
+		return nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	return yaml.Unmarshal(data, target)
+}
+
+func overrideString(dst *string, envName string) {
+	if value := os.Getenv(envName); value != "" {
+		*dst = value
+	}
+}
+
+func overrideInt(dst *int, envName string) {
+	if value := os.Getenv(envName); value != "" {
+		if parsed, err := strconv.Atoi(value); err == nil {
+			*dst = parsed
+		}
+	}
+}
+
+func overrideInt64(dst *int64, envName string) {
+	if value := os.Getenv(envName); value != "" {
+		if parsed, err := strconv.ParseInt(value, 10, 64); err == nil {
+			*dst = parsed
+		}
+	}
 }

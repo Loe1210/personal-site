@@ -7,8 +7,8 @@ import (
 	"github.com/Loe1210/personal-site/services/content-service/internal/service"
 )
 
-func newRouter(articles *service.ArticleService, addr string) *server.Hertz {
+func newRouter(articles *service.ArticleService, categories *service.CategoryService, tags *service.TagService, addr string) *server.Hertz {
 	h := server.Default(server.WithHostPorts(addr))
-	biz.RegisterRoutes(h, articles)
+	biz.RegisterRoutes(h, articles, categories, tags)
 	return h
 }

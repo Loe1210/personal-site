@@ -1,5 +1,3 @@
-version: "3.9"
-
 x-go-env: &go-env
   MYSQL_HOST: mysql
   MYSQL_PORT: "3306"
@@ -153,6 +151,16 @@ services:
       WEB_BFF_URL: http://web-bff:9004
     ports:
       - "8888:8888"
+
+  frontend:
+    build:
+      context: ../..
+      dockerfile: frontend/Dockerfile
+    depends_on:
+      gateway:
+        condition: service_started
+    ports:
+      - "8080:80"
 
 volumes:
   mysql-data:

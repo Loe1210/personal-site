@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package auth;
+
+option go_package = "github.com/Loe1210/personal-site/kitex_gen/auth;auth";
+
+message AuthContext {
+  int64 user_id = 1;
+  string username = 2;
+  repeated string roles = 3;
+}
+
+message ValidateSessionRequest {
+  string session_id = 1;
+}
+
+message CheckPermissionRequest {
+  int64 user_id = 1;
+  string code = 2;
+}
+
+message CheckPermissionResponse {
+  bool allowed = 1;
+}
+
+service AuthService {
+  rpc ValidateSession(ValidateSessionRequest) returns (AuthContext);
+  rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse);
+}

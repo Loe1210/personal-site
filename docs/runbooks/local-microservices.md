@@ -8,7 +8,7 @@
 make micro-up
 ```
 
-该命令会通过 `deploy/docker/compose.yaml` 拉起 MySQL、Redis、Nacos、OTEL Collector、Prometheus、Grafana、Jaeger，以及 `auth-service`、`media-service`、`content-service`、`web-bff`、`gateway`。
+该命令会通过 `deploy/docker/compose.yaml` 拉起 MySQL、Redis、Nacos、OTEL Collector、Prometheus、Grafana、Jaeger，以及 `auth-service`、`media-service`、`content-service`、`web-bff`、`gateway` 和 `frontend`。
 
 ## 数据库初始化
 
@@ -39,6 +39,7 @@ make micro-smoke
 
 ## 服务端口
 
+- frontend: `http://127.0.0.1:8080`
 - gateway: `http://127.0.0.1:8888`
 - auth-service: `http://127.0.0.1:9001`
 - media-service: `http://127.0.0.1:9002`

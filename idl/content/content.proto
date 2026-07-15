@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package content;
+
+option go_package = "github.com/Loe1210/personal-site/kitex_gen/content;content";
+
+message Tag {
+  int64 id = 1;
+  string name = 2;
+  string slug = 3;
+}
+
+message Category {
+  int64 id = 1;
+  string name = 2;
+  string slug = 3;
+  string description = 4;
+}
+
+message Article {
+  int64 id = 1;
+  string title = 2;
+  string slug = 3;
+  string summary = 4;
+  string content_md = 5;
+  string content_html = 6;
+  string cover_image = 7;
+  int64 category_id = 8;
+  repeated int64 tag_ids = 9;
+  string status = 10;
+  repeated Tag tags = 11;
+}
+
+message GetArticleByIDRequest {
+  int64 id = 1;
+}
+
+message ListPublicArticlesRequest {
+  int64 page = 1;
+  int64 page_size = 2;
+  string keyword = 3;
+}
+
+message ListArticlesResponse {
+  repeated Article list = 1;
+  int64 total = 2;
+}
+
+message GetArticleResponse {
+  Article article = 1;
+}
+
+message CreateArticleRequest {
+  Article article = 1;
+}
+
+message UpdateArticleRequest {
+  Article article = 1;
+}
+
+message DeleteArticleRequest {
+  int64 id = 1;
+}
+
+message DeleteArticleResponse {
+  bool success = 1;
+}
+
+service ContentService {
+  rpc GetArticleByID(GetArticleByIDRequest) returns (GetArticleResponse);
+  rpc ListPublicArticles(ListPublicArticlesRequest) returns (ListArticlesResponse);
+  rpc CreateArticle(CreateArticleRequest) returns (GetArticleResponse);
+  rpc UpdateArticle(UpdateArticleRequest) returns (GetArticleResponse);
+  rpc DeleteArticle(DeleteArticleRequest) returns (DeleteArticleResponse);
+}

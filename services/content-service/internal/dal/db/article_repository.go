@@ -31,9 +31,10 @@ type ArticleTag struct {
 }
 
 type Tag struct {
-	ID   int64
-	Name string
-	Slug string
+	ID          int64
+	Name        string
+	Slug        string
+	Description string
 }
 
 type ArticleRepository struct {
@@ -103,6 +104,69 @@ func (r *ArticleRepository) Delete(ctx context.Context, id int64) error {
 		return err
 	}
 	return r.db.WithContext(ctx).Delete(&Article{}, id).Error
+}
+
+func (r *ArticleRepository) ListCategories(ctx context.Context) ([]model.Category, error) {
+	var rows []categoryMigrationModel
+	if err := r.db.WithContext(ctx).Order("id ASC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	result := make([]model.Category, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, model.Category{ID: row.ID, Name: row.Name, Slug: row.Slug, Description: row.Description})
+	}
+	return result, nil
+}
+
+func (r *ArticleRepository) CreateCategory(ctx context.Context, category *model.Category) error {
+	row := categoryMigrationModel{Name: category.Name, Slug: category.Slug, Description: category.Description}
+	if err := r.db.WithContext(ctx).Create(&row).Error; err != nil {
+		return err
+	}
+	category.ID = row.ID
+	return nil
+}
+
+func (r *ArticleRepository) UpdateCategory(ctx context.Context, category *model.Category) error {
+	row := categoryMigrationModel{Name: category.Name, Slug: category.Slug, Description: category.Description}
+	return r.db.WithContext(ctx).Model(&categoryMigrationModel{}).Where("id = ?", category.ID).Updates(row).Error
+}
+
+func (r *ArticleRepository) DeleteCategory(ctx context.Context, id int64) error {
+	return r.db.WithContext(ctx).Delete(&categoryMigrationModel{}, id).Error
+}
+
+func (r *ArticleRepository) ListTags(ctx context.Context) ([]model.Tag, error) {
+	var rows []Tag
+	if err := r.db.WithContext(ctx).Order("id ASC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	result := make([]model.Tag, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, model.Tag{ID: row.ID, Name: row.Name, Slug: row.Slug, Description: row.Description})
+	}
+	return result, nil
+}
+
+func (r *ArticleRepository) CreateTag(ctx context.Context, tag *model.Tag) error {
+	row := Tag{Name: tag.Name, Slug: tag.Slug, Description: tag.Description}
+	if err := r.db.WithContext(ctx).Create(&row).Error; err != nil {
+		return err
+	}
+	tag.ID = row.ID
+	return nil
+}
+
+func (r *ArticleRepository) UpdateTag(ctx context.Context, tag *model.Tag) error {
+	row := Tag{Name: tag.Name, Slug: tag.Slug, Description: tag.Description}
+	return r.db.WithContext(ctx).Model(&Tag{}).Where("id = ?", tag.ID).Updates(row).Error
+}
+
+func (r *ArticleRepository) DeleteTag(ctx context.Context, id int64) error {
+	if err := r.db.WithContext(ctx).Where("tag_id = ?", id).Delete(&ArticleTag{}).Error; err != nil {
+		return err
+	}
+	return r.db.WithContext(ctx).Delete(&Tag{}, id).Error
 }
 
 func (r *ArticleRepository) tagsForArticle(ctx context.Context, articleID int64) ([]model.TagDTO, error) {

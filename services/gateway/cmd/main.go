@@ -9,8 +9,8 @@ import (
 	"github.com/cloudwego/hertz/pkg/app/server"
 
 	"github.com/Loe1210/personal-site/configs"
-	"github.com/Loe1210/personal-site/pkg/xotel"
 	"github.com/Loe1210/personal-site/services/gateway/internal/router"
+	"github.com/Loe1210/personal-site/services/gateway/pkg/xotel"
 )
 
 var configPath = flag.String("config", "configs/config.yaml", "gateway config path")

@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package media;
+
+option go_package = "github.com/Loe1210/personal-site/kitex_gen/media;media";
+
+message FileRecord {
+  int64 id = 1;
+  string original_name = 2;
+  string url = 3;
+  string path = 4;
+  string content_type = 5;
+  int64 size = 6;
+  string biz_type = 7;
+  string created_at = 8;
+}
+
+message GetFileRequest {
+  int64 id = 1;
+}
+
+message GetFileResponse {
+  FileRecord file = 1;
+}
+
+service MediaService {
+  rpc GetFile(GetFileRequest) returns (GetFileResponse);
+}

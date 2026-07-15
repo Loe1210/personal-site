@@ -11,10 +11,11 @@ import (
 	"github.com/gomodule/redigo/redis"
 
 	"github.com/Loe1210/personal-site/configs"
-	"github.com/Loe1210/personal-site/pkg/xauth"
-	"github.com/Loe1210/personal-site/pkg/xotel"
 	"github.com/Loe1210/personal-site/services/auth-service/internal/dal/db"
+	kitexauthhandler "github.com/Loe1210/personal-site/services/auth-service/internal/handler/rpc"
 	"github.com/Loe1210/personal-site/services/auth-service/internal/service"
+	"github.com/Loe1210/personal-site/services/auth-service/pkg/xauth"
+	"github.com/Loe1210/personal-site/services/auth-service/pkg/xotel"
 )
 
 var configPath = flag.String("config", "services/auth-service/configs/config.yaml", "auth service config path")
@@ -54,6 +55,7 @@ func main() {
 	}
 	xauth.UseStore(xauth.NewRedisStore(redisPool, cfg.SessionStore.Prefix))
 	authService := service.NewAuthService(db.NewUserRepository(database))
+	startAuthRPCServer(cfg.RPC.Port, kitexauthhandler.NewHandler(authService))
 	h := server.Default(server.WithHostPorts(configs.GetServerAddr()))
 	registerRoutes(h, authService)
 	log.Printf("auth-service listening on %s", configs.GetServerAddr())

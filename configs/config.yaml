@@ -1,6 +1,8 @@
-server:
+﻿server:
   host: ""
   port: "8888"
+rpc:
+  port: "9100"
 
 mysql:
   host: "127.0.0.1"

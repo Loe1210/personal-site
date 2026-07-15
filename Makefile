@@ -1,4 +1,4 @@
-.PHONY: micro-up micro-down micro-test micro-smoke
+.PHONY: micro-up micro-down micro-test micro-smoke proto-check proto-gen
 
 micro-up:
 	docker compose -f deploy/docker/compose.yaml up -d --build
@@ -11,3 +11,9 @@ micro-test:
 
 micro-smoke:
 	powershell -ExecutionPolicy Bypass -File scripts/smoke/microservices_smoke.ps1
+
+proto-check:
+	go run ./scripts/proto/check
+
+proto-gen: proto-check
+	powershell -ExecutionPolicy Bypass -File scripts/proto/gen.ps1

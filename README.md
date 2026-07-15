@@ -4,11 +4,12 @@
 
 ## 当前架构
 
-- `services/gateway`：统一 HTTP 入口，默认监听 `http://localhost:8888`
+- `services/gateway`：统一 HTTP 入口，默认监听 `http://127.0.0.1:8888`
 - `services/auth-service`：登录、登出、当前用户、权限校验基础能力
 - `services/content-service`：文章内容域，包含文章列表和文章详情等接口
 - `services/media-service`：上传和文件元数据能力
 - `services/web-bff`：面向前台页面的聚合层
+- `frontend`：Nginx 静态前端入口，默认访问 `http://127.0.0.1:8080`
 - `deploy/docker/compose.yaml`：本地微服务运行环境
 
 ## 本地运行
@@ -25,10 +26,16 @@ make micro-up
 docker compose -f deploy/docker/compose.yaml up -d --build
 ```
 
-启动后优先访问 gateway：
+启动后优先访问前端页面：
 
 ```text
-http://localhost:8888
+http://127.0.0.1:8080
+```
+
+后端 API 网关仍然保留在：
+
+```text
+http://127.0.0.1:8888
 ```
 
 ## 验证
