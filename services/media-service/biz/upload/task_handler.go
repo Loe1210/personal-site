@@ -19,17 +19,17 @@ func NewTaskHandler(service *service.UploadTaskService) *TaskHandler {
 }
 
 func (h *TaskHandler) InitUpload(ctx context.Context, c *app.RequestContext) {
-	userID, err := parseUploadUserID(c)
+	userID, err := parseTaskUploadUserID(c)
 	if err != nil {
 		c.JSON(consts.StatusBadRequest, map[string]any{"code": 20020, "message": err.Error()})
 		return
 	}
-	fileSize, err := parseFormInt64(c, "file_size")
+	fileSize, err := parseTaskFormInt64(c, "file_size")
 	if err != nil {
 		c.JSON(consts.StatusBadRequest, map[string]any{"code": 20021, "message": "invalid file size"})
 		return
 	}
-	chunkSize, err := parseFormInt64(c, "chunk_size")
+	chunkSize, err := parseTaskFormInt64(c, "chunk_size")
 	if err != nil {
 		c.JSON(consts.StatusBadRequest, map[string]any{"code": 20022, "message": "invalid chunk size"})
 		return
@@ -52,7 +52,7 @@ func (h *TaskHandler) InitUpload(ctx context.Context, c *app.RequestContext) {
 }
 
 func (h *TaskHandler) GetUpload(ctx context.Context, c *app.RequestContext) {
-	userID, err := parseUploadUserID(c)
+	userID, err := parseTaskUploadUserID(c)
 	if err != nil {
 		c.JSON(consts.StatusBadRequest, map[string]any{"code": 20024, "message": err.Error()})
 		return
@@ -66,7 +66,7 @@ func (h *TaskHandler) GetUpload(ctx context.Context, c *app.RequestContext) {
 }
 
 func (h *TaskHandler) CancelUpload(ctx context.Context, c *app.RequestContext) {
-	userID, err := parseUploadUserID(c)
+	userID, err := parseTaskUploadUserID(c)
 	if err != nil {
 		c.JSON(consts.StatusBadRequest, map[string]any{"code": 20026, "message": err.Error()})
 		return
@@ -79,7 +79,7 @@ func (h *TaskHandler) CancelUpload(ctx context.Context, c *app.RequestContext) {
 }
 
 func (h *TaskHandler) CompleteUpload(ctx context.Context, c *app.RequestContext) {
-	userID, err := parseUploadUserID(c)
+	userID, err := parseTaskUploadUserID(c)
 	if err != nil {
 		c.JSON(consts.StatusBadRequest, map[string]any{"code": 20028, "message": err.Error()})
 		return
@@ -91,11 +91,11 @@ func (h *TaskHandler) CompleteUpload(ctx context.Context, c *app.RequestContext)
 	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success"})
 }
 
-func parseUploadUserID(c *app.RequestContext) (int64, error) {
-	return parseFormInt64(c, "user_id")
+func parseTaskUploadUserID(c *app.RequestContext) (int64, error) {
+	return parseTaskFormInt64(c, "user_id")
 }
 
-func parseFormInt64(c *app.RequestContext, key string) (int64, error) {
+func parseTaskFormInt64(c *app.RequestContext, key string) (int64, error) {
 	value := c.PostForm(key)
 	if value == "" {
 		value = c.Query(key)
