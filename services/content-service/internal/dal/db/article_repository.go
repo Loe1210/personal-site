@@ -111,9 +111,28 @@ func (r *ArticleRepository) ListCategories(ctx context.Context) ([]model.Categor
 	if err := r.db.WithContext(ctx).Order("id ASC").Find(&rows).Error; err != nil {
 		return nil, err
 	}
+	counts := make(map[int64]int64, len(rows))
+	if len(rows) > 0 {
+		var countRows []struct {
+			CategoryID int64
+			Count      int64
+		}
+		if err := r.db.WithContext(ctx).
+			Model(&Article{}).
+			Select("category_id, COUNT(*) AS count").
+			Where("status = ?", "published").
+			Where("category_id <> 0").
+			Group("category_id").
+			Scan(&countRows).Error; err != nil {
+			return nil, err
+		}
+		for _, row := range countRows {
+			counts[row.CategoryID] = row.Count
+		}
+	}
 	result := make([]model.Category, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, model.Category{ID: row.ID, Name: row.Name, Slug: row.Slug, Description: row.Description})
+		result = append(result, model.Category{ID: row.ID, Name: row.Name, Slug: row.Slug, Description: row.Description, ArticleCount: counts[row.ID]})
 	}
 	return result, nil
 }
@@ -141,9 +160,28 @@ func (r *ArticleRepository) ListTags(ctx context.Context) ([]model.Tag, error) {
 	if err := r.db.WithContext(ctx).Order("id ASC").Find(&rows).Error; err != nil {
 		return nil, err
 	}
+	counts := make(map[int64]int64, len(rows))
+	if len(rows) > 0 {
+		var countRows []struct {
+			TagID int64
+			Count int64
+		}
+		if err := r.db.WithContext(ctx).
+			Table("article_tags").
+			Select("article_tags.tag_id, COUNT(DISTINCT article_tags.article_id) AS count").
+			Joins("JOIN articles ON articles.id = article_tags.article_id").
+			Where("articles.status = ?", "published").
+			Group("article_tags.tag_id").
+			Scan(&countRows).Error; err != nil {
+			return nil, err
+		}
+		for _, row := range countRows {
+			counts[row.TagID] = row.Count
+		}
+	}
 	result := make([]model.Tag, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, model.Tag{ID: row.ID, Name: row.Name, Slug: row.Slug, Description: row.Description})
+		result = append(result, model.Tag{ID: row.ID, Name: row.Name, Slug: row.Slug, Description: row.Description, ArticleCount: counts[row.ID]})
 	}
 	return result, nil
 }
@@ -220,6 +258,9 @@ func toArticleDetail(article Article, tags []model.TagDTO) *model.ArticleDetail 
 		CategoryID:  article.CategoryID,
 		TagIDs:      tagIDs,
 		Status:      article.Status,
+		CreatedAt:   article.CreatedAt,
+		UpdatedAt:   article.UpdatedAt,
+		PublishedAt: article.PublishedAt,
 		Tags:        tags,
 	}
 }

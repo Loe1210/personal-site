@@ -69,3 +69,19 @@ func TestGetFileDelegatesToRepository(t *testing.T) {
 		t.Fatalf("expected repository record to be returned")
 	}
 }
+
+func TestUploadRejectsNonImageContent(t *testing.T) {
+	svc := NewMediaService(&fakeStorage{url: "/uploads/readme.txt"}, &fakeRepository{})
+
+	_, err := svc.Upload(context.Background(), model.UploadInput{
+		FileName:    "readme.txt",
+		Content:     []byte("hello"),
+		ContentType: "text/plain",
+	})
+	if err == nil {
+		t.Fatal("expected non-image upload to be rejected")
+	}
+	if err.Error() != "only image uploads are allowed" {
+		t.Fatalf("expected image validation error, got %q", err.Error())
+	}
+}

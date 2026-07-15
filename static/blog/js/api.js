@@ -69,7 +69,20 @@
         }).filter(function(name) { return name !== null; });
     }
 
+    function estimateReadingTime(article) {
+        article = article || {};
+        var text = [article.content_md, article.content_html, article.summary, article.title]
+            .filter(Boolean)
+            .join(' ')
+            .replace(/<[^>]*>/g, ' ');
+        var chineseChars = (text.match(/[一-鿿]/g) || []).length;
+        var englishWords = (text.replace(/[一-鿿]/g, ' ').match(/[A-Za-z0-9_]+(?:[-'][A-Za-z0-9_]+)*/g) || []).length;
+        var minutes = (chineseChars / 350) + (englishWords / 200);
+        return Math.max(1, Math.ceil(minutes || 1));
+    }
+
     function mapBackendArticle(article) {
+        article = article || {};
         var categoryName = '';
         if (article.category_name) {
             categoryName = article.category_name;
@@ -91,7 +104,7 @@
             slug: article.slug,
             title: article.title,
             summary: article.summary,
-            cover: article.cover_image,
+            cover: article.cover_image || '',
             category: categoryName,
             category_id: article.category_id,
             tags: tagNames,
@@ -99,7 +112,7 @@
             created_at: article.created_at,
             updated_at: article.updated_at,
             published_at: article.published_at,
-            reading_time: article.reading_time || 5,
+            reading_time: article.reading_time || estimateReadingTime(article),
             content: article.content_md || article.content_html || article.content,
             status: article.status
         };
@@ -165,12 +178,13 @@
 
         getPost: function (id) {
             return request('/articles/id/' + encodeURIComponent(id)).then(function(data) {
-                return mapBackendArticle(data.article);
+                return mapBackendArticle(data.article || data);
             });
         },
 
         getAdjacentPosts: function (id) {
             return request('/articles/id/' + encodeURIComponent(id) + '/adjacent').then(function(data) {
+                data = data || {};
                 return {
                     prev: data.prev || null,
                     next: data.next || null

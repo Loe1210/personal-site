@@ -106,6 +106,8 @@ services:
       MYSQL_DBNAME: media_db
     ports:
       - "9002:9002"
+    volumes:
+      - upload-images-data:/app/static/uploads/images
 
   content-service:
     <<: *go-service
@@ -161,6 +163,9 @@ services:
         condition: service_started
     ports:
       - "8080:80"
+    volumes:
+      - upload-images-data:/usr/share/nginx/html/static/uploads/images
 
 volumes:
   mysql-data:
+  upload-images-data:

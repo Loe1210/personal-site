@@ -2,6 +2,7 @@
     'use strict';
 
     var API_BASE = '/api/admin';
+    var toastTimer = null;
 
     function request(path, options) {
         options = options || {};
@@ -16,16 +17,107 @@
             if (res.status === 401) {
                 throw new Error('unauthorized');
             }
-            if (!res.ok) throw new Error('API ' + path + ' returned ' + res.status);
+            if (!res.ok) {
+                var apiError = new Error(friendlyHttpError(path, res.status));
+                apiError.status = res.status;
+                apiError.path = path;
+                throw apiError;
+            }
             return res.json();
         }).then(function (data) {
             if (data.code !== 0) {
-                throw new Error(data.message || 'API error');
+                throw new Error(data.message || '服务暂时没有返回可用结果，请稍后再试');
             }
             return data.data;
         });
     }
 
+    function uploadCoverFile(file, onProgress) {
+        if (!file) return Promise.resolve('');
+        if (!file.type || file.type.indexOf('image/') !== 0) {
+            return Promise.reject(new Error('请选择图片文件作为封面'));
+        }
+
+        return new Promise(function (resolve, reject) {
+            var xhr = new XMLHttpRequest();
+            var formData = new FormData();
+            formData.append('file', file);
+            formData.append('biz_type', 'article_cover');
+
+            xhr.open('POST', '/api/media/upload', true);
+            xhr.withCredentials = true;
+
+            xhr.upload.addEventListener('progress', function (evt) {
+                if (!evt.lengthComputable || typeof onProgress !== 'function') return;
+                var percent = evt.total > 0 ? Math.round((evt.loaded / evt.total) * 100) : 0;
+                onProgress(percent);
+            });
+
+            xhr.addEventListener('load', function () {
+                if (xhr.status < 200 || xhr.status >= 300) {
+                    reject(new Error(friendlyHttpError('/api/media/upload', xhr.status)));
+                    return;
+                }
+                var data;
+                try {
+                    data = JSON.parse(xhr.responseText || '{}');
+                } catch (err) {
+                    reject(new Error('封面上传失败，请稍后再试'));
+                    return;
+                }
+                if (data.code !== 0) {
+                    reject(new Error(data.message || '封面上传失败，请稍后再试'));
+                    return;
+                }
+                var record = data.data || {};
+                if (!record.url) {
+                    reject(new Error('封面上传成功，但服务没有返回可访问地址'));
+                    return;
+                }
+                resolve(record.url);
+            });
+
+            xhr.addEventListener('error', function () {
+                reject(new Error('封面上传失败，请检查网络后重试'));
+            });
+
+            xhr.send(formData);
+        });
+    }
+
+    function friendlyHttpError(path, status) {
+        if (status === 404) {
+            if (path.indexOf('/articles/') === 0) return '没有找到这篇文章，可能已被删除或接口路径尚未同步。';
+            return '没有找到对应的数据，请刷新页面后再试。';
+        }
+        if (status === 403) return '当前账号没有权限执行这个操作。';
+        if (status >= 500) return '服务暂时开小差了，请稍后再试。';
+        return '请求失败，请稍后再试。';
+    }
+
+    function showToast(message, type) {
+        var toast = document.getElementById('adminToast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'adminToast';
+            toast.className = 'admin-toast';
+            document.body.appendChild(toast);
+        }
+        toast.textContent = message || '操作失败，请稍后再试。';
+        toast.className = 'admin-toast admin-toast--' + (type || 'error') + ' show';
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () {
+            toast.classList.remove('show');
+        }, 3600);
+    }
+
+    function reportError(prefix, err) {
+        if (err && err.message === 'unauthorized') {
+            showLogin();
+            return;
+        }
+        showToast(prefix + '：' + ((err && err.message) || '请稍后再试'), 'error');
+    }
     function slugify(str) {
         str = str || '';
         return str.toLowerCase()
@@ -33,6 +125,10 @@
             .replace(/\s+/g, '-')
             .replace(/-+/g, '-')
             .trim('-');
+    }
+
+    function metaEndpoint(type) {
+        return type === 'category' ? '/categories' : '/tags';
     }
 
     function generateSlug(title) {
@@ -60,6 +156,49 @@
         var div = document.createElement('div');
         div.appendChild(document.createTextNode(str));
         return div.innerHTML;
+    }
+
+
+    function setCoverStatus(message) {
+        var status = document.getElementById('coverUploadStatus');
+        if (status) {
+            status.textContent = message || '选择图片后会自动上传，并在保存文章时写入封面地址。';
+        }
+    }
+
+    function setCoverProgress(percent, message) {
+        var panel = document.getElementById('coverUploadProgress');
+        var bar = document.getElementById('coverUploadProgressBar');
+        var text = document.getElementById('coverUploadProgressText');
+        var safePercent = Math.max(0, Math.min(100, parseInt(percent || 0, 10)));
+        if (!panel || !bar || !text) return;
+        if (safePercent <= 0) {
+            panel.style.display = 'none';
+            bar.style.width = '0%';
+            text.textContent = '';
+            return;
+        }
+        panel.style.display = 'block';
+        bar.style.width = safePercent + '%';
+        text.textContent = message || ('上传中 ' + safePercent + '%');
+    }
+
+    function setCoverImage(url) {
+        var input = document.getElementById('postCoverImage');
+        var preview = document.getElementById('coverPreview');
+        if (input) input.value = url || '';
+        if (!preview) return;
+        if (!url) {
+            preview.style.display = 'none';
+            preview.innerHTML = '';
+            setCoverStatus('选择图片后会自动上传，并在保存文章时写入封面地址。');
+            setCoverProgress(0);
+            return;
+        }
+        preview.style.display = 'block';
+        preview.innerHTML = '<img src="' + escapeHtml(url) + '" alt="封面预览">' +
+            '<div class="cover-preview__url">' + escapeHtml(url) + '</div>';
+        setCoverStatus('封面已上传，保存文章后生效。');
     }
 
     var cachedCategories = [];
@@ -158,7 +297,8 @@
             status: a.status,
             created_at: a.created_at,
             updated_at: a.updated_at,
-            published_at: a.published_at
+            published_at: a.published_at,
+            cover_image: a.cover_image || ''
         };
     }
 
@@ -183,7 +323,7 @@
 
     function loadPost(id) {
         return request('/articles/' + encodeURIComponent(id)).then(function (data) {
-            return mapArticle(data.article || {});
+            return mapArticle(data || data.article || {});
         });
     }
 
@@ -250,7 +390,7 @@
                     '<h3 class="' + titleClass + '">' + escapeHtml(p.title || '无标题') + statusBadge + '</h3>' +
                     '<p class="post-manage-item__summary">' + escapeHtml(p.summary || '暂无摘要') + '</p>' +
                     '<div class="post-manage-item__meta">' +
-                        '<span>创建于 ' + formatDate(p.created_at) + '</span>' +
+                        '<span>创建于 ' + (formatDate(p.created_at) || '刚刚') + '</span>' +
                     '</div>' +
                     (tags ? '<div class="post-manage-item__tags">' + tags + '</div>' : '') +
                 '</div>' +
@@ -386,12 +526,13 @@
                 populateCategoryCheckboxes(post.category_id);
                 populateTagCheckboxes(post.tag_ids || []);
                 document.getElementById('postSummary').value = post.summary || '';
+                setCoverImage(post.cover_image || '');
                 document.getElementById('postContent').value = post.content_md || '';
                 var status = post.status || 'published';
                 var radio = document.querySelector('input[name="postStatus"][value="' + status + '"]');
                 if (radio) radio.checked = true;
             }).catch(function (err) {
-                alert('加载文章失败：' + (err.message || err));
+                reportError('加载文章失败', err);
             });
         } else {
             modalTitle.textContent = '新建文章';
@@ -408,6 +549,40 @@
         document.body.style.overflow = '';
         editingPostId = null;
         var previewPane = document.getElementById('previewPane');
+        var coverFileInput = document.getElementById('postCoverFile');
+        var clearCoverBtn = document.getElementById('clearCoverBtn');
+        if (coverFileInput) {
+            coverFileInput.addEventListener('change', function (e) {
+                var file = e.target.files && e.target.files[0];
+                if (!file) return;
+                setCoverProgress(1, '开始上传...');
+                setCoverStatus('封面上传中...');
+                uploadCoverFile(file, function (percent) {
+                    setCoverProgress(percent, '上传中 ' + percent + '%');
+                }).then(function (url) {
+                    setCoverImage(url);
+                    setCoverProgress(100, '上传完成');
+                    showToast('封面上传成功', 'success');
+                    setTimeout(function () {
+                        setCoverProgress(0);
+                    }, 900);
+                }).catch(function (err) {
+                    setCoverImage('');
+                    setCoverProgress(0);
+                    reportError('封面上传失败', err);
+                }).finally(function () {
+                    coverFileInput.value = '';
+                });
+            });
+        }
+        if (clearCoverBtn) {
+            clearCoverBtn.addEventListener('click', function () {
+                setCoverImage('');
+                setCoverProgress(0);
+                if (coverFileInput) coverFileInput.value = '';
+            });
+        }
+
         var previewBtn = document.getElementById('previewToggleBtn');
         if (previewPane) previewPane.style.display = 'none';
         if (previewBtn) {
@@ -661,10 +836,11 @@
             var title = document.getElementById('postTitle').value.trim();
             var summary = document.getElementById('postSummary').value.trim();
             var content = document.getElementById('postContent').value;
+            var coverImage = document.getElementById('postCoverImage').value.trim();
             var status = document.querySelector('input[name="postStatus"]:checked').value;
 
             if (!title) {
-                alert('请填写标题');
+                showToast('请先填写文章标题。', 'warn');
                 return;
             }
 
@@ -676,6 +852,7 @@
                 summary: summary,
                 content_md: content,
                 content_html: content,
+                cover_image: coverImage,
                 category_id: checkedCategoryId || 0,
                 tag_ids: checkedTagIds,
                 status: status
@@ -698,11 +875,7 @@
                 closeEditor();
                 refreshAll();
             }).catch(function (err) {
-                if (err.message === 'unauthorized') {
-                    showLogin();
-                } else {
-                    alert('保存失败：' + err.message);
-                }
+                reportError('保存失败', err)
             });
         });
 
@@ -721,12 +894,12 @@
 
             var requestPromise;
             if (editingMetaId) {
-                requestPromise = request('/' + type + 's/' + editingMetaId, {
+                requestPromise = request(metaEndpoint(type) + '/' + editingMetaId, {
                     method: 'PUT',
                     body: body
                 });
             } else {
-                requestPromise = request('/' + type + 's', {
+                requestPromise = request(metaEndpoint(type), {
                     method: 'POST',
                     body: body
                 });
@@ -736,11 +909,7 @@
                 closeMetaEditor();
                 refreshAll();
             }).catch(function (err) {
-                if (err.message === 'unauthorized') {
-                    showLogin();
-                } else {
-                    alert('保存失败：' + err.message);
-                }
+                reportError('保存失败', err)
             });
         });
 
@@ -762,11 +931,7 @@
                         request('/articles/' + id, { method: 'DELETE' }).then(function () {
                             refreshAll();
                         }).catch(function (err) {
-                            if (err.message === 'unauthorized') {
-                                showLogin();
-                            } else {
-                                alert('删除失败：' + err.message);
-                            }
+                            reportError('删除失败', err)
                         });
                     }
                 );
@@ -792,14 +957,10 @@
                     '确定要删除' + typeName + '「' + name + '」吗？',
                     warn,
                     function () {
-                        request('/' + type + 's/' + id, { method: 'DELETE' }).then(function () {
+                        request(metaEndpoint(type) + '/' + id, { method: 'DELETE' }).then(function () {
                             refreshAll();
                         }).catch(function (err) {
-                            if (err.message === 'unauthorized') {
-                                showLogin();
-                            } else {
-                                alert('删除失败：' + err.message);
-                            }
+                            reportError('删除失败', err)
                         });
                     }
                 );
@@ -808,6 +969,16 @@
 
         categoryList.addEventListener('click', handleMetaClick);
         tagListEl.addEventListener('click', handleMetaClick);
+
+        document.getElementById('postCategoryCheckboxes').addEventListener('change', function (e) {
+            var radio = e.target;
+            if (radio.type === 'radio') {
+                document.querySelectorAll('#postCategoryCheckboxes .tag-checkbox').forEach(function (label) {
+                    label.classList.remove('checked');
+                });
+                radio.closest('.tag-checkbox').classList.add('checked');
+            }
+        });
 
         document.getElementById('postTagCheckboxes').addEventListener('change', function (e) {
             var cb = e.target;

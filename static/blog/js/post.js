@@ -48,7 +48,9 @@
                 + escapeHtml(t) + '</a>';
         }).join('');
 
+        var coverHtml = post.cover ? '<div class="post-detail__cover"><img src="' + escapeHtml(post.cover) + '" alt=""></div>' : '';
         container.innerHTML = ''
+            + coverHtml
             + '<div>'
             + '  <span class="post-detail__category">' + escapeHtml(post.category || '未分类') + '</span>'
             + '</div>'

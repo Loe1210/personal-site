@@ -25,6 +25,7 @@ func RegisterRoutes(hertz *server.Hertz, articles *service.ArticleService) {
 	handler := NewHandler(articles)
 	hertz.GET("/articles", handler.ListPublicArticles)
 	hertz.GET("/articles/:id", handler.GetArticleByID)
+	hertz.GET("/admin/articles/:id", handler.GetAdminArticleByID)
 	hertz.GET("/admin/articles", handler.ListAdminArticles)
 	hertz.POST("/admin/articles", handler.CreateArticle)
 	hertz.PUT("/admin/articles/:id", handler.UpdateArticle)
@@ -32,6 +33,20 @@ func RegisterRoutes(hertz *server.Hertz, articles *service.ArticleService) {
 }
 
 func (h *Handler) GetArticleByID(ctx context.Context, c *app.RequestContext) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid article id"})
+		return
+	}
+	article, err := h.articles.GetArticleByID(ctx, id)
+	if err != nil {
+		c.JSON(consts.StatusNotFound, map[string]any{"code": 30001, "message": "article not found"})
+		return
+	}
+	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": article})
+}
+
+func (h *Handler) GetAdminArticleByID(ctx context.Context, c *app.RequestContext) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || id <= 0 {
 		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid article id"})

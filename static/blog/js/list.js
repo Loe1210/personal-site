@@ -38,8 +38,10 @@
             var categoryHtml = '<span class="post-card__category" data-category="' + escapeHtml(p.category || '') + '">' + escapeHtml(p.category || '未分类') + '</span>';
 
             var postId = p.id;
+            var coverHtml = p.cover ? '<div class="post-card__cover"><img src="' + escapeHtml(p.cover) + '" alt=""></div>' : '';
             return ''
                 + '<div class="post-card">'
+                + coverHtml
                 + '  <a class="post-card__link" href="/blog/post/' + encodeURIComponent(postId) + '">'
                 + '    ' + categoryHtml
                 + '    <h2 class="post-card__title">' + escapeHtml(p.title) + '</h2>'
@@ -48,7 +50,7 @@
                 + '  <div class="post-card__tags">' + tagsHtml + '</div>'
                 + '  <div class="post-card__meta">'
                 + '    <span>' + (window.formatDate(p.created_at) || '') + '</span>'
-                + '    <span>' + (p.reading_time ? p.reading_time + ' min read' : '') + '</span>'
+                + '    <span>' + (p.reading_time ? p.reading_time + ' 分钟阅读' : '') + '</span>'
                 + '  </div>'
                 + '</div>';
         }).join('');

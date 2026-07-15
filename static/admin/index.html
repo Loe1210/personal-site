@@ -9,7 +9,7 @@
     <title>Hins · 博客管理</title>
     <link rel="stylesheet" href="/assets/css/iconfont.css">
     <link rel="stylesheet" href="/assets/css/vno.css">
-    <link rel="stylesheet" href="/admin/css/admin.css?v=3">
+    <link rel="stylesheet" href="/admin/css/admin.css?v=6">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
@@ -137,6 +137,22 @@
                 </div>
 
                 <div class="form-group">
+                    <label class="form-label">封面图片（可选）</label>
+                    <input type="hidden" id="postCoverImage">
+                    <div class="cover-upload">
+                        <input type="file" id="postCoverFile" class="cover-upload__input" accept="image/*">
+                        <label for="postCoverFile" class="btn btn-ghost btn-sm cover-upload__button">选择本地图片</label>
+                        <button type="button" id="clearCoverBtn" class="btn btn-ghost btn-sm cover-upload__clear">清除封面</button>
+                    </div>
+                    <p id="coverUploadStatus" class="form-help">选择图片后会自动上传，并在保存文章时写入封面地址。</p>
+                    <div id="coverUploadProgress" class="cover-progress">
+                        <div class="cover-progress__bar"><span id="coverUploadProgressBar"></span></div>
+                        <div id="coverUploadProgressText" class="cover-progress__text"></div>
+                    </div>
+                    <div id="coverPreview" class="cover-preview" style="display:none;"></div>
+                </div>
+
+                <div class="form-group">
                     <div class="form-row form-row--status">
                         <div>
                             <label class="form-label">发布状态</label>
@@ -217,7 +233,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
-    <script src="/admin/js/admin.js?v=3"></script>
+    <script src="/admin/js/admin.js?v=8"></script>
 </body>
 
 </html>

@@ -36,6 +36,9 @@ func (s *Service) Upload(ctx context.Context, in model.UploadInput) (*model.File
 	if len(in.Content) == 0 {
 		return nil, errors.New("file content is required")
 	}
+	if !isAllowedImageContentType(in.ContentType) {
+		return nil, errors.New("only image uploads are allowed")
+	}
 	url, err := s.storage.Save(in.FileName, in.Content)
 	if err != nil {
 		return nil, err
@@ -69,4 +72,12 @@ func normalizeBizType(input string) string {
 		return "common"
 	}
 	return bizType
+}
+func isAllowedImageContentType(contentType string) bool {
+	switch strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0])) {
+	case "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml":
+		return true
+	default:
+		return false
+	}
 }

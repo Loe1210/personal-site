@@ -1,0 +1,763 @@
+# Review package: f5b0d8b..9e9726c
+
+## Commits
+9e9726c refactor auth-service layout
+
+## Files changed
+ .superpowers/sdd/task-2-report.md                  |  21 ++
+ services/auth-service/biz/authenticator/handler.go |  51 +++++
+ services/auth-service/biz/model/auth.go            |   6 +
+ services/auth-service/biz/router.go                |  15 ++
+ services/auth-service/cmd/main.go                  |  14 +-
+ services/auth-service/cmd/router.go                |  12 ++
+ services/auth-service/internal/dal/db/migrate.go   | 215 +++++++++++++++++++++
+ .../internal/dal/db/user_repository.go             |  70 +++++++
+ services/auth-service/internal/handler/rpc/auth.go |   9 +-
+ services/auth-service/internal/model/user.go       |  24 +++
+ .../auth-service/internal/service/auth_service.go  |  74 +++++++
+ .../internal/service/auth_service_test.go          |  90 +++++++++
+ 12 files changed, 588 insertions(+), 13 deletions(-)
+
+## Diff
+diff --git a/.superpowers/sdd/task-2-report.md b/.superpowers/sdd/task-2-report.md
+new file mode 100644
+index 0000000..60b8c6c
+--- /dev/null
++++ b/.superpowers/sdd/task-2-report.md
+@@ -0,0 +1,21 @@
++# Task 2 Report
++
++Changed files:
++- `services/auth-service/cmd/main.go`
++- `services/auth-service/cmd/router.go`
++- `services/auth-service/biz/router.go`
++- `services/auth-service/biz/authenticator/handler.go`
++- `services/auth-service/biz/model/auth.go`
++- `services/auth-service/internal/service/auth_service.go`
++- `services/auth-service/internal/service/auth_service_test.go`
++- `services/auth-service/internal/dal/db/migrate.go`
++- `services/auth-service/internal/dal/db/user_repository.go`
++- `services/auth-service/internal/handler/rpc/auth.go`
++
++Tests:
++- `go test ./services/auth-service/...` -> pass
++- `go test ./...` -> fail in untouched `content-service` and `media-service` packages
++
++Concerns:
++- The repo-wide test failure is outside `services/auth-service/**` and was not modified.
++- Pre-existing workspace edits remain in `services/auth-service/internal/application/*`, `services/auth-service/internal/repository/mysql/*`, and `services/auth-service/internal/domain/user.go`.
+diff --git a/services/auth-service/biz/authenticator/handler.go b/services/auth-service/biz/authenticator/handler.go
+new file mode 100644
+index 0000000..1b1168f
+--- /dev/null
++++ b/services/auth-service/biz/authenticator/handler.go
+@@ -0,0 +1,51 @@
++package authenticator
++
++import (
++	"context"
++
++	"github.com/cloudwego/hertz/pkg/app"
++	"github.com/cloudwego/hertz/pkg/protocol"
++	"github.com/cloudwego/hertz/pkg/protocol/consts"
++
++	"github.com/Loe1210/personal-site/pkg/xauth"
++	bizmodel "github.com/Loe1210/personal-site/services/auth-service/biz/model"
++	"github.com/Loe1210/personal-site/services/auth-service/internal/service"
++)
++
++type Handler struct {
++	service *service.Service
++}
++
++func NewHandler(service *service.Service) *Handler {
++	return &Handler{service: service}
++}
++
++func (h *Handler) Login(ctx context.Context, c *app.RequestContext) {
++	var request bizmodel.LoginRequest
++	if err := c.BindAndValidate(&request); err != nil {
++		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid request"})
++		return
++	}
++	bundle, err := h.service.CreateSession(ctx, request.Username, request.Password)
++	if err != nil {
++		c.JSON(consts.StatusUnauthorized, map[string]any{"code": 10002, "message": "invalid credentials"})
++		return
++	}
++	c.SetCookie(bundle.CookieName, bundle.SessionID, 7200, "/", "", protocol.CookieSameSiteLaxMode, false, true)
++	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": bundle})
++}
++
++func (h *Handler) Logout(_ context.Context, c *app.RequestContext) {
++	_ = xauth.DestroySession(xauth.SessionIDFromRequest(c))
++	xauth.ClearSessionCookie(c)
++	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success"})
++}
++
++func (h *Handler) Me(ctx context.Context, c *app.RequestContext) {
++	user, err := h.service.GetCurrentUser(ctx, xauth.SessionIDFromRequest(c))
++	if err != nil {
++		c.JSON(consts.StatusUnauthorized, map[string]any{"code": 10002, "message": "login expired"})
++		return
++	}
++	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": user})
++}
+diff --git a/services/auth-service/biz/model/auth.go b/services/auth-service/biz/model/auth.go
+new file mode 100644
+index 0000000..e783dda
+--- /dev/null
++++ b/services/auth-service/biz/model/auth.go
+@@ -0,0 +1,6 @@
++package model
++
++type LoginRequest struct {
++	Username string `json:"username"`
++	Password string `json:"password"`
++}
+diff --git a/services/auth-service/biz/router.go b/services/auth-service/biz/router.go
+new file mode 100644
+index 0000000..a33afd2
+--- /dev/null
++++ b/services/auth-service/biz/router.go
+@@ -0,0 +1,15 @@
++package biz
++
++import (
++	"github.com/cloudwego/hertz/pkg/app/server"
++
++	"github.com/Loe1210/personal-site/services/auth-service/biz/authenticator"
++	"github.com/Loe1210/personal-site/services/auth-service/internal/service"
++)
++
++func RegisterRoutes(hertz *server.Hertz, authService *service.Service) {
++	handler := authenticator.NewHandler(authService)
++	hertz.POST("/login", handler.Login)
++	hertz.POST("/logout", handler.Logout)
++	hertz.GET("/me", handler.Me)
++}
+diff --git a/services/auth-service/cmd/main.go b/services/auth-service/cmd/main.go
+index e573873..328034d 100644
+--- a/services/auth-service/cmd/main.go
++++ b/services/auth-service/cmd/main.go
+@@ -6,59 +6,57 @@ import (
+ 	"log"
+ 	"os"
+ 	"time"
+ 
+ 	"github.com/cloudwego/hertz/pkg/app/server"
+ 	"github.com/gomodule/redigo/redis"
+ 
+ 	"github.com/Loe1210/personal-site/configs"
+ 	"github.com/Loe1210/personal-site/pkg/xauth"
+ 	"github.com/Loe1210/personal-site/pkg/xotel"
+-	"github.com/Loe1210/personal-site/services/auth-service/internal/application"
+-	httpHandler "github.com/Loe1210/personal-site/services/auth-service/internal/handler/http"
++	"github.com/Loe1210/personal-site/services/auth-service/internal/dal/db"
+ 	infra "github.com/Loe1210/personal-site/services/auth-service/internal/infra/mysql"
+-	userrepo "github.com/Loe1210/personal-site/services/auth-service/internal/repository/mysql"
++	"github.com/Loe1210/personal-site/services/auth-service/internal/service"
+ )
+ 
+ var configPath = flag.String("config", "services/auth-service/configs/config.yaml", "auth service config path")
+ 
+ func main() {
+ 	flag.Parse()
+ 	ctx := context.Background()
+ 	cfg, err := configs.Load(*configPath)
+ 	if err != nil {
+ 		log.Fatal(err)
+ 	}
+ 	shutdown, err := xotel.SetupTracerProvider(ctx, "auth-service", os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))
+ 	if err != nil {
+ 		log.Fatal(err)
+ 	}
+ 	defer shutdown(ctx)
+ 	database, err := infra.Open(cfg.MySQL)
+ 	if err != nil {
+ 		log.Fatal(err)
+ 	}
+-	if err := userrepo.Migrate(database); err != nil {
++	if err := db.Migrate(database); err != nil {
+ 		log.Fatal(err)
+ 	}
+-	if err := userrepo.Seed(database); err != nil {
++	if err := db.Seed(database); err != nil {
+ 		log.Fatal(err)
+ 	}
+ 	redisPool := &redis.Pool{
+ 		MaxIdle:     5,
+ 		MaxActive:   20,
+ 		IdleTimeout: 240 * time.Second,
+ 		Dial: func() (redis.Conn, error) {
+ 			return redis.Dial("tcp", cfg.Redis.Addr,
+ 				redis.DialPassword(cfg.Redis.Password),
+ 				redis.DialDatabase(cfg.Redis.DB),
+ 			)
+ 		},
+ 	}
+ 	xauth.UseStore(xauth.NewRedisStore(redisPool, cfg.SessionStore.Prefix))
+-	service := application.NewAuthService(userrepo.NewUserRepository(database))
+-	handler := httpHandler.NewHandler(service)
++	authService := service.NewAuthService(db.NewUserRepository(database))
+ 	h := server.Default(server.WithHostPorts(configs.GetServerAddr()))
+-	handler.RegisterRoutes(h)
++	registerRoutes(h, authService)
+ 	log.Printf("auth-service listening on %s", configs.GetServerAddr())
+ 	h.Spin()
+ }
+diff --git a/services/auth-service/cmd/router.go b/services/auth-service/cmd/router.go
+new file mode 100644
+index 0000000..457e510
+--- /dev/null
++++ b/services/auth-service/cmd/router.go
+@@ -0,0 +1,12 @@
++package main
++
++import (
++	"github.com/cloudwego/hertz/pkg/app/server"
++
++	"github.com/Loe1210/personal-site/services/auth-service/biz"
++	"github.com/Loe1210/personal-site/services/auth-service/internal/service"
++)
++
++func registerRoutes(hertz *server.Hertz, authService *service.Service) {
++	biz.RegisterRoutes(hertz, authService)
++}
+diff --git a/services/auth-service/internal/dal/db/migrate.go b/services/auth-service/internal/dal/db/migrate.go
+new file mode 100644
+index 0000000..7818e0b
+--- /dev/null
++++ b/services/auth-service/internal/dal/db/migrate.go
+@@ -0,0 +1,215 @@
++package db
++
++import (
++	"errors"
++	"time"
++
++	"golang.org/x/crypto/bcrypt"
++	"gorm.io/gorm"
++)
++
++type User struct {
++	ID           int64  `gorm:"primaryKey;autoIncrement"`
++	Username     string `gorm:"type:varchar(64);uniqueIndex;not null"`
++	PasswordHash string `gorm:"type:varchar(255);not null"`
++	Nickname     string `gorm:"type:varchar(64);not null"`
++	Type         string `gorm:"type:varchar(32);index;default:'admin'"`
++	Status       string `gorm:"type:varchar(32);index;default:'active'"`
++	CreatedAt    time.Time
++	UpdatedAt    time.Time
++}
++
++type Role struct {
++	ID          int64  `gorm:"primaryKey;autoIncrement"`
++	Name        string `gorm:"type:varchar(64);not null"`
++	Code        string `gorm:"type:varchar(64);uniqueIndex;not null"`
++	Description string `gorm:"type:varchar(255)"`
++	CreatedAt   time.Time
++	UpdatedAt   time.Time
++}
++
++type Permission struct {
++	ID          int64  `gorm:"primaryKey;autoIncrement"`
++	Name        string `gorm:"type:varchar(64);not null"`
++	Code        string `gorm:"type:varchar(64);uniqueIndex;not null"`
++	Resource    string `gorm:"type:varchar(64);index;not null"`
++	Action      string `gorm:"type:varchar(64);index;not null"`
++	Description string `gorm:"type:varchar(255)"`
++	CreatedAt   time.Time
++	UpdatedAt   time.Time
++}
++
++type UserRole struct {
++	ID        int64 `gorm:"primaryKey;autoIncrement"`
++	UserID    int64 `gorm:"uniqueIndex:idx_user_role;not null"`
++	RoleID    int64 `gorm:"uniqueIndex:idx_user_role;not null"`
++	CreatedAt time.Time
++}
++
++type RolePermission struct {
++	ID           int64 `gorm:"primaryKey;autoIncrement"`
++	RoleID       int64 `gorm:"uniqueIndex:idx_role_permission;not null"`
++	PermissionID int64 `gorm:"uniqueIndex:idx_role_permission;not null"`
++	CreatedAt    time.Time
++}
++
++func Migrate(db *gorm.DB) error {
++	return db.AutoMigrate(&User{}, &Role{}, &Permission{}, &UserRole{}, &RolePermission{})
++}
++
++func Seed(db *gorm.DB) error {
++	superAdminRole, err := ensureRole(db, "Super Admin", "super_admin", "super administrator")
++	if err != nil {
++		return err
++	}
++
++	editorRole, err := ensureRole(db, "Editor", "editor", "content editor")
++	if err != nil {
++		return err
++	}
++
++	permissions := []Permission{
++		{Name: "Article Read", Code: "article:read", Resource: "article", Action: "read", Description: "read article"},
++		{Name: "Article Create", Code: "article:create", Resource: "article", Action: "create", Description: "create article"},
++		{Name: "Article Update", Code: "article:update", Resource: "article", Action: "update", Description: "update article"},
++		{Name: "Article Delete", Code: "article:delete", Resource: "article", Action: "delete", Description: "delete article"},
++		{Name: "Category Read", Code: "category:read", Resource: "category", Action: "read", Description: "read category"},
++		{Name: "Category Create", Code: "category:create", Resource: "category", Action: "create", Description: "create category"},
++		{Name: "Category Update", Code: "category:update", Resource: "category", Action: "update", Description: "update category"},
++		{Name: "Category Delete", Code: "category:delete", Resource: "category", Action: "delete", Description: "delete category"},
++		{Name: "Tag Read", Code: "tag:read", Resource: "tag", Action: "read", Description: "read tag"},
++		{Name: "Tag Create", Code: "tag:create", Resource: "tag", Action: "create", Description: "create tag"},
++		{Name: "Tag Update", Code: "tag:update", Resource: "tag", Action: "update", Description: "update tag"},
++		{Name: "Tag Delete", Code: "tag:delete", Resource: "tag", Action: "delete", Description: "delete tag"},
++		{Name: "User Me", Code: "user:me", Resource: "user", Action: "me", Description: "get current user"},
++		{Name: "User Logout", Code: "user:logout", Resource: "user", Action: "logout", Description: "logout user"},
++	}
++
++	permissionMap := make(map[string]Permission)
++	for _, item := range permissions {
++		perm, err := ensurePermission(db, item)
++		if err != nil {
++			return err
++		}
++		permissionMap[perm.Code] = *perm
++	}
++
++	for _, perm := range permissionMap {
++		if err := ensureRolePermission(db, superAdminRole.ID, perm.ID); err != nil {
++			return err
++		}
++	}
++
++	editorPermissionCodes := []string{
++		"article:read",
++		"article:create",
++		"article:update",
++		"category:read",
++		"category:create",
++		"category:update",
++		"tag:read",
++		"tag:create",
++		"tag:update",
++		"user:me",
++		"user:logout",
++	}
++	for _, code := range editorPermissionCodes {
++		perm, ok := permissionMap[code]
++		if !ok {
++			continue
++		}
++		if err := ensureRolePermission(db, editorRole.ID, perm.ID); err != nil {
++			return err
++		}
++	}
++
++	adminUser, err := ensureAdminUser(db)
++	if err != nil {
++		return err
++	}
++	return ensureUserRole(db, adminUser.ID, superAdminRole.ID)
++}
++
++func ensureAdminUser(db *gorm.DB) (*User, error) {
++	user := &User{}
++	if err := db.Where("username = ?", "admin").First(user).Error; err == nil {
++		return user, nil
++	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
++		return nil, err
++	}
++
++	passwordHash, err := bcrypt.GenerateFromPassword([]byte("admin"), bcrypt.DefaultCost)
++	if err != nil {
++		return nil, err
++	}
++
++	user = &User{
++		Username:     "admin",
++		PasswordHash: string(passwordHash),
++		Nickname:     "Loe",
++		Type:         "admin",
++		Status:       "active",
++	}
++	if err := db.Create(user).Error; err != nil {
++		return nil, err
++	}
++	return user, nil
++}
++
++func ensureRole(db *gorm.DB, name, code, description string) (*Role, error) {
++	role := &Role{}
++	if err := db.Where("code = ?", code).First(role).Error; err == nil {
++		return role, nil
++	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
++		return nil, err
++	}
++
++	role = &Role{Name: name, Code: code, Description: description}
++	if err := db.Create(role).Error; err != nil {
++		return nil, err
++	}
++	return role, nil
++}
++
++func ensurePermission(db *gorm.DB, item Permission) (*Permission, error) {
++	perm := &Permission{}
++	if err := db.Where("code = ?", item.Code).First(perm).Error; err == nil {
++		return perm, nil
++	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
++		return nil, err
++	}
++
++	perm = &Permission{
++		Name:        item.Name,
++		Code:        item.Code,
++		Resource:    item.Resource,
++		Action:      item.Action,
++		Description: item.Description,
++	}
++	if err := db.Create(perm).Error; err != nil {
++		return nil, err
++	}
++	return perm, nil
++}
++
++func ensureRolePermission(db *gorm.DB, roleID, permissionID int64) error {
++	var count int64
++	if err := db.Model(&RolePermission{}).Where("role_id = ? AND permission_id = ?", roleID, permissionID).Count(&count).Error; err != nil {
++		return err
++	}
++	if count > 0 {
++		return nil
++	}
++	return db.Create(&RolePermission{RoleID: roleID, PermissionID: permissionID}).Error
++}
++
++func ensureUserRole(db *gorm.DB, userID, roleID int64) error {
++	var count int64
++	if err := db.Model(&UserRole{}).Where("user_id = ? AND role_id = ?", userID, roleID).Count(&count).Error; err != nil {
++		return err
++	}
++	if count > 0 {
++		return nil
++	}
++	return db.Create(&UserRole{UserID: userID, RoleID: roleID}).Error
++}
+diff --git a/services/auth-service/internal/dal/db/user_repository.go b/services/auth-service/internal/dal/db/user_repository.go
+new file mode 100644
+index 0000000..5ad995e
+--- /dev/null
++++ b/services/auth-service/internal/dal/db/user_repository.go
+@@ -0,0 +1,70 @@
++package db
++
++import (
++	"context"
++	"errors"
++
++	"github.com/Loe1210/personal-site/services/auth-service/internal/model"
++	"golang.org/x/crypto/bcrypt"
++	"gorm.io/gorm"
++)
++
++type userRecord struct {
++	ID           int64
++	Username     string
++	PasswordHash string
++	Nickname     string
++	Status       string
++}
++
++type UserRepository struct {
++	db *gorm.DB
++}
++
++func NewUserRepository(db *gorm.DB) *UserRepository {
++	return &UserRepository{db: db}
++}
++
++func (r *UserRepository) Login(ctx context.Context, username, password string) (*model.User, []string, error) {
++	var record userRecord
++	if err := r.db.WithContext(ctx).Table("users").Where("username = ? AND status = ?", username, "active").First(&record).Error; err != nil {
++		return nil, nil, err
++	}
++	if err := bcrypt.CompareHashAndPassword([]byte(record.PasswordHash), []byte(password)); err != nil {
++		return nil, nil, errors.New("invalid credentials")
++	}
++	roles, err := r.rolesByUserID(ctx, record.ID)
++	if err != nil {
++		return nil, nil, err
++	}
++	return &model.User{ID: record.ID, Username: record.Username, Nickname: record.Nickname}, roles, nil
++}
++
++func (r *UserRepository) GetByID(ctx context.Context, userID int64) (*model.User, error) {
++	var record userRecord
++	if err := r.db.WithContext(ctx).Table("users").First(&record, userID).Error; err != nil {
++		return nil, err
++	}
++	return &model.User{ID: record.ID, Username: record.Username, Nickname: record.Nickname}, nil
++}
++
++func (r *UserRepository) HasPermission(ctx context.Context, userID int64, code string) (bool, error) {
++	var count int64
++	err := r.db.WithContext(ctx).Table("user_roles").
++		Joins("JOIN role_permissions ON user_roles.role_id = role_permissions.role_id").
++		Joins("JOIN permissions ON role_permissions.permission_id = permissions.id").
++		Where("user_roles.user_id = ? AND permissions.code = ?", userID, code).
++		Count(&count).Error
++	return count > 0, err
++}
++
++func (r *UserRepository) rolesByUserID(ctx context.Context, userID int64) ([]string, error) {
++	var roles []string
++	err := r.db.WithContext(ctx).Table("roles").
++		Select("roles.code").
++		Joins("JOIN user_roles ON user_roles.role_id = roles.id").
++		Where("user_roles.user_id = ?", userID).
++		Order("roles.id ASC").
++		Scan(&roles).Error
++	return roles, err
++}
+diff --git a/services/auth-service/internal/handler/rpc/auth.go b/services/auth-service/internal/handler/rpc/auth.go
+index 5dc1f60..26f1340 100644
+--- a/services/auth-service/internal/handler/rpc/auth.go
++++ b/services/auth-service/internal/handler/rpc/auth.go
+@@ -1,24 +1,23 @@
+ package rpc
+ 
+ import (
+ 	"context"
+ 
+-	"github.com/Loe1210/personal-site/services/auth-service/internal/application"
++	"github.com/Loe1210/personal-site/services/auth-service/internal/service"
+ )
+ 
+-// Handler 是后续 Kitex 服务端的适配层，避免 RPC 类型渗入应用层。
+ type Handler struct {
+-	service *application.Service
++	service *service.Service
+ }
+ 
+-func NewHandler(service *application.Service) *Handler {
++func NewHandler(service *service.Service) *Handler {
+ 	return &Handler{service: service}
+ }
+ 
+-func (h *Handler) ValidateSession(ctx context.Context, sessionID string) (*application.AuthContext, error) {
++func (h *Handler) ValidateSession(ctx context.Context, sessionID string) (*service.AuthContext, error) {
+ 	return h.service.ValidateSession(ctx, sessionID)
+ }
+ 
+ func (h *Handler) CheckPermission(ctx context.Context, userID int64, code string) (bool, error) {
+ 	return h.service.CheckPermission(ctx, userID, code)
+ }
+diff --git a/services/auth-service/internal/model/user.go b/services/auth-service/internal/model/user.go
+new file mode 100644
+index 0000000..52fc627
+--- /dev/null
++++ b/services/auth-service/internal/model/user.go
+@@ -0,0 +1,24 @@
++package model
++
++import "time"
++
++type User struct {
++	ID        int64
++	Username  string
++	Nickname  string
++	CreatedAt time.Time
++	UpdatedAt time.Time
++}
++
++type SessionBundle struct {
++	SessionID  string
++	CookieName string
++	ExpiresAt  string
++	Username   string
++}
++
++type AuthContext struct {
++	UserID   int64
++	Username string
++	Roles    []string
++}
+\ No newline at end of file
+diff --git a/services/auth-service/internal/service/auth_service.go b/services/auth-service/internal/service/auth_service.go
+new file mode 100644
+index 0000000..ca56397
+--- /dev/null
++++ b/services/auth-service/internal/service/auth_service.go
+@@ -0,0 +1,74 @@
++package service
++
++import (
++	"context"
++
++	"github.com/Loe1210/personal-site/pkg/xauth"
++	"github.com/Loe1210/personal-site/services/auth-service/internal/model"
++)
++
++type User = model.User
++
++type UserRepository interface {
++	Login(ctx context.Context, username, password string) (*User, []string, error)
++	GetByID(ctx context.Context, userID int64) (*User, error)
++	HasPermission(ctx context.Context, userID int64, code string) (bool, error)
++}
++
++type SessionBundle = model.SessionBundle
++
++type AuthContext = model.AuthContext
++
++type Service struct {
++	users UserRepository
++}
++
++func NewAuthService(users UserRepository) *Service {
++	return &Service{users: users}
++}
++
++func (s *Service) CreateSession(ctx context.Context, username string, password string) (*SessionBundle, error) {
++	user, roles, err := s.users.Login(ctx, username, password)
++	if err != nil {
++		return nil, err
++	}
++
++	bundle, err := xauth.CreateSessionBundleWithContext(ctx, user.ID, user.Username, roles)
++	if err != nil {
++		return nil, err
++	}
++
++	return &SessionBundle{
++		SessionID:  bundle.SessionID,
++		CookieName: bundle.CookieName,
++		ExpiresAt:  bundle.ExpiresAt.Format(timeLayout),
++		Username:   user.Username,
++	}, nil
++}
++
++func (s *Service) ValidateSession(ctx context.Context, sessionID string) (*AuthContext, error) {
++	claims, err := xauth.ParseSessionWithContext(ctx, sessionID)
++	if err != nil {
++		return nil, err
++	}
++
++	return &AuthContext{
++		UserID:   claims.UserID,
++		Username: claims.Username,
++		Roles:    append([]string(nil), claims.Roles...),
++	}, nil
++}
++
++func (s *Service) CheckPermission(ctx context.Context, userID int64, code string) (bool, error) {
++	return s.users.HasPermission(ctx, userID, code)
++}
++
++func (s *Service) GetCurrentUser(ctx context.Context, sessionID string) (*User, error) {
++	authContext, err := s.ValidateSession(ctx, sessionID)
++	if err != nil {
++		return nil, err
++	}
++	return s.users.GetByID(ctx, authContext.UserID)
++}
++
++const timeLayout = "2006-01-02 15:04:05"
+diff --git a/services/auth-service/internal/service/auth_service_test.go b/services/auth-service/internal/service/auth_service_test.go
+new file mode 100644
+index 0000000..a2e33cf
+--- /dev/null
++++ b/services/auth-service/internal/service/auth_service_test.go
+@@ -0,0 +1,90 @@
++package service
++
++import (
++	"context"
++	"errors"
++	"testing"
++
++	"github.com/Loe1210/personal-site/pkg/xauth"
++	"github.com/Loe1210/personal-site/services/auth-service/internal/model"
++)
++
++type fakeUserRepository struct {
++	user        *model.User
++	roles       []string
++	permissions map[string]bool
++}
++
++func (f *fakeUserRepository) Login(_ context.Context, username, password string) (*model.User, []string, error) {
++	if username != "admin" || password != "admin" {
++		return nil, nil, errors.New("invalid credentials")
++	}
++	return f.user, f.roles, nil
++}
++
++func (f *fakeUserRepository) GetByID(_ context.Context, userID int64) (*model.User, error) {
++	if f.user == nil || f.user.ID != userID {
++		return nil, errors.New("user not found")
++	}
++	return f.user, nil
++}
++
++func (f *fakeUserRepository) HasPermission(_ context.Context, userID int64, code string) (bool, error) {
++	if f.user == nil || f.user.ID != userID {
++		return false, errors.New("user not found")
++	}
++	return f.permissions[code], nil
++}
++
++func newFakeUserRepository() *fakeUserRepository {
++	return &fakeUserRepository{
++		user:  &model.User{ID: 1, Username: "admin", Nickname: "Admin"},
++		roles: []string{"super_admin"},
++		permissions: map[string]bool{
++			"article:read": true,
++		},
++	}
++}
++
++func TestCreateSessionFromCredentials(t *testing.T) {
++	svc := NewAuthService(newFakeUserRepository())
++
++	resp, err := svc.CreateSession(context.Background(), "admin", "admin")
++	if err != nil {
++		t.Fatalf("CreateSession returned error: %v", err)
++	}
++	if resp.SessionID == "" {
++		t.Fatal("expected session id")
++	}
++	if resp.Username != "admin" {
++		t.Fatalf("expected username admin, got %s", resp.Username)
++	}
++}
++
++func TestValidateSessionReturnsAuthContext(t *testing.T) {
++	svc := NewAuthService(newFakeUserRepository())
++	bundle, err := xauth.CreateSessionBundle(1, "admin", []string{"super_admin"})
++	if err != nil {
++		t.Fatalf("CreateSessionBundle returned error: %v", err)
++	}
++
++	ctx, err := svc.ValidateSession(context.Background(), bundle.SessionID)
++	if err != nil {
++		t.Fatalf("ValidateSession returned error: %v", err)
++	}
++	if ctx.UserID != 1 || len(ctx.Roles) != 1 || ctx.Roles[0] != "super_admin" {
++		t.Fatalf("unexpected auth context: %#v", ctx)
++	}
++}
++
++func TestCheckPermissionDelegatesToRepository(t *testing.T) {
++	svc := NewAuthService(newFakeUserRepository())
++
++	allowed, err := svc.CheckPermission(context.Background(), 1, "article:read")
++	if err != nil {
++		t.Fatalf("CheckPermission returned error: %v", err)
++	}
++	if !allowed {
++		t.Fatal("expected article:read to be allowed")
++	}
++}

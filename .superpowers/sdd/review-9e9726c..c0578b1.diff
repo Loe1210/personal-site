@@ -1,0 +1,972 @@
+# Review package: 9e9726c..c0578b1
+
+## Commits
+c0578b1 refactor: reorganize content service layout
+
+## Files changed
+ services/content-service/biz/article/handler.go    | 140 +++++++++++++++++++++
+ .../http/article.go => biz/http/handler.go}        |  31 +----
+ services/content-service/biz/http/route.go         |  12 ++
+ services/content-service/biz/http/validate.go      |  20 +++
+ services/content-service/biz/model/article.go      |  13 ++
+ services/content-service/biz/router.go             |  12 ++
+ services/content-service/biz/rpc/content.go        |  23 ++++
+ services/content-service/cmd/main.go               |  20 ++-
+ services/content-service/cmd/router.go             |  14 +++
+ .../mysql => dal/db}/article_repository.go         |  29 +++--
+ .../{infra/mysql/mysql.go => dal/db/init.go}       |  10 +-
+ .../internal/handler/rpc/content.go                |  13 +-
+ services/content-service/internal/model/article.go |  47 +++++++
+ .../internal/repository/mysql/migrate.go           |  20 ---
+ .../{application => service}/article_service.go    |  39 ++----
+ .../article_service_test.go                        |   2 +-
+ .../{application => service}/category_service.go   |  15 ++-
+ .../{application => service}/tag_service.go        |  15 ++-
+ 18 files changed, 343 insertions(+), 132 deletions(-)
+
+## Diff
+diff --git a/services/content-service/biz/article/handler.go b/services/content-service/biz/article/handler.go
+new file mode 100644
+index 0000000..1ac8f34
+--- /dev/null
++++ b/services/content-service/biz/article/handler.go
+@@ -0,0 +1,140 @@
++package article
++
++import (
++	"context"
++	"strconv"
++
++	"github.com/cloudwego/hertz/pkg/app"
++	"github.com/cloudwego/hertz/pkg/app/server"
++	"github.com/cloudwego/hertz/pkg/protocol/consts"
++
++	bizmodel "github.com/Loe1210/personal-site/services/content-service/biz/model"
++	"github.com/Loe1210/personal-site/services/content-service/internal/model"
++	"github.com/Loe1210/personal-site/services/content-service/internal/service"
++)
++
++type Handler struct {
++	articles *service.ArticleService
++}
++
++func NewHandler(articles *service.ArticleService) *Handler {
++	return &Handler{articles: articles}
++}
++
++func RegisterRoutes(hertz *server.Hertz, articles *service.ArticleService) {
++	handler := NewHandler(articles)
++	hertz.GET("/articles", handler.ListPublicArticles)
++	hertz.GET("/articles/:id", handler.GetArticleByID)
++	hertz.GET("/admin/articles", handler.ListAdminArticles)
++	hertz.POST("/admin/articles", handler.CreateArticle)
++	hertz.PUT("/admin/articles/:id", handler.UpdateArticle)
++	hertz.DELETE("/admin/articles/:id", handler.DeleteArticle)
++}
++
++func (h *Handler) GetArticleByID(ctx context.Context, c *app.RequestContext) {
++	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
++	if err != nil || id <= 0 {
++		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid article id"})
++		return
++	}
++	article, err := h.articles.GetArticleByID(ctx, id)
++	if err != nil {
++		c.JSON(consts.StatusNotFound, map[string]any{"code": 30001, "message": "article not found"})
++		return
++	}
++	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": article})
++}
++
++func (h *Handler) ListPublicArticles(ctx context.Context, c *app.RequestContext) {
++	result, err := h.articles.ListPublicArticles(ctx, listFilterFromRequest(c))
++	if err != nil {
++		c.JSON(consts.StatusInternalServerError, map[string]any{"code": 50000, "message": "list articles failed"})
++		return
++	}
++	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": result})
++}
++
++func (h *Handler) ListAdminArticles(ctx context.Context, c *app.RequestContext) {
++	result, err := h.articles.ListAdminArticles(ctx, listFilterFromRequest(c))
++	if err != nil {
++		c.JSON(consts.StatusInternalServerError, map[string]any{"code": 50000, "message": "list articles failed"})
++		return
++	}
++	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": result})
++}
++
++func (h *Handler) CreateArticle(ctx context.Context, c *app.RequestContext) {
++	var article bizmodel.ArticleRequest
++	if err := c.BindAndValidate(&article); err != nil {
++		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid request"})
++		return
++	}
++	created, err := h.articles.CreateArticle(ctx, toArticleDetail(article))
++	if err != nil {
++		c.JSON(consts.StatusBadRequest, map[string]any{"code": 30002, "message": err.Error()})
++		return
++	}
++	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": created})
++}
++
++func (h *Handler) UpdateArticle(ctx context.Context, c *app.RequestContext) {
++	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
++	if err != nil || id <= 0 {
++		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid article id"})
++		return
++	}
++	var article bizmodel.ArticleRequest
++	if err := c.BindAndValidate(&article); err != nil {
++		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid request"})
++		return
++	}
++	updated, err := h.articles.UpdateArticle(ctx, withID(toArticleDetail(article), id))
++	if err != nil {
++		c.JSON(consts.StatusBadRequest, map[string]any{"code": 30003, "message": err.Error()})
++		return
++	}
++	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": updated})
++}
++
++func (h *Handler) DeleteArticle(ctx context.Context, c *app.RequestContext) {
++	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
++	if err != nil || id <= 0 {
++		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid article id"})
++		return
++	}
++	if err := h.articles.DeleteArticle(ctx, id); err != nil {
++		c.JSON(consts.StatusBadRequest, map[string]any{"code": 30004, "message": err.Error()})
++		return
++	}
++	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success"})
++}
++
++func listFilterFromRequest(c *app.RequestContext) model.ListFilter {
++	page, _ := strconv.ParseInt(c.Query("page"), 10, 64)
++	pageSize, _ := strconv.ParseInt(c.Query("page_size"), 10, 64)
++	return model.ListFilter{
++		Page:     page,
++		PageSize: pageSize,
++		Status:   c.Query("status"),
++		Keyword:  c.Query("keyword"),
++	}
++}
++
++func toArticleDetail(article bizmodel.ArticleRequest) *model.ArticleDetail {
++	return &model.ArticleDetail{
++		Title:       article.Title,
++		Slug:        article.Slug,
++		Summary:     article.Summary,
++		ContentMd:   article.ContentMd,
++		ContentHTML: article.ContentHTML,
++		CoverImage:  article.CoverImage,
++		CategoryID:  article.CategoryID,
++		TagIDs:      article.TagIDs,
++		Status:      article.Status,
++	}
++}
++
++func withID(article *model.ArticleDetail, id int64) *model.ArticleDetail {
++	article.ID = id
++	return article
++}
+diff --git a/services/content-service/internal/handler/http/article.go b/services/content-service/biz/http/handler.go
+similarity index 78%
+rename from services/content-service/internal/handler/http/article.go
+rename to services/content-service/biz/http/handler.go
+index 03433cc..8d11c5a 100644
+--- a/services/content-service/internal/handler/http/article.go
++++ b/services/content-service/biz/http/handler.go
+@@ -1,40 +1,30 @@
+ package http
+ 
+ import (
+ 	"context"
+ 	"strconv"
+ 
+ 	"github.com/cloudwego/hertz/pkg/app"
+-	"github.com/cloudwego/hertz/pkg/app/server"
+ 	"github.com/cloudwego/hertz/pkg/protocol/consts"
+ 
+-	"github.com/Loe1210/personal-site/services/content-service/internal/application"
++	"github.com/Loe1210/personal-site/services/content-service/internal/service"
+ )
+ 
+ type Handler struct {
+-	articles *application.ArticleService
++	articles *service.ArticleService
+ }
+ 
+-func NewHandler(articles *application.ArticleService) *Handler {
++func NewHandler(articles *service.ArticleService) *Handler {
+ 	return &Handler{articles: articles}
+ }
+ 
+-func (h *Handler) RegisterRoutes(hertz *server.Hertz) {
+-	hertz.GET("/articles", h.ListPublicArticles)
+-	hertz.GET("/articles/:id", h.GetArticleByID)
+-	hertz.GET("/admin/articles", h.ListAdminArticles)
+-	hertz.POST("/admin/articles", h.CreateArticle)
+-	hertz.PUT("/admin/articles/:id", h.UpdateArticle)
+-	hertz.DELETE("/admin/articles/:id", h.DeleteArticle)
+-}
+-
+ func (h *Handler) GetArticleByID(ctx context.Context, c *app.RequestContext) {
+ 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+ 	if err != nil || id <= 0 {
+ 		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid article id"})
+ 		return
+ 	}
+ 	article, err := h.articles.GetArticleByID(ctx, id)
+ 	if err != nil {
+ 		c.JSON(consts.StatusNotFound, map[string]any{"code": 30001, "message": "article not found"})
+ 		return
+@@ -54,40 +44,40 @@ func (h *Handler) ListPublicArticles(ctx context.Context, c *app.RequestContext)
+ func (h *Handler) ListAdminArticles(ctx context.Context, c *app.RequestContext) {
+ 	result, err := h.articles.ListAdminArticles(ctx, listFilterFromRequest(c))
+ 	if err != nil {
+ 		c.JSON(consts.StatusInternalServerError, map[string]any{"code": 50000, "message": "list articles failed"})
+ 		return
+ 	}
+ 	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": result})
+ }
+ 
+ func (h *Handler) CreateArticle(ctx context.Context, c *app.RequestContext) {
+-	var article application.ArticleDetail
++	var article service.ArticleDetail
+ 	if err := c.BindAndValidate(&article); err != nil {
+ 		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid request"})
+ 		return
+ 	}
+ 	created, err := h.articles.CreateArticle(ctx, &article)
+ 	if err != nil {
+ 		c.JSON(consts.StatusBadRequest, map[string]any{"code": 30002, "message": err.Error()})
+ 		return
+ 	}
+ 	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": created})
+ }
+ 
+ func (h *Handler) UpdateArticle(ctx context.Context, c *app.RequestContext) {
+ 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+ 	if err != nil || id <= 0 {
+ 		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid article id"})
+ 		return
+ 	}
+-	var article application.ArticleDetail
++	var article service.ArticleDetail
+ 	if err := c.BindAndValidate(&article); err != nil {
+ 		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid request"})
+ 		return
+ 	}
+ 	article.ID = id
+ 	updated, err := h.articles.UpdateArticle(ctx, &article)
+ 	if err != nil {
+ 		c.JSON(consts.StatusBadRequest, map[string]any{"code": 30003, "message": err.Error()})
+ 		return
+ 	}
+@@ -99,21 +89,10 @@ func (h *Handler) DeleteArticle(ctx context.Context, c *app.RequestContext) {
+ 	if err != nil || id <= 0 {
+ 		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid article id"})
+ 		return
+ 	}
+ 	if err := h.articles.DeleteArticle(ctx, id); err != nil {
+ 		c.JSON(consts.StatusBadRequest, map[string]any{"code": 30004, "message": err.Error()})
+ 		return
+ 	}
+ 	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success"})
+ }
+-
+-func listFilterFromRequest(c *app.RequestContext) application.ListFilter {
+-	page, _ := strconv.ParseInt(c.Query("page"), 10, 64)
+-	pageSize, _ := strconv.ParseInt(c.Query("page_size"), 10, 64)
+-	return application.ListFilter{
+-		Page:     page,
+-		PageSize: pageSize,
+-		Status:   c.Query("status"),
+-		Keyword:  c.Query("keyword"),
+-	}
+-}
+diff --git a/services/content-service/biz/http/route.go b/services/content-service/biz/http/route.go
+new file mode 100644
+index 0000000..37ea563
+--- /dev/null
++++ b/services/content-service/biz/http/route.go
+@@ -0,0 +1,12 @@
++package http
++
++import "github.com/cloudwego/hertz/pkg/app/server"
++
++func (h *Handler) RegisterRoutes(hertz *server.Hertz) {
++	hertz.GET("/articles", h.ListPublicArticles)
++	hertz.GET("/articles/:id", h.GetArticleByID)
++	hertz.GET("/admin/articles", h.ListAdminArticles)
++	hertz.POST("/admin/articles", h.CreateArticle)
++	hertz.PUT("/admin/articles/:id", h.UpdateArticle)
++	hertz.DELETE("/admin/articles/:id", h.DeleteArticle)
++}
+diff --git a/services/content-service/biz/http/validate.go b/services/content-service/biz/http/validate.go
+new file mode 100644
+index 0000000..3f6d1b2
+--- /dev/null
++++ b/services/content-service/biz/http/validate.go
+@@ -0,0 +1,20 @@
++package http
++
++import (
++	"strconv"
++
++	"github.com/cloudwego/hertz/pkg/app"
++
++	"github.com/Loe1210/personal-site/services/content-service/internal/service"
++)
++
++func listFilterFromRequest(c *app.RequestContext) service.ListFilter {
++	page, _ := strconv.ParseInt(c.Query("page"), 10, 64)
++	pageSize, _ := strconv.ParseInt(c.Query("page_size"), 10, 64)
++	return service.ListFilter{
++		Page:     page,
++		PageSize: pageSize,
++		Status:   c.Query("status"),
++		Keyword:  c.Query("keyword"),
++	}
++}
+diff --git a/services/content-service/biz/model/article.go b/services/content-service/biz/model/article.go
+new file mode 100644
+index 0000000..3b6ee86
+--- /dev/null
++++ b/services/content-service/biz/model/article.go
+@@ -0,0 +1,13 @@
++package model
++
++type ArticleRequest struct {
++	Title       string  `json:"title"`
++	Slug        string  `json:"slug"`
++	Summary     string  `json:"summary"`
++	ContentMd   string  `json:"content_md"`
++	ContentHTML string  `json:"content_html"`
++	CoverImage  string  `json:"cover_image"`
++	CategoryID  int64   `json:"category_id"`
++	TagIDs      []int64 `json:"tag_ids"`
++	Status      string  `json:"status"`
++}
+diff --git a/services/content-service/biz/router.go b/services/content-service/biz/router.go
+new file mode 100644
+index 0000000..40cc5b6
+--- /dev/null
++++ b/services/content-service/biz/router.go
+@@ -0,0 +1,12 @@
++package biz
++
++import (
++	"github.com/cloudwego/hertz/pkg/app/server"
++
++	"github.com/Loe1210/personal-site/services/content-service/biz/article"
++	"github.com/Loe1210/personal-site/services/content-service/internal/service"
++)
++
++func RegisterRoutes(hertz *server.Hertz, articles *service.ArticleService) {
++	article.RegisterRoutes(hertz, articles)
++}
+diff --git a/services/content-service/biz/rpc/content.go b/services/content-service/biz/rpc/content.go
+new file mode 100644
+index 0000000..955c113
+--- /dev/null
++++ b/services/content-service/biz/rpc/content.go
+@@ -0,0 +1,23 @@
++package rpc
++
++import (
++	"context"
++
++	"github.com/Loe1210/personal-site/services/content-service/internal/service"
++)
++
++type Handler struct {
++	articles *service.ArticleService
++}
++
++func NewHandler(articles *service.ArticleService) *Handler {
++	return &Handler{articles: articles}
++}
++
++func (h *Handler) GetArticleByID(ctx context.Context, id int64) (*service.ArticleDetail, error) {
++	return h.articles.GetArticleByID(ctx, id)
++}
++
++func (h *Handler) ListPublicArticles(ctx context.Context, filter service.ListFilter) (*service.ListResult, error) {
++	return h.articles.ListPublicArticles(ctx, filter)
++}
+diff --git a/services/content-service/cmd/main.go b/services/content-service/cmd/main.go
+index bd5bdf2..728cb66 100644
+--- a/services/content-service/cmd/main.go
++++ b/services/content-service/cmd/main.go
+@@ -1,46 +1,40 @@
+ package main
+ 
+ import (
+ 	"context"
+ 	"flag"
+ 	"log"
+ 	"os"
+ 
+-	"github.com/cloudwego/hertz/pkg/app/server"
+-
+ 	"github.com/Loe1210/personal-site/configs"
+ 	"github.com/Loe1210/personal-site/pkg/xotel"
+-	"github.com/Loe1210/personal-site/services/content-service/internal/application"
+-	httpHandler "github.com/Loe1210/personal-site/services/content-service/internal/handler/http"
+-	infra "github.com/Loe1210/personal-site/services/content-service/internal/infra/mysql"
+-	articlerepo "github.com/Loe1210/personal-site/services/content-service/internal/repository/mysql"
++	"github.com/Loe1210/personal-site/services/content-service/internal/dal/db"
++	"github.com/Loe1210/personal-site/services/content-service/internal/service"
+ )
+ 
+ var configPath = flag.String("config", "services/content-service/configs/config.yaml", "content service config path")
+ 
+ func main() {
+ 	flag.Parse()
+ 	ctx := context.Background()
+ 	cfg, err := configs.Load(*configPath)
+ 	if err != nil {
+ 		log.Fatal(err)
+ 	}
+ 	shutdown, err := xotel.SetupTracerProvider(ctx, "content-service", os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))
+ 	if err != nil {
+ 		log.Fatal(err)
+ 	}
+ 	defer shutdown(ctx)
+-	database, err := infra.Open(cfg.MySQL)
++	database, err := db.Open(cfg.MySQL)
+ 	if err != nil {
+ 		log.Fatal(err)
+ 	}
+-	if err := articlerepo.Migrate(database); err != nil {
++	if err := db.Migrate(database); err != nil {
+ 		log.Fatal(err)
+ 	}
+-	articles := application.NewArticleService(articlerepo.NewArticleRepository(database))
+-	handler := httpHandler.NewHandler(articles)
+-	h := server.Default(server.WithHostPorts(configs.GetServerAddr()))
+-	handler.RegisterRoutes(h)
++	articles := service.NewArticleService(db.NewArticleRepository(database))
++	h := newRouter(articles, configs.GetServerAddr())
+ 	log.Printf("content-service listening on %s", configs.GetServerAddr())
+ 	h.Spin()
+-}
++}
+\ No newline at end of file
+diff --git a/services/content-service/cmd/router.go b/services/content-service/cmd/router.go
+new file mode 100644
+index 0000000..ee20ef5
+--- /dev/null
++++ b/services/content-service/cmd/router.go
+@@ -0,0 +1,14 @@
++package main
++
++import (
++	"github.com/cloudwego/hertz/pkg/app/server"
++
++	"github.com/Loe1210/personal-site/services/content-service/biz"
++	"github.com/Loe1210/personal-site/services/content-service/internal/service"
++)
++
++func newRouter(articles *service.ArticleService, addr string) *server.Hertz {
++	h := server.Default(server.WithHostPorts(addr))
++	biz.RegisterRoutes(h, articles)
++	return h
++}
+\ No newline at end of file
+diff --git a/services/content-service/internal/repository/mysql/article_repository.go b/services/content-service/internal/dal/db/article_repository.go
+similarity index 85%
+rename from services/content-service/internal/repository/mysql/article_repository.go
+rename to services/content-service/internal/dal/db/article_repository.go
+index f94f488..4f65389 100644
+--- a/services/content-service/internal/repository/mysql/article_repository.go
++++ b/services/content-service/internal/dal/db/article_repository.go
+@@ -1,19 +1,18 @@
+-package mysql
++package db
+ 
+ import (
+ 	"context"
+ 	"time"
+ 
++	"github.com/Loe1210/personal-site/services/content-service/internal/model"
+ 	"gorm.io/gorm"
+-
+-	"github.com/Loe1210/personal-site/services/content-service/internal/application"
+ )
+ 
+ type Article struct {
+ 	ID          int64      `gorm:"primaryKey;autoIncrement"`
+ 	Title       string     `gorm:"type:varchar(255);not null"`
+ 	Slug        string     `gorm:"type:varchar(255);uniqueIndex;not null"`
+ 	Summary     string     `gorm:"type:text"`
+ 	ContentMd   string     `gorm:"column:content_md;type:longtext"`
+ 	ContentHTML string     `gorm:"column:content_html;type:longtext"`
+ 	CoverImage  string     `gorm:"type:varchar(255)"`
+@@ -38,93 +37,93 @@ type Tag struct {
+ }
+ 
+ type ArticleRepository struct {
+ 	db *gorm.DB
+ }
+ 
+ func NewArticleRepository(db *gorm.DB) *ArticleRepository {
+ 	return &ArticleRepository{db: db}
+ }
+ 
+-func (r *ArticleRepository) GetByID(ctx context.Context, id int64) (*application.ArticleDetail, error) {
++func (r *ArticleRepository) GetByID(ctx context.Context, id int64) (*model.ArticleDetail, error) {
+ 	var article Article
+ 	if err := r.db.WithContext(ctx).First(&article, id).Error; err != nil {
+ 		return nil, err
+ 	}
+ 	tags, err := r.tagsForArticle(ctx, id)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+ 	return toArticleDetail(article, tags), nil
+ }
+ 
+-func (r *ArticleRepository) List(ctx context.Context, filter application.ListFilter) (*application.ListResult, error) {
++func (r *ArticleRepository) List(ctx context.Context, filter model.ListFilter) (*model.ListResult, error) {
+ 	var articles []Article
+ 	query := r.db.WithContext(ctx).Model(&Article{})
+ 	if filter.Status != "" {
+ 		query = query.Where("status = ?", filter.Status)
+ 	}
+ 	if filter.Keyword != "" {
+ 		like := "%" + filter.Keyword + "%"
+ 		query = query.Where("title LIKE ? OR summary LIKE ?", like, like)
+ 	}
+ 	var total int64
+ 	if err := query.Count(&total).Error; err != nil {
+ 		return nil, err
+ 	}
+ 	offset := (filter.Page - 1) * filter.PageSize
+ 	if err := query.Order("is_top DESC, published_at DESC, id DESC").Offset(int(offset)).Limit(int(filter.PageSize)).Find(&articles).Error; err != nil {
+ 		return nil, err
+ 	}
+-	result := make([]*application.ArticleDetail, 0, len(articles))
++	result := make([]*model.ArticleDetail, 0, len(articles))
+ 	for _, article := range articles {
+ 		result = append(result, toArticleDetail(article, nil))
+ 	}
+-	return &application.ListResult{List: result, Total: total}, nil
++	return &model.ListResult{List: result, Total: total}, nil
+ }
+ 
+-func (r *ArticleRepository) Create(ctx context.Context, detail *application.ArticleDetail) error {
++func (r *ArticleRepository) Create(ctx context.Context, detail *model.ArticleDetail) error {
+ 	article := fromArticleDetail(detail)
+ 	if err := r.db.WithContext(ctx).Create(&article).Error; err != nil {
+ 		return err
+ 	}
+ 	detail.ID = article.ID
+ 	return r.syncTags(ctx, article.ID, detail.TagIDs)
+ }
+ 
+-func (r *ArticleRepository) Update(ctx context.Context, detail *application.ArticleDetail) error {
++func (r *ArticleRepository) Update(ctx context.Context, detail *model.ArticleDetail) error {
+ 	article := fromArticleDetail(detail)
+ 	if err := r.db.WithContext(ctx).Model(&Article{}).Where("id = ?", detail.ID).Updates(article).Error; err != nil {
+ 		return err
+ 	}
+ 	return r.syncTags(ctx, detail.ID, detail.TagIDs)
+ }
+ 
+ func (r *ArticleRepository) Delete(ctx context.Context, id int64) error {
+ 	if err := r.db.WithContext(ctx).Where("article_id = ?", id).Delete(&ArticleTag{}).Error; err != nil {
+ 		return err
+ 	}
+ 	return r.db.WithContext(ctx).Delete(&Article{}, id).Error
+ }
+ 
+-func (r *ArticleRepository) tagsForArticle(ctx context.Context, articleID int64) ([]application.TagDTO, error) {
++func (r *ArticleRepository) tagsForArticle(ctx context.Context, articleID int64) ([]model.TagDTO, error) {
+ 	var tags []Tag
+ 	err := r.db.WithContext(ctx).
+ 		Joins("JOIN article_tags ON article_tags.tag_id = tags.id").
+ 		Where("article_tags.article_id = ?", articleID).
+ 		Find(&tags).Error
+ 	if err != nil {
+ 		return nil, err
+ 	}
+-	result := make([]application.TagDTO, 0, len(tags))
++	result := make([]model.TagDTO, 0, len(tags))
+ 	for _, tag := range tags {
+-		result = append(result, application.TagDTO{ID: tag.ID, Name: tag.Name, Slug: tag.Slug})
++		result = append(result, model.TagDTO{ID: tag.ID, Name: tag.Name, Slug: tag.Slug})
+ 	}
+ 	return result, nil
+ }
+ 
+ func (r *ArticleRepository) syncTags(ctx context.Context, articleID int64, tagIDs []int64) error {
+ 	if err := r.db.WithContext(ctx).Where("article_id = ?", articleID).Delete(&ArticleTag{}).Error; err != nil {
+ 		return err
+ 	}
+ 	if len(tagIDs) == 0 {
+ 		return nil
+@@ -134,41 +133,41 @@ func (r *ArticleRepository) syncTags(ctx context.Context, articleID int64, tagID
+ 		if tagID > 0 {
+ 			rows = append(rows, ArticleTag{ArticleID: articleID, TagID: tagID})
+ 		}
+ 	}
+ 	if len(rows) == 0 {
+ 		return nil
+ 	}
+ 	return r.db.WithContext(ctx).Create(&rows).Error
+ }
+ 
+-func toArticleDetail(article Article, tags []application.TagDTO) *application.ArticleDetail {
++func toArticleDetail(article Article, tags []model.TagDTO) *model.ArticleDetail {
+ 	tagIDs := make([]int64, 0, len(tags))
+ 	for _, tag := range tags {
+ 		tagIDs = append(tagIDs, tag.ID)
+ 	}
+-	return &application.ArticleDetail{
++	return &model.ArticleDetail{
+ 		ID:          article.ID,
+ 		Title:       article.Title,
+ 		Slug:        article.Slug,
+ 		Summary:     article.Summary,
+ 		ContentMd:   article.ContentMd,
+ 		ContentHTML: article.ContentHTML,
+ 		CoverImage:  article.CoverImage,
+ 		CategoryID:  article.CategoryID,
+ 		TagIDs:      tagIDs,
+ 		Status:      article.Status,
+ 		Tags:        tags,
+ 	}
+ }
+ 
+-func fromArticleDetail(detail *application.ArticleDetail) Article {
++func fromArticleDetail(detail *model.ArticleDetail) Article {
+ 	return Article{
+ 		ID:          detail.ID,
+ 		Title:       detail.Title,
+ 		Slug:        detail.Slug,
+ 		Summary:     detail.Summary,
+ 		ContentMd:   detail.ContentMd,
+ 		ContentHTML: detail.ContentHTML,
+ 		CoverImage:  detail.CoverImage,
+ 		CategoryID:  detail.CategoryID,
+ 		Status:      detail.Status,
+diff --git a/services/content-service/internal/infra/mysql/mysql.go b/services/content-service/internal/dal/db/init.go
+similarity index 74%
+rename from services/content-service/internal/infra/mysql/mysql.go
+rename to services/content-service/internal/dal/db/init.go
+index 9089d10..b44cec0 100644
+--- a/services/content-service/internal/infra/mysql/mysql.go
++++ b/services/content-service/internal/dal/db/init.go
+@@ -1,20 +1,20 @@
+-package mysql
++package db
+ 
+ import (
+ 	"fmt"
+ 	"time"
+ 
++	"github.com/Loe1210/personal-site/configs"
++	"github.com/Loe1210/personal-site/services/content-service/internal/model"
+ 	"gorm.io/driver/mysql"
+ 	"gorm.io/gorm"
+-
+-	"github.com/Loe1210/personal-site/configs"
+ )
+ 
+ func Open(cfg configs.MySQLConfig) (*gorm.DB, error) {
+ 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=%s&parseTime=True&loc=Local",
+ 		cfg.User,
+ 		cfg.Password,
+ 		cfg.Host,
+ 		cfg.Port,
+ 		cfg.DBName,
+ 		cfg.Charset,
+@@ -25,10 +25,14 @@ func Open(cfg configs.MySQLConfig) (*gorm.DB, error) {
+ 	}
+ 	sqlDB, err := db.DB()
+ 	if err != nil {
+ 		return nil, err
+ 	}
+ 	sqlDB.SetMaxIdleConns(5)
+ 	sqlDB.SetMaxOpenConns(20)
+ 	sqlDB.SetConnMaxLifetime(time.Hour)
+ 	return db, nil
+ }
++
++func Migrate(db *gorm.DB) error {
++	return db.AutoMigrate(&model.Category{}, &Tag{}, &Article{}, &ArticleTag{})
++}
+\ No newline at end of file
+diff --git a/services/content-service/internal/handler/rpc/content.go b/services/content-service/internal/handler/rpc/content.go
+index 80e415f..3c73728 100644
+--- a/services/content-service/internal/handler/rpc/content.go
++++ b/services/content-service/internal/handler/rpc/content.go
+@@ -1,23 +1,24 @@
+ package rpc
+ 
+ import (
+ 	"context"
+ 
+-	"github.com/Loe1210/personal-site/services/content-service/internal/application"
++	"github.com/Loe1210/personal-site/services/content-service/internal/model"
++	"github.com/Loe1210/personal-site/services/content-service/internal/service"
+ )
+ 
+ type Handler struct {
+-	articles *application.ArticleService
++	articles *service.ArticleService
+ }
+ 
+-func NewHandler(articles *application.ArticleService) *Handler {
++func NewHandler(articles *service.ArticleService) *Handler {
+ 	return &Handler{articles: articles}
+ }
+ 
+-func (h *Handler) GetArticleByID(ctx context.Context, id int64) (*application.ArticleDetail, error) {
++func (h *Handler) GetArticleByID(ctx context.Context, id int64) (*model.ArticleDetail, error) {
+ 	return h.articles.GetArticleByID(ctx, id)
+ }
+ 
+-func (h *Handler) ListPublicArticles(ctx context.Context, filter application.ListFilter) (*application.ListResult, error) {
++func (h *Handler) ListPublicArticles(ctx context.Context, filter model.ListFilter) (*model.ListResult, error) {
+ 	return h.articles.ListPublicArticles(ctx, filter)
+-}
++}
+\ No newline at end of file
+diff --git a/services/content-service/internal/model/article.go b/services/content-service/internal/model/article.go
+new file mode 100644
+index 0000000..b7f8176
+--- /dev/null
++++ b/services/content-service/internal/model/article.go
+@@ -0,0 +1,47 @@
++package model
++
++type ArticleDetail struct {
++	ID          int64    `json:"id"`
++	Title       string   `json:"title"`
++	Slug        string   `json:"slug"`
++	Summary     string   `json:"summary"`
++	ContentMd   string   `json:"content_md"`
++	ContentHTML string   `json:"content_html"`
++	CoverImage  string   `json:"cover_image"`
++	CategoryID  int64    `json:"category_id"`
++	TagIDs      []int64  `json:"tag_ids"`
++	Status      string   `json:"status"`
++	Tags        []TagDTO `json:"tags"`
++}
++
++type TagDTO struct {
++	ID   int64  `json:"id"`
++	Name string `json:"name"`
++	Slug string `json:"slug"`
++}
++
++type ListFilter struct {
++	Page     int64
++	PageSize int64
++	Status   string
++	Keyword  string
++}
++
++type ListResult struct {
++	List  []*ArticleDetail `json:"list"`
++	Total int64            `json:"total"`
++}
++
++type Tag struct {
++	ID          int64  `json:"id"`
++	Name        string `json:"name"`
++	Slug        string `json:"slug"`
++	Description string `json:"description"`
++}
++
++type Category struct {
++	ID          int64  `json:"id"`
++	Name        string `json:"name"`
++	Slug        string `json:"slug"`
++	Description string `json:"description"`
++}
+\ No newline at end of file
+diff --git a/services/content-service/internal/repository/mysql/migrate.go b/services/content-service/internal/repository/mysql/migrate.go
+deleted file mode 100644
+index b7cb8ce..0000000
+--- a/services/content-service/internal/repository/mysql/migrate.go
++++ /dev/null
+@@ -1,20 +0,0 @@
+-package mysql
+-
+-import (
+-	"time"
+-
+-	"gorm.io/gorm"
+-)
+-
+-type Category struct {
+-	ID          int64  `gorm:"primaryKey;autoIncrement"`
+-	Name        string `gorm:"type:varchar(100);not null;uniqueIndex"`
+-	Slug        string `gorm:"type:varchar(100);not null;uniqueIndex"`
+-	Description string `gorm:"type:text"`
+-	CreatedAt   time.Time
+-	UpdatedAt   time.Time
+-}
+-
+-func Migrate(db *gorm.DB) error {
+-	return db.AutoMigrate(&Category{}, &Tag{}, &Article{}, &ArticleTag{})
+-}
+diff --git a/services/content-service/internal/application/article_service.go b/services/content-service/internal/service/article_service.go
+similarity index 78%
+rename from services/content-service/internal/application/article_service.go
+rename to services/content-service/internal/service/article_service.go
+index b01020a..fb3cf31 100644
+--- a/services/content-service/internal/application/article_service.go
++++ b/services/content-service/internal/service/article_service.go
+@@ -1,48 +1,23 @@
+-package application
++package service
+ 
+ import (
+ 	"context"
+ 	"errors"
+-)
+-
+-type ArticleDetail struct {
+-	ID          int64    `json:"id"`
+-	Title       string   `json:"title"`
+-	Slug        string   `json:"slug"`
+-	Summary     string   `json:"summary"`
+-	ContentMd   string   `json:"content_md"`
+-	ContentHTML string   `json:"content_html"`
+-	CoverImage  string   `json:"cover_image"`
+-	CategoryID  int64    `json:"category_id"`
+-	TagIDs      []int64  `json:"tag_ids"`
+-	Status      string   `json:"status"`
+-	Tags        []TagDTO `json:"tags"`
+-}
+-
+-type TagDTO struct {
+-	ID   int64  `json:"id"`
+-	Name string `json:"name"`
+-	Slug string `json:"slug"`
+-}
+ 
+-type ListFilter struct {
+-	Page     int64
+-	PageSize int64
+-	Status   string
+-	Keyword  string
+-}
++	"github.com/Loe1210/personal-site/services/content-service/internal/model"
++)
+ 
+-type ListResult struct {
+-	List  []*ArticleDetail `json:"list"`
+-	Total int64            `json:"total"`
+-}
++type ArticleDetail = model.ArticleDetail
++type TagDTO = model.TagDTO
++type ListFilter = model.ListFilter
++type ListResult = model.ListResult
+ 
+ type ArticleGetter interface {
+ 	GetByID(ctx context.Context, id int64) (*ArticleDetail, error)
+ }
+ 
+ type ArticleLister interface {
+ 	List(ctx context.Context, filter ListFilter) (*ListResult, error)
+ }
+ 
+ type ArticleWriter interface {
+diff --git a/services/content-service/internal/application/article_service_test.go b/services/content-service/internal/service/article_service_test.go
+similarity index 96%
+rename from services/content-service/internal/application/article_service_test.go
+rename to services/content-service/internal/service/article_service_test.go
+index 1188b07..7270a92 100644
+--- a/services/content-service/internal/application/article_service_test.go
++++ b/services/content-service/internal/service/article_service_test.go
+@@ -1,11 +1,11 @@
+-package application
++package service
+ 
+ import (
+ 	"context"
+ 	"testing"
+ )
+ 
+ type fakeArticleRepo struct{}
+ 
+ func (f *fakeArticleRepo) GetByID(ctx context.Context, id int64) (*ArticleDetail, error) {
+ 	return &ArticleDetail{ID: id, Title: "Hello"}, nil
+diff --git a/services/content-service/internal/application/category_service.go b/services/content-service/internal/service/category_service.go
+similarity index 83%
+rename from services/content-service/internal/application/category_service.go
+rename to services/content-service/internal/service/category_service.go
+index 9cc8343..d2c6559 100644
+--- a/services/content-service/internal/application/category_service.go
++++ b/services/content-service/internal/service/category_service.go
+@@ -1,20 +1,19 @@
+-package application
++package service
+ 
+-import "context"
++import (
++	"context"
+ 
+-type Category struct {
+-	ID          int64  `json:"id"`
+-	Name        string `json:"name"`
+-	Slug        string `json:"slug"`
+-	Description string `json:"description"`
+-}
++	"github.com/Loe1210/personal-site/services/content-service/internal/model"
++)
++
++type Category = model.Category
+ 
+ type CategoryRepository interface {
+ 	List(ctx context.Context) ([]*Category, error)
+ 	Create(ctx context.Context, category *Category) error
+ 	Update(ctx context.Context, category *Category) error
+ 	Delete(ctx context.Context, id int64) error
+ }
+ 
+ type CategoryService struct {
+ 	repo CategoryRepository
+diff --git a/services/content-service/internal/application/tag_service.go b/services/content-service/internal/service/tag_service.go
+similarity index 81%
+rename from services/content-service/internal/application/tag_service.go
+rename to services/content-service/internal/service/tag_service.go
+index c45d53f..ed879e6 100644
+--- a/services/content-service/internal/application/tag_service.go
++++ b/services/content-service/internal/service/tag_service.go
+@@ -1,20 +1,19 @@
+-package application
++package service
+ 
+-import "context"
++import (
++	"context"
+ 
+-type Tag struct {
+-	ID          int64  `json:"id"`
+-	Name        string `json:"name"`
+-	Slug        string `json:"slug"`
+-	Description string `json:"description"`
+-}
++	"github.com/Loe1210/personal-site/services/content-service/internal/model"
++)
++
++type Tag = model.Tag
+ 
+ type TagRepository interface {
+ 	List(ctx context.Context) ([]*Tag, error)
+ 	Create(ctx context.Context, tag *Tag) error
+ 	Update(ctx context.Context, tag *Tag) error
+ 	Delete(ctx context.Context, id int64) error
+ }
+ 
+ type TagService struct {
+ 	repo TagRepository
