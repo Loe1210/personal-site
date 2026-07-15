@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"io"
 	"strings"
 
 	"github.com/Loe1210/personal-site/services/media-service/internal/model"
@@ -10,6 +11,11 @@ import (
 
 type Storage interface {
 	Save(name string, content []byte) (string, error)
+}
+
+type ChunkStorage interface {
+	SaveChunk(uploadID string, chunkIndex int, content io.Reader) (storagePath string, size int64, sha256 string, err error)
+	RemoveChunk(storagePath string) error
 }
 
 type Repository interface {
@@ -73,6 +79,7 @@ func normalizeBizType(input string) string {
 	}
 	return bizType
 }
+
 func isAllowedImageContentType(contentType string) bool {
 	switch strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0])) {
 	case "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml":

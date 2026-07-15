@@ -7,8 +7,8 @@ import (
 	"github.com/Loe1210/personal-site/services/media-service/internal/service"
 )
 
-func newRouter(media *service.Service, uploadTasks *service.UploadTaskService, addr string) *server.Hertz {
+func newRouter(media *service.Service, uploadTasks *service.UploadTaskService, chunks *service.ChunkService, addr string) *server.Hertz {
 	h := server.Default(server.WithHostPorts(addr))
-	biz.RegisterRoutes(h, media, uploadTasks)
+	biz.RegisterRoutes(h, media, uploadTasks, chunks)
 	return h
 }
