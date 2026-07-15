@@ -17,3 +17,6 @@ Status: DONE
 ## Notes
 - `CompleteUpload` currently only transitions status to `completed`; actual chunk merge and file record creation remain for later tasks.
 - Task ownership is enforced through repository lookups using `upload_id` plus `user_id`.
+
+## Commit
+- 2d69978
