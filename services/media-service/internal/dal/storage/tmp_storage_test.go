@@ -32,3 +32,27 @@ func TestTmpStorageWritesChunkToTmpPath(t *testing.T) {
 		t.Fatalf("unexpected chunk content: %q", string(data))
 	}
 }
+
+func TestTmpStorageReplacesExistingChunk(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewTmpStorage(tmpDir)
+
+	storagePath, _, _, err := store.SaveChunk("upload-1", 2, strings.NewReader("first"))
+	if err != nil {
+		t.Fatalf("save first chunk: %v", err)
+	}
+	secondPath, _, _, err := store.SaveChunk("upload-1", 2, strings.NewReader("second"))
+	if err != nil {
+		t.Fatalf("save second chunk: %v", err)
+	}
+	if secondPath != storagePath {
+		t.Fatalf("expected retry to reuse same path, got %q and %q", storagePath, secondPath)
+	}
+	data, err := os.ReadFile(filepath.Join(tmpDir, filepath.FromSlash(storagePath)))
+	if err != nil {
+		t.Fatalf("read chunk: %v", err)
+	}
+	if string(data) != "second" {
+		t.Fatalf("expected retry to replace chunk content, got %q", string(data))
+	}
+}

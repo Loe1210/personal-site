@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	db "github.com/Loe1210/personal-site/services/media-service/internal/dal/db"
 	"github.com/Loe1210/personal-site/services/media-service/internal/model"
 )
 
@@ -20,13 +19,23 @@ type ChunkInput struct {
 	Body       io.Reader
 }
 
+type UploadTaskStore interface {
+	GetByUploadID(ctx context.Context, uploadID string, userID int64) (*model.UploadTask, error)
+	UpdateProgress(ctx context.Context, uploadID string, userID int64, uploadedChunks string, status string) error
+}
+
+type UploadChunkStore interface {
+	Save(ctx context.Context, chunk *model.UploadChunk) error
+	Delete(ctx context.Context, uploadID string, chunkIndex int) error
+}
+
 type ChunkService struct {
-	tasks   *db.UploadTaskRepository
-	chunks  *db.UploadChunkRepository
+	tasks   UploadTaskStore
+	chunks  UploadChunkStore
 	storage ChunkStorage
 }
 
-func NewChunkService(tasks *db.UploadTaskRepository, chunks *db.UploadChunkRepository, storage ChunkStorage) *ChunkService {
+func NewChunkService(tasks UploadTaskStore, chunks UploadChunkStore, storage ChunkStorage) *ChunkService {
 	return &ChunkService{tasks: tasks, chunks: chunks, storage: storage}
 }
 
@@ -80,7 +89,15 @@ func (s *ChunkService) UploadChunk(ctx context.Context, in ChunkInput) (*model.U
 
 	uploadedChunks := mergeUploadedChunks(task.UploadedChunks, in.ChunkIndex)
 	if err := s.tasks.UpdateProgress(ctx, task.UploadID, task.UserID, uploadedChunks, task.Status); err != nil {
-		_ = s.storage.RemoveChunk(storagePath)
+		rollbackErr := s.chunks.Delete(ctx, in.UploadID, in.ChunkIndex)
+		if rollbackErr == nil {
+			rollbackErr = s.storage.RemoveChunk(storagePath)
+		} else {
+			_ = s.storage.RemoveChunk(storagePath)
+		}
+		if rollbackErr != nil {
+			return nil, fmt.Errorf("update progress failed: %w; rollback failed: %v", err, rollbackErr)
+		}
 		return nil, err
 	}
 

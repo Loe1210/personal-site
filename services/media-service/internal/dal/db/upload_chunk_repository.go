@@ -39,6 +39,13 @@ func (r *UploadChunkRepository) Save(ctx context.Context, chunk *model.UploadChu
 	return nil
 }
 
+func (r *UploadChunkRepository) Delete(ctx context.Context, uploadID string, chunkIndex int) error {
+	result := r.db.WithContext(ctx).
+		Where("upload_id = ? AND chunk_index = ?", uploadID, chunkIndex).
+		Delete(&UploadChunkRecord{})
+	return result.Error
+}
+
 func (r *UploadChunkRepository) ListByUploadID(ctx context.Context, uploadID string) ([]model.UploadChunk, error) {
 	var records []UploadChunkRecord
 	if err := r.db.WithContext(ctx).

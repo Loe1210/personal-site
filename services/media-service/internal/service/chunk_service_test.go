@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,25 @@ import (
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
+
+type failingTaskStore struct {
+	task errorTask
+}
+
+type errorTask struct {
+	*model.UploadTask
+}
+
+func (s failingTaskStore) GetByUploadID(ctx context.Context, uploadID string, userID int64) (*model.UploadTask, error) {
+	if s.task.UploadTask != nil && s.task.UploadID == uploadID && s.task.UserID == userID {
+		return s.task.UploadTask, nil
+	}
+	return nil, errors.New("task not found")
+}
+
+func (s failingTaskStore) UpdateProgress(ctx context.Context, uploadID string, userID int64, uploadedChunks string, status string) error {
+	return errors.New("update progress failed")
+}
 
 func TestChunkServiceWritesChunkToTmpPath(t *testing.T) {
 	database, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
@@ -88,5 +108,48 @@ func TestChunkServiceWritesChunkToTmpPath(t *testing.T) {
 	}
 	if stored[0].ChunkIndex != 1 || stored[0].StoragePath != chunk.StoragePath {
 		t.Fatalf("unexpected stored chunk: %+v", stored[0])
+	}
+}
+
+func TestChunkServiceRollsBackChunkOnProgressError(t *testing.T) {
+	database, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	if err := db.Migrate(database); err != nil {
+		t.Fatalf("migrate test database: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	tmpStorage := storage.NewTmpStorage(tmpDir)
+	chunkRepo := db.NewUploadChunkRepository(database)
+	task := &model.UploadTask{
+		UploadID:   "upload-rollback",
+		UserID:     7,
+		ChunkCount: 2,
+		Status:     model.UploadTaskStatusUploading,
+	}
+	svc := NewChunkService(failingTaskStore{task: errorTask{UploadTask: task}}, chunkRepo, tmpStorage)
+
+	_, err = svc.UploadChunk(context.Background(), ChunkInput{
+		UserID:     task.UserID,
+		UploadID:   task.UploadID,
+		ChunkIndex: 0,
+		Body:       strings.NewReader("rollback chunk"),
+	})
+	if err == nil {
+		t.Fatal("expected upload chunk to fail")
+	}
+
+	stored, err := chunkRepo.ListByUploadID(context.Background(), task.UploadID)
+	if err != nil {
+		t.Fatalf("list upload chunks: %v", err)
+	}
+	if len(stored) != 0 {
+		t.Fatalf("expected rollback to remove stored chunks, got %d", len(stored))
+	}
+	chunkPath := filepath.Join(tmpDir, task.UploadID, "chunk_000000.part")
+	if _, err := os.Stat(chunkPath); !os.IsNotExist(err) {
+		t.Fatalf("expected chunk file to be removed, got err=%v", err)
 	}
 }

@@ -60,6 +60,10 @@ func (s *TmpStorage) SaveChunk(uploadID string, chunkIndex int, content io.Reade
 		_ = os.Remove(tempPath)
 		return "", 0, "", closeErr
 	}
+	if err := os.Remove(finalPath); err != nil && !os.IsNotExist(err) {
+		_ = os.Remove(tempPath)
+		return "", 0, "", err
+	}
 	if err := os.Rename(tempPath, finalPath); err != nil {
 		_ = os.Remove(tempPath)
 		return "", 0, "", err
