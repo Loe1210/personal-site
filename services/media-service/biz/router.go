@@ -7,6 +7,7 @@ import (
 	"github.com/Loe1210/personal-site/services/media-service/internal/service"
 )
 
-func RegisterRoutes(hertz *server.Hertz, media *service.Service) {
+func RegisterRoutes(hertz *server.Hertz, media *service.Service, uploadTasks *service.UploadTaskService) {
 	upload.RegisterRoutes(hertz, media)
+	upload.RegisterTaskRoutes(hertz, uploadTasks)
 }
