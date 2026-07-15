@@ -2,11 +2,14 @@ package db
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/Loe1210/personal-site/services/media-service/internal/model"
 	"gorm.io/gorm"
 )
+
+var ErrUploadTaskStateConflict = errors.New("upload task state changed")
 
 type UploadTaskRecord struct {
 	UploadID       string    `gorm:"column:upload_id;type:varchar(64);primaryKey"`
@@ -62,18 +65,28 @@ func (r *UploadTaskRepository) GetByUploadID(ctx context.Context, uploadID strin
 }
 
 func (r *UploadTaskRepository) UpdateProgress(ctx context.Context, uploadID string, userID int64, uploadedChunks string, status string) error {
-	result := r.db.WithContext(ctx).Model(&UploadTaskRecord{}).
-		Where("upload_id = ? AND user_id = ?", uploadID, userID).
-		Updates(map[string]any{
-			"uploaded_chunks": uploadedChunks,
-			"status":          status,
-			"version":         gorm.Expr("version + ?", 1),
-		})
+	return r.UpdateProgressGuarded(ctx, uploadID, userID, uploadedChunks, status, "", 0)
+}
+
+func (r *UploadTaskRepository) UpdateProgressGuarded(ctx context.Context, uploadID string, userID int64, uploadedChunks string, status string, expectedStatus string, expectedVersion int64) error {
+	query := r.db.WithContext(ctx).Model(&UploadTaskRecord{}).
+		Where("upload_id = ? AND user_id = ?", uploadID, userID)
+	if expectedStatus != "" {
+		query = query.Where("status = ?", expectedStatus)
+	}
+	if expectedVersion > 0 {
+		query = query.Where("version = ?", expectedVersion)
+	}
+	result := query.Updates(map[string]any{
+		"uploaded_chunks": uploadedChunks,
+		"status":          status,
+		"version":         gorm.Expr("version + 1"),
+	})
 	if result.Error != nil {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
+		return ErrUploadTaskStateConflict
 	}
 	return nil
 }

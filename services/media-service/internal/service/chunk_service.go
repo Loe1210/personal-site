@@ -21,7 +21,7 @@ type ChunkInput struct {
 
 type UploadTaskStore interface {
 	GetByUploadID(ctx context.Context, uploadID string, userID int64) (*model.UploadTask, error)
-	UpdateProgress(ctx context.Context, uploadID string, userID int64, uploadedChunks string, status string) error
+	UpdateProgressGuarded(ctx context.Context, uploadID string, userID int64, uploadedChunks string, status string, expectedStatus string, expectedVersion int64) error
 }
 
 type UploadChunkStore interface {
@@ -89,19 +89,17 @@ func (s *ChunkService) UploadChunk(ctx context.Context, in ChunkInput) (*model.U
 
 	task, err = s.tasks.GetByUploadID(ctx, in.UploadID, in.UserID)
 	if err != nil {
-		_ = s.chunks.Delete(ctx, in.UploadID, in.ChunkIndex)
-		_ = s.storage.RemoveChunk(storagePath)
+		_ = rollbackChunk(ctx, s.chunks, s.storage, in.UploadID, in.ChunkIndex, storagePath)
 		return nil, err
+	}
+	if task.Status != model.UploadTaskStatusUploading {
+		_ = rollbackChunk(ctx, s.chunks, s.storage, in.UploadID, in.ChunkIndex, storagePath)
+		return nil, fmt.Errorf("upload task is not active: %s", task.Status)
 	}
 
 	uploadedChunks := mergeUploadedChunks(task.UploadedChunks, in.ChunkIndex)
-	if err := s.tasks.UpdateProgress(ctx, task.UploadID, task.UserID, uploadedChunks, task.Status); err != nil {
-		rollbackErr := s.chunks.Delete(ctx, in.UploadID, in.ChunkIndex)
-		if rollbackErr == nil {
-			rollbackErr = s.storage.RemoveChunk(storagePath)
-		} else {
-			_ = s.storage.RemoveChunk(storagePath)
-		}
+	if err := s.tasks.UpdateProgressGuarded(ctx, task.UploadID, task.UserID, uploadedChunks, task.Status, task.Status, task.Version); err != nil {
+		rollbackErr := rollbackChunk(ctx, s.chunks, s.storage, in.UploadID, in.ChunkIndex, storagePath)
 		if rollbackErr != nil {
 			return nil, fmt.Errorf("update progress failed: %w; rollback failed: %v", err, rollbackErr)
 		}
@@ -109,6 +107,16 @@ func (s *ChunkService) UploadChunk(ctx context.Context, in ChunkInput) (*model.U
 	}
 
 	return chunk, nil
+}
+
+func rollbackChunk(ctx context.Context, chunks UploadChunkStore, storage ChunkStorage, uploadID string, chunkIndex int, storagePath string) error {
+	rollbackErr := chunks.Delete(ctx, uploadID, chunkIndex)
+	if rollbackErr == nil {
+		rollbackErr = storage.RemoveChunk(storagePath)
+	} else {
+		_ = storage.RemoveChunk(storagePath)
+	}
+	return rollbackErr
 }
 
 func mergeUploadedChunks(current string, chunkIndex int) string {

@@ -25,14 +25,20 @@ type InitInput struct {
 	ChunkSize   int64
 }
 
+type UploadTaskRepository interface {
+	Create(ctx context.Context, task *model.UploadTask) error
+	GetByUploadID(ctx context.Context, uploadID string, userID int64) (*model.UploadTask, error)
+	UpdateProgressGuarded(ctx context.Context, uploadID string, userID int64, uploadedChunks string, status string, expectedStatus string, expectedVersion int64) error
+}
+
 type UploadTaskService struct {
 	cfg         *configs.UploadConfig
-	tasks       *db.UploadTaskRepository
+	tasks       UploadTaskRepository
 	chunks      *db.UploadChunkRepository
 	maxUploadSz int64
 }
 
-func NewUploadTaskService(cfg *configs.UploadConfig, tasks *db.UploadTaskRepository, chunks *db.UploadChunkRepository) *UploadTaskService {
+func NewUploadTaskService(cfg *configs.UploadConfig, tasks UploadTaskRepository, chunks *db.UploadChunkRepository) *UploadTaskService {
 	svc := &UploadTaskService{cfg: cfg, tasks: tasks, chunks: chunks}
 	if cfg != nil && cfg.MaxImageSizeMB > 0 {
 		svc.maxUploadSz = cfg.MaxImageSizeMB * 1024 * 1024
@@ -119,5 +125,5 @@ func (s *UploadTaskService) updateStatus(ctx context.Context, uploadID string, u
 	if err != nil {
 		return err
 	}
-	return s.tasks.UpdateProgress(ctx, task.UploadID, task.UserID, task.UploadedChunks, status)
+	return s.tasks.UpdateProgressGuarded(ctx, task.UploadID, task.UserID, task.UploadedChunks, status, task.Status, task.Version)
 }

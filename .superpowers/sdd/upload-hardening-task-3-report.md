@@ -25,3 +25,9 @@ Status: DONE
 
 ## Commit
 - `8e900c3`
+
+## Fix Note - Guarded Progress Update
+- Added a status/version guard to upload task progress writes so a chunk upload can only advance the row it originally read.
+- Chunk uploads now roll back their temp file and chunk row if the task changes state before the guarded update lands.
+- `CancelUpload` and `CompleteUpload` now also go through the guarded progress write path.
+- Verification: `go test ./services/media-service/internal/service -run 'TestChunkServiceRollsBackChunkWhenTaskChangesBeforeProgressUpdate|TestCancelUploadUsesTaskStatusAndVersionGuard' -count=1` and `go test ./services/media-service/... -count=1`.

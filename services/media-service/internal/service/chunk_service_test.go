@@ -27,8 +27,28 @@ func (s failingTaskStore) GetByUploadID(ctx context.Context, uploadID string, us
 	return nil, errors.New("task not found")
 }
 
-func (s failingTaskStore) UpdateProgress(ctx context.Context, uploadID string, userID int64, uploadedChunks string, status string) error {
+func (s failingTaskStore) UpdateProgressGuarded(ctx context.Context, uploadID string, userID int64, uploadedChunks string, status string, expectedStatus string, expectedVersion int64) error {
 	return errors.New("update progress failed")
+}
+
+type racingTaskStore struct {
+	repo         *db.UploadTaskRepository
+	beforeUpdate func(ctx context.Context, uploadID string, userID int64, expectedStatus string, expectedVersion int64) error
+}
+
+func (s *racingTaskStore) GetByUploadID(ctx context.Context, uploadID string, userID int64) (*model.UploadTask, error) {
+	return s.repo.GetByUploadID(ctx, uploadID, userID)
+}
+
+func (s *racingTaskStore) UpdateProgressGuarded(ctx context.Context, uploadID string, userID int64, uploadedChunks string, status string, expectedStatus string, expectedVersion int64) error {
+	if s.beforeUpdate != nil {
+		beforeUpdate := s.beforeUpdate
+		s.beforeUpdate = nil
+		if err := beforeUpdate(ctx, uploadID, userID, expectedStatus, expectedVersion); err != nil {
+			return err
+		}
+	}
+	return s.repo.UpdateProgressGuarded(ctx, uploadID, userID, uploadedChunks, status, expectedStatus, expectedVersion)
 }
 
 func TestChunkServiceWritesChunkToTmpPath(t *testing.T) {
@@ -147,5 +167,72 @@ func TestChunkServiceRollsBackChunkOnProgressError(t *testing.T) {
 	chunkPath := filepath.Join(tmpDir, task.UploadID, "chunk_000000.part")
 	if _, err := os.Stat(chunkPath); !os.IsNotExist(err) {
 		t.Fatalf("expected chunk file to be removed, got err=%v", err)
+	}
+}
+
+func TestChunkServiceRollsBackChunkWhenTaskChangesBeforeProgressUpdate(t *testing.T) {
+	database, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	if err := db.Migrate(database); err != nil {
+		t.Fatalf("migrate test database: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	taskRepo := db.NewUploadTaskRepository(database)
+	chunkRepo := db.NewUploadChunkRepository(database)
+	tmpStorage := storage.NewTmpStorage(tmpDir)
+	task := &model.UploadTask{
+		UploadID:   "upload-race",
+		UserID:     9,
+		ChunkCount: 2,
+		Status:     model.UploadTaskStatusUploading,
+		ExpiresAt:  time.Now().Add(time.Hour).UTC(),
+	}
+	if err := taskRepo.Create(context.Background(), task); err != nil {
+		t.Fatalf("create upload task: %v", err)
+	}
+
+	tasks := &racingTaskStore{
+		repo: taskRepo,
+		beforeUpdate: func(ctx context.Context, uploadID string, userID int64, expectedStatus string, expectedVersion int64) error {
+			return taskRepo.UpdateProgressGuarded(ctx, uploadID, userID, "", model.UploadTaskStatusCancelled, expectedStatus, expectedVersion)
+		},
+	}
+	svc := NewChunkService(tasks, chunkRepo, tmpStorage)
+
+	_, err = svc.UploadChunk(context.Background(), ChunkInput{
+		UserID:     task.UserID,
+		UploadID:   task.UploadID,
+		ChunkIndex: 0,
+		Body:       strings.NewReader("race chunk"),
+	})
+	if !errors.Is(err, db.ErrUploadTaskStateConflict) {
+		t.Fatalf("expected guarded update error, got %v", err)
+	}
+
+	stored, err := chunkRepo.ListByUploadID(context.Background(), task.UploadID)
+	if err != nil {
+		t.Fatalf("list upload chunks: %v", err)
+	}
+	if len(stored) != 0 {
+		t.Fatalf("expected rollback to remove stored chunks, got %d", len(stored))
+	}
+
+	chunkPath := filepath.Join(tmpDir, task.UploadID, "chunk_000000.part")
+	if _, err := os.Stat(chunkPath); !os.IsNotExist(err) {
+		t.Fatalf("expected chunk file to be removed, got err=%v", err)
+	}
+
+	reloaded, err := taskRepo.GetByUploadID(context.Background(), task.UploadID, task.UserID)
+	if err != nil {
+		t.Fatalf("reload upload task: %v", err)
+	}
+	if reloaded.Status != model.UploadTaskStatusCancelled {
+		t.Fatalf("expected task to stay cancelled, got %q", reloaded.Status)
+	}
+	if reloaded.UploadedChunks != "" {
+		t.Fatalf("expected uploaded chunks to stay empty, got %q", reloaded.UploadedChunks)
 	}
 }
