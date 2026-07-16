@@ -37,7 +37,7 @@ func TestUploadReturnsStoredRecord(t *testing.T) {
 
 	resp, err := svc.Upload(context.Background(), model.UploadInput{
 		FileName:    "cover.png",
-		Content:     []byte("png"),
+		Content:     []byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a},
 		ContentType: "image/png",
 	})
 	if err != nil {

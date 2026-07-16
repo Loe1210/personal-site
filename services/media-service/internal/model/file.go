@@ -21,5 +21,6 @@ type UploadInput struct {
 	FileName    string
 	Content     []byte
 	ContentType string
+	Sha256      string
 	BizType     string
 }

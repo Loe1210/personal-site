@@ -42,6 +42,7 @@ func (h *Handler) Upload(ctx context.Context, c *app.RequestContext) {
 		FileName:    header.Filename,
 		Content:     content,
 		ContentType: string(header.Header.Get("Content-Type")),
+		Sha256:      c.PostForm("sha256"),
 		BizType:     c.PostForm("biz_type"),
 	})
 	if err != nil {

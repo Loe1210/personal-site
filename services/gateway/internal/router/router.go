@@ -3,11 +3,13 @@ package router
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 
+	"github.com/Loe1210/personal-site/services/gateway/internal/middleware"
 	"github.com/Loe1210/personal-site/services/gateway/internal/proxy"
 )
 
@@ -36,7 +38,8 @@ func RegisterRoutes(h *server.Hertz, deps Dependencies) error {
 	}
 	h.GET("/healthz", Health)
 	h.Any("/api/auth/*path", proxy.NewReverseProxy(deps.AuthBaseURL, "/api/auth"))
-	h.Any("/api/media/*path", proxy.NewReverseProxy(deps.MediaBaseURL, "/api/media"))
+	uploadGuard := middleware.NewUploadGuard(middleware.UploadGuardConfig{MaxBodyBytes: 512 * 1024 * 1024, MaxConcurrent: 3, Timeout: 2 * time.Minute})
+	h.Any("/api/media/*path", uploadGuard.Middleware(), proxy.NewReverseProxy(deps.MediaBaseURL, "/api/media"))
 	h.Any("/api/content/*path", proxy.NewReverseProxy(deps.ContentBaseURL, "/api/content"))
 	h.Any("/api/blog/*path", proxy.NewReverseProxy(deps.BFFBaseURL, "/api/blog"))
 	return nil

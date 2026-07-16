@@ -42,11 +42,8 @@ func (s *Service) Upload(ctx context.Context, in model.UploadInput) (*model.File
 	if strings.TrimSpace(in.FileName) == "" {
 		return nil, errors.New("file name is required")
 	}
-	if len(in.Content) == 0 {
-		return nil, errors.New("file content is required")
-	}
-	if !isAllowedImageContentType(in.ContentType) {
-		return nil, errors.New("only image uploads are allowed")
+	if err := ValidateUploadContent(in.ContentType, in.Content, in.Sha256); err != nil {
+		return nil, err
 	}
 	url, err := s.storage.Save(in.FileName, in.Content)
 	if err != nil {
@@ -58,6 +55,7 @@ func (s *Service) Upload(ctx context.Context, in model.UploadInput) (*model.File
 		Path:         url,
 		ContentType:  in.ContentType,
 		Size:         int64(len(in.Content)),
+		Sha256:       in.Sha256,
 		BizType:      normalizeBizType(in.BizType),
 	}
 	if s.repo != nil {
