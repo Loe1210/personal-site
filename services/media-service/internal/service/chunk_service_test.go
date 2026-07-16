@@ -236,3 +236,86 @@ func TestChunkServiceRollsBackChunkWhenTaskChangesBeforeProgressUpdate(t *testin
 		t.Fatalf("expected uploaded chunks to stay empty, got %q", reloaded.UploadedChunks)
 	}
 }
+func TestChunkServiceRetryKeepsPreviousChunkWhenProgressUpdateConflicts(t *testing.T) {
+	database, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	if err := db.Migrate(database); err != nil {
+		t.Fatalf("migrate test database: %v", err)
+	}
+
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	taskRepo := db.NewUploadTaskRepository(database)
+	chunkRepo := db.NewUploadChunkRepository(database)
+	tmpStorage := storage.NewTmpStorage(tmpDir)
+	task := &model.UploadTask{
+		UploadID:   "upload-retry-conflict",
+		UserID:     11,
+		ChunkCount: 2,
+		Status:     model.UploadTaskStatusUploading,
+		ExpiresAt:  time.Now().Add(time.Hour).UTC(),
+	}
+	if err := taskRepo.Create(ctx, task); err != nil {
+		t.Fatalf("create upload task: %v", err)
+	}
+
+	svc := NewChunkService(taskRepo, chunkRepo, tmpStorage)
+	firstChunk, err := svc.UploadChunk(ctx, ChunkInput{
+		UserID:     task.UserID,
+		UploadID:   task.UploadID,
+		ChunkIndex: 0,
+		Body:       strings.NewReader("original chunk"),
+	})
+	if err != nil {
+		t.Fatalf("upload original chunk: %v", err)
+	}
+
+	tasks := &racingTaskStore{
+		repo: taskRepo,
+		beforeUpdate: func(ctx context.Context, uploadID string, userID int64, expectedStatus string, expectedVersion int64) error {
+			return taskRepo.UpdateProgressGuarded(ctx, uploadID, userID, "0", model.UploadTaskStatusCancelled, expectedStatus, expectedVersion)
+		},
+	}
+	svc = NewChunkService(tasks, chunkRepo, tmpStorage)
+	_, err = svc.UploadChunk(ctx, ChunkInput{
+		UserID:     task.UserID,
+		UploadID:   task.UploadID,
+		ChunkIndex: 0,
+		Body:       strings.NewReader("replacement chunk"),
+	})
+	if !errors.Is(err, db.ErrUploadTaskStateConflict) {
+		t.Fatalf("expected guarded update conflict, got %v", err)
+	}
+
+	stored, err := chunkRepo.ListByUploadID(ctx, task.UploadID)
+	if err != nil {
+		t.Fatalf("list upload chunks: %v", err)
+	}
+	if len(stored) != 1 {
+		t.Fatalf("expected previous chunk row to remain, got %d rows", len(stored))
+	}
+	if stored[0].ChunkIndex != firstChunk.ChunkIndex || stored[0].StoragePath != firstChunk.StoragePath || stored[0].Sha256 != firstChunk.Sha256 {
+		t.Fatalf("expected previous chunk row to be restored, got %+v want %+v", stored[0], firstChunk)
+	}
+
+	data, err := os.ReadFile(filepath.Join(tmpDir, filepath.FromSlash(firstChunk.StoragePath)))
+	if err != nil {
+		t.Fatalf("read restored chunk file: %v", err)
+	}
+	if string(data) != "original chunk" {
+		t.Fatalf("expected original chunk content to remain, got %q", string(data))
+	}
+
+	reloaded, err := taskRepo.GetByUploadID(ctx, task.UploadID, task.UserID)
+	if err != nil {
+		t.Fatalf("reload upload task: %v", err)
+	}
+	if reloaded.Status != model.UploadTaskStatusCancelled {
+		t.Fatalf("expected task to stay cancelled, got %q", reloaded.Status)
+	}
+	if reloaded.UploadedChunks != "0" {
+		t.Fatalf("expected uploaded chunks to keep previous progress, got %q", reloaded.UploadedChunks)
+	}
+}

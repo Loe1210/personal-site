@@ -72,6 +72,76 @@ func (s *TmpStorage) SaveChunk(uploadID string, chunkIndex int, content io.Reade
 	return filepath.ToSlash(filepath.Join(uploadID, storageName)), written, hex.EncodeToString(hash.Sum(nil)), nil
 }
 
+func (s *TmpStorage) BackupChunk(storagePath string) (string, bool, error) {
+	if s == nil {
+		return "", false, errors.New("tmp storage is required")
+	}
+	if strings.TrimSpace(storagePath) == "" {
+		return "", false, nil
+	}
+	sourcePath := s.Resolve(storagePath)
+	source, err := os.Open(sourcePath)
+	if os.IsNotExist(err) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	defer source.Close()
+
+	backup, err := os.CreateTemp(filepath.Dir(sourcePath), filepath.Base(sourcePath)+".bak-*")
+	if err != nil {
+		return "", false, err
+	}
+	backupPath := backup.Name()
+	_, copyErr := io.Copy(backup, source)
+	closeErr := backup.Close()
+	if copyErr != nil {
+		_ = os.Remove(backupPath)
+		return "", false, copyErr
+	}
+	if closeErr != nil {
+		_ = os.Remove(backupPath)
+		return "", false, closeErr
+	}
+	return backupPath, true, nil
+}
+
+func (s *TmpStorage) RestoreChunk(storagePath string, backupPath string) error {
+	if s == nil {
+		return errors.New("tmp storage is required")
+	}
+	if strings.TrimSpace(storagePath) == "" || strings.TrimSpace(backupPath) == "" {
+		return nil
+	}
+	targetPath := s.Resolve(storagePath)
+	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+		return err
+	}
+	if err := os.Remove(targetPath); err != nil && !os.IsNotExist(err) {
+		_ = os.Remove(backupPath)
+		return err
+	}
+	if err := os.Rename(backupPath, targetPath); err != nil {
+		_ = os.Remove(backupPath)
+		return err
+	}
+	return nil
+}
+
+func (s *TmpStorage) DiscardChunkBackup(backupPath string) error {
+	if s == nil {
+		return errors.New("tmp storage is required")
+	}
+	if strings.TrimSpace(backupPath) == "" {
+		return nil
+	}
+	if err := os.Remove(backupPath); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
 func (s *TmpStorage) RemoveChunk(storagePath string) error {
 	if s == nil {
 		return errors.New("tmp storage is required")
@@ -79,7 +149,10 @@ func (s *TmpStorage) RemoveChunk(storagePath string) error {
 	if strings.TrimSpace(storagePath) == "" {
 		return nil
 	}
-	return os.Remove(filepath.Join(s.rootDir, filepath.FromSlash(storagePath)))
+	if err := os.Remove(filepath.Join(s.rootDir, filepath.FromSlash(storagePath))); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
 
 func (s *TmpStorage) Resolve(storagePath string) string {

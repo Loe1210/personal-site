@@ -15,6 +15,9 @@ type Storage interface {
 
 type ChunkStorage interface {
 	SaveChunk(uploadID string, chunkIndex int, content io.Reader) (storagePath string, size int64, sha256 string, err error)
+	BackupChunk(storagePath string) (backupPath string, exists bool, err error)
+	RestoreChunk(storagePath string, backupPath string) error
+	DiscardChunkBackup(backupPath string) error
 	RemoveChunk(storagePath string) error
 }
 

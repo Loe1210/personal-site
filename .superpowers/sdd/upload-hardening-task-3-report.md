@@ -35,3 +35,8 @@ Status: DONE
 - Removed the unguarded upload progress update wrapper so new code cannot bypass status/version checks by accident.
 - Added a repository-level stale update regression test that proves a cancelled task cannot be flipped back to uploading by an old progress write.
 - Verification: `go test ./services/media-service/internal/dal/db -run "TestUploadTaskRepositoryStoresStateAndChunks|TestUploadTaskRepositoryRejectsStaleProgressUpdates" -count=1`, `go test ./services/media-service/internal/service -run "TestChunkServiceWritesChunkToTmpPath|TestChunkServiceRollsBackChunkOnProgressError|TestChunkServiceRollsBackChunkWhenTaskChangesBeforeProgressUpdate|TestCancelUploadUsesTaskStatusAndVersionGuard|TestInitUploadRejectsTooLargeFile" -count=1`, and `go test ./services/media-service/... -count=1`.
+
+## Final Fix Note - Retry Conflict Rollback
+- Added a regression test for retrying an already-saved chunk when `UpdateProgressGuarded` loses a status/version race.
+- Added explicit chunk backup, restore, and backup discard storage operations so failed retries restore the previous file and metadata without parsing storage paths.
+- Verification: `go test ./services/media-service/internal/service -run TestChunkServiceRetryKeepsPreviousChunkWhenProgressUpdateConflicts -count=1`, `go test ./services/media-service/internal/dal/storage -count=1`, `go test ./services/media-service/internal/service -count=1`, and `go test ./services/media-service/... -count=1`.
