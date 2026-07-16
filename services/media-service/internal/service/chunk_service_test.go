@@ -3,9 +3,11 @@ package service
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -317,5 +319,147 @@ func TestChunkServiceRetryKeepsPreviousChunkWhenProgressUpdateConflicts(t *testi
 	}
 	if reloaded.UploadedChunks != "0" {
 		t.Fatalf("expected uploaded chunks to keep previous progress, got %q", reloaded.UploadedChunks)
+	}
+}
+
+type blockingProgressStore struct {
+	repo    *db.UploadTaskRepository
+	entered chan struct{}
+	release chan struct{}
+	once    sync.Once
+}
+
+func (s *blockingProgressStore) GetByUploadID(ctx context.Context, uploadID string, userID int64) (*model.UploadTask, error) {
+	return s.repo.GetByUploadID(ctx, uploadID, userID)
+}
+
+func (s *blockingProgressStore) UpdateProgressGuarded(ctx context.Context, uploadID string, userID int64, uploadedChunks string, status string, expectedStatus string, expectedVersion int64) error {
+	first := false
+	s.once.Do(func() { first = true })
+	if first {
+		close(s.entered)
+		<-s.release
+		if err := s.repo.UpdateProgressGuarded(ctx, uploadID, userID, uploadedChunks, status, expectedStatus, expectedVersion); err != nil {
+			return err
+		}
+	}
+	return s.repo.UpdateProgressGuarded(ctx, uploadID, userID, uploadedChunks, status, expectedStatus, expectedVersion)
+}
+
+type observingChunkStorage struct {
+	store      *storage.TmpStorage
+	mu         sync.Mutex
+	saveCount  int
+	secondSave chan struct{}
+	once       sync.Once
+}
+
+func (s *observingChunkStorage) SaveChunk(uploadID string, chunkIndex int, content io.Reader) (string, int64, string, error) {
+	s.mu.Lock()
+	s.saveCount++
+	isSecond := s.saveCount == 2
+	s.mu.Unlock()
+	if isSecond {
+		s.once.Do(func() { close(s.secondSave) })
+	}
+	return s.store.SaveChunk(uploadID, chunkIndex, content)
+}
+
+func (s *observingChunkStorage) BackupChunk(storagePath string) (string, bool, error) {
+	return s.store.BackupChunk(storagePath)
+}
+
+func (s *observingChunkStorage) RestoreChunk(storagePath string, backupPath string) error {
+	return s.store.RestoreChunk(storagePath, backupPath)
+}
+
+func (s *observingChunkStorage) DiscardChunkBackup(backupPath string) error {
+	return s.store.DiscardChunkBackup(backupPath)
+}
+
+func (s *observingChunkStorage) RemoveChunk(storagePath string) error {
+	return s.store.RemoveChunk(storagePath)
+}
+
+func TestChunkServiceSerializesConcurrentRetriesForSameChunk(t *testing.T) {
+	database, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	if err := db.Migrate(database); err != nil {
+		t.Fatalf("migrate test database: %v", err)
+	}
+
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	taskRepo := db.NewUploadTaskRepository(database)
+	chunkRepo := db.NewUploadChunkRepository(database)
+	task := &model.UploadTask{
+		UploadID:   "upload-concurrent-retry",
+		UserID:     12,
+		ChunkCount: 2,
+		Status:     model.UploadTaskStatusUploading,
+		ExpiresAt:  time.Now().Add(time.Hour).UTC(),
+	}
+	if err := taskRepo.Create(ctx, task); err != nil {
+		t.Fatalf("create upload task: %v", err)
+	}
+
+	tmpStorage := storage.NewTmpStorage(tmpDir)
+	seedService := NewChunkService(taskRepo, chunkRepo, tmpStorage)
+	if _, err := seedService.UploadChunk(ctx, ChunkInput{
+		UserID: task.UserID, UploadID: task.UploadID, ChunkIndex: 0, Body: strings.NewReader("original chunk"),
+	}); err != nil {
+		t.Fatalf("seed original chunk: %v", err)
+	}
+
+	progressStore := &blockingProgressStore{repo: taskRepo, entered: make(chan struct{}), release: make(chan struct{})}
+	observedStorage := &observingChunkStorage{store: tmpStorage, secondSave: make(chan struct{})}
+	svc := NewChunkService(progressStore, chunkRepo, observedStorage)
+
+	firstResult := make(chan error, 1)
+	go func() {
+		_, err := svc.UploadChunk(ctx, ChunkInput{
+			UserID: task.UserID, UploadID: task.UploadID, ChunkIndex: 0, Body: strings.NewReader("first retry"),
+		})
+		firstResult <- err
+	}()
+	<-progressStore.entered
+
+	secondResult := make(chan error, 1)
+	go func() {
+		_, err := svc.UploadChunk(ctx, ChunkInput{
+			UserID: task.UserID, UploadID: task.UploadID, ChunkIndex: 0, Body: strings.NewReader("second retry"),
+		})
+		secondResult <- err
+	}()
+
+	select {
+	case <-observedStorage.secondSave:
+		t.Fatal("second retry wrote the chunk before the first retry completed")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	close(progressStore.release)
+	if err := <-firstResult; !errors.Is(err, db.ErrUploadTaskStateConflict) {
+		t.Fatalf("expected first retry to lose the version race, got %v", err)
+	}
+	if err := <-secondResult; err != nil {
+		t.Fatalf("second retry should complete: %v", err)
+	}
+
+	stored, err := chunkRepo.ListByUploadID(ctx, task.UploadID)
+	if err != nil {
+		t.Fatalf("list chunks: %v", err)
+	}
+	if len(stored) != 1 {
+		t.Fatalf("expected one chunk, got %d", len(stored))
+	}
+	data, err := os.ReadFile(filepath.Join(tmpDir, filepath.FromSlash(stored[0].StoragePath)))
+	if err != nil {
+		t.Fatalf("read final chunk: %v", err)
+	}
+	if string(data) != "second retry" {
+		t.Fatalf("expected second retry to own final chunk, got %q", string(data))
 	}
 }

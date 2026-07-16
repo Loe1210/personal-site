@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/Loe1210/personal-site/services/media-service/internal/model"
 )
@@ -34,10 +35,50 @@ type ChunkService struct {
 	tasks   UploadTaskStore
 	chunks  UploadChunkStore
 	storage ChunkStorage
+	locks   *chunkLockManager
+}
+
+type chunkLockManager struct {
+	mu      sync.Mutex
+	entries map[string]*chunkLockEntry
+}
+
+type chunkLockEntry struct {
+	mu   sync.Mutex
+	refs int
+}
+
+func newChunkLockManager() *chunkLockManager {
+	return &chunkLockManager{entries: make(map[string]*chunkLockEntry)}
+}
+
+func (m *chunkLockManager) Lock(uploadID string, chunkIndex int) func() {
+	key := uploadID + "\x00" + strconv.Itoa(chunkIndex)
+
+	m.mu.Lock()
+	entry := m.entries[key]
+	if entry == nil {
+		entry = &chunkLockEntry{}
+		m.entries[key] = entry
+	}
+	entry.refs++
+	m.mu.Unlock()
+
+	entry.mu.Lock()
+	return func() {
+		entry.mu.Unlock()
+
+		m.mu.Lock()
+		entry.refs--
+		if entry.refs == 0 {
+			delete(m.entries, key)
+		}
+		m.mu.Unlock()
+	}
 }
 
 func NewChunkService(tasks UploadTaskStore, chunks UploadChunkStore, storage ChunkStorage) *ChunkService {
-	return &ChunkService{tasks: tasks, chunks: chunks, storage: storage}
+	return &ChunkService{tasks: tasks, chunks: chunks, storage: storage, locks: newChunkLockManager()}
 }
 
 func (s *ChunkService) UploadChunk(ctx context.Context, in ChunkInput) (*model.UploadChunk, error) {
@@ -59,6 +100,9 @@ func (s *ChunkService) UploadChunk(ctx context.Context, in ChunkInput) (*model.U
 	if in.Body == nil {
 		return nil, errors.New("chunk body is required")
 	}
+
+	release := s.locks.Lock(in.UploadID, in.ChunkIndex)
+	defer release()
 
 	task, err := s.tasks.GetByUploadID(ctx, in.UploadID, in.UserID)
 	if err != nil {
