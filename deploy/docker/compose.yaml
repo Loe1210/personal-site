@@ -108,6 +108,7 @@ services:
       - "9002:9002"
     volumes:
       - upload-images-data:/app/static/uploads/images
+      - upload-tmp-data:/app/static/uploads/tmp
 
   content-service:
     <<: *go-service
@@ -169,3 +170,4 @@ services:
 volumes:
   mysql-data:
   upload-images-data:
+  upload-tmp-data:

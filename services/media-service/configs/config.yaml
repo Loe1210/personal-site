@@ -1,4 +1,4 @@
-﻿server:
+server:
   host: ""
   port: "9002"
 rpc:
@@ -15,6 +15,7 @@ mysql:
 upload:
   root_dir: "static/uploads/images"
   public_base_path: "/static/uploads/images"
+  tmp_root_dir: "static/uploads/tmp"
   max_image_size_mb: 5
 
 site:
