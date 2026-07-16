@@ -161,3 +161,16 @@ func (s *TmpStorage) Resolve(storagePath string) string {
 	}
 	return filepath.Join(s.rootDir, filepath.FromSlash(storagePath))
 }
+
+func (s *TmpStorage) RemoveUpload(uploadID string) error {
+	if s == nil {
+		return errors.New("tmp storage is required")
+	}
+	if strings.TrimSpace(uploadID) == "" {
+		return nil
+	}
+	if err := os.RemoveAll(filepath.Join(s.rootDir, uploadID)); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}

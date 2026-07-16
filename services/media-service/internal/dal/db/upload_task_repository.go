@@ -135,3 +135,26 @@ func copyUploadTaskRecord(task *model.UploadTask, record *UploadTaskRecord) {
 	task.CreatedAt = record.CreatedAt
 	task.UpdatedAt = record.UpdatedAt
 }
+
+func (r *UploadTaskRepository) ListExpired(ctx context.Context, now time.Time, limit int) ([]model.UploadTask, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	var records []UploadTaskRecord
+	if err := r.db.WithContext(ctx).
+		Where("status = ? AND expires_at <= ?", model.UploadTaskStatusUploading, now).
+		Order("expires_at ASC").
+		Limit(limit).
+		Find(&records).Error; err != nil {
+		return nil, err
+	}
+	tasks := make([]model.UploadTask, 0, len(records))
+	for i := range records {
+		tasks = append(tasks, *uploadTaskFromRecord(&records[i]))
+	}
+	return tasks, nil
+}
+
+func (r *UploadTaskRepository) Delete(ctx context.Context, uploadID string) error {
+	return r.db.WithContext(ctx).Where("upload_id = ?", uploadID).Delete(&UploadTaskRecord{}).Error
+}

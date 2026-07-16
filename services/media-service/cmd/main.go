@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"time"
 
 	"github.com/Loe1210/personal-site/configs"
 	db "github.com/Loe1210/personal-site/services/media-service/internal/dal/db"
@@ -43,6 +44,7 @@ func main() {
 	uploadTasks.ConfigureCompletion(service.NewMergeService(cfg.Upload.TmpRootDir, cfg.Upload.RootDir, cfg.Upload.PublicBasePath), fileRepo, service.NewImageProcessor())
 	tmpStore := storage.NewTmpStorage(cfg.Upload.TmpRootDir)
 	chunks := service.NewChunkService(uploadTaskRepo, uploadChunkRepo, tmpStore)
+	service.NewUploadReaper(uploadTaskRepo, tmpStore, 100).Start(ctx, 10*time.Minute)
 	media := service.NewMediaService(store, fileRepo)
 	startMediaRPCServer(cfg.RPC.Port, kitexmediahandler.NewHandler(media))
 	h := newRouter(media, uploadTasks, chunks, configs.GetServerAddr())
