@@ -31,3 +31,7 @@ Status: DONE
 - Chunk uploads now roll back their temp file and chunk row if the task changes state before the guarded update lands.
 - `CancelUpload` and `CompleteUpload` now also go through the guarded progress write path.
 - Verification: `go test ./services/media-service/internal/service -run 'TestChunkServiceRollsBackChunkWhenTaskChangesBeforeProgressUpdate|TestCancelUploadUsesTaskStatusAndVersionGuard' -count=1` and `go test ./services/media-service/... -count=1`.
+## Final Fix Note - Guarded-only Repository API
+- Removed the unguarded upload progress update wrapper so new code cannot bypass status/version checks by accident.
+- Added a repository-level stale update regression test that proves a cancelled task cannot be flipped back to uploading by an old progress write.
+- Verification: `go test ./services/media-service/internal/dal/db -run "TestUploadTaskRepositoryStoresStateAndChunks|TestUploadTaskRepositoryRejectsStaleProgressUpdates" -count=1`, `go test ./services/media-service/internal/service -run "TestChunkServiceWritesChunkToTmpPath|TestChunkServiceRollsBackChunkOnProgressError|TestChunkServiceRollsBackChunkWhenTaskChangesBeforeProgressUpdate|TestCancelUploadUsesTaskStatusAndVersionGuard|TestInitUploadRejectsTooLargeFile" -count=1`, and `go test ./services/media-service/... -count=1`.
