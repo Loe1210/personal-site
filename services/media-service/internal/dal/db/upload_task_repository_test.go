@@ -51,7 +51,7 @@ func TestUploadTaskRepositoryStoresStateAndChunks(t *testing.T) {
 	if err := chunkRepo.Save(ctx, chunk); err != nil {
 		t.Fatalf("save upload chunk: %v", err)
 	}
-	if err := taskRepo.UpdateProgress(ctx, task.UploadID, task.UserID, "0", model.UploadTaskStatusUploading); err != nil {
+	if err := taskRepo.UpdateProgressGuarded(ctx, task.UploadID, task.UserID, "0", model.UploadTaskStatusUploading, model.UploadTaskStatusUploading, task.Version); err != nil {
 		t.Fatalf("update upload task progress: %v", err)
 	}
 
@@ -75,5 +75,52 @@ func TestUploadTaskRepositoryStoresStateAndChunks(t *testing.T) {
 	}
 	if chunks[0].ChunkIndex != 0 || chunks[0].StoragePath != "tmp/upload-1/0.part" {
 		t.Fatalf("unexpected stored chunk: %+v", chunks[0])
+	}
+}
+
+func TestUploadTaskRepositoryRejectsStaleProgressUpdates(t *testing.T) {
+	database, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	if err := Migrate(database); err != nil {
+		t.Fatalf("migrate test database: %v", err)
+	}
+
+	ctx := context.Background()
+	taskRepo := NewUploadTaskRepository(database)
+	task := &model.UploadTask{
+		UploadID:   "upload-race",
+		UserID:     99,
+		ChunkCount: 2,
+		Status:     model.UploadTaskStatusUploading,
+		ExpiresAt:  time.Now().Add(time.Hour).UTC(),
+	}
+	if err := taskRepo.Create(ctx, task); err != nil {
+		t.Fatalf("create upload task: %v", err)
+	}
+
+	if err := taskRepo.UpdateProgressGuarded(ctx, task.UploadID, task.UserID, "", model.UploadTaskStatusCancelled, model.UploadTaskStatusUploading, task.Version); err != nil {
+		t.Fatalf("cancel upload task: %v", err)
+	}
+	reloaded, err := taskRepo.GetByUploadID(ctx, task.UploadID, task.UserID)
+	if err != nil {
+		t.Fatalf("reload upload task: %v", err)
+	}
+	if err := taskRepo.UpdateProgressGuarded(ctx, task.UploadID, task.UserID, "0", model.UploadTaskStatusUploading, model.UploadTaskStatusUploading, task.Version); err != ErrUploadTaskStateConflict {
+		t.Fatalf("expected stale progress update conflict, got %v", err)
+	}
+	final, err := taskRepo.GetByUploadID(ctx, task.UploadID, task.UserID)
+	if err != nil {
+		t.Fatalf("reload final upload task: %v", err)
+	}
+	if final.Status != model.UploadTaskStatusCancelled {
+		t.Fatalf("expected cancelled status to stay unchanged, got %q", final.Status)
+	}
+	if final.UploadedChunks != "" {
+		t.Fatalf("expected uploaded chunks to stay empty, got %q", final.UploadedChunks)
+	}
+	if final.Version != reloaded.Version {
+		t.Fatalf("expected version to stay unchanged after stale update, got %d then %d", reloaded.Version, final.Version)
 	}
 }

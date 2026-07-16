@@ -64,10 +64,6 @@ func (r *UploadTaskRepository) GetByUploadID(ctx context.Context, uploadID strin
 	return uploadTaskFromRecord(&record), nil
 }
 
-func (r *UploadTaskRepository) UpdateProgress(ctx context.Context, uploadID string, userID int64, uploadedChunks string, status string) error {
-	return r.UpdateProgressGuarded(ctx, uploadID, userID, uploadedChunks, status, "", 0)
-}
-
 func (r *UploadTaskRepository) UpdateProgressGuarded(ctx context.Context, uploadID string, userID int64, uploadedChunks string, status string, expectedStatus string, expectedVersion int64) error {
 	query := r.db.WithContext(ctx).Model(&UploadTaskRecord{}).
 		Where("upload_id = ? AND user_id = ?", uploadID, userID)
