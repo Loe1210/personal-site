@@ -18,6 +18,7 @@ type UploadTaskRecord struct {
 	BizID          string    `gorm:"column:biz_id;type:varchar(128);not null;default:''"`
 	FileName       string    `gorm:"column:file_name;type:varchar(255);not null"`
 	FileSize       int64     `gorm:"column:file_size;not null"`
+	ContentType    string    `gorm:"column:content_type;type:varchar(128);not null;default:''"`
 	ChunkSize      int64     `gorm:"column:chunk_size;not null"`
 	ChunkCount     int       `gorm:"column:chunk_count;not null"`
 	UploadedChunks string    `gorm:"column:uploaded_chunks;type:varchar(4096);not null;default:''"`
@@ -95,6 +96,7 @@ func uploadTaskToRecord(task *model.UploadTask) *UploadTaskRecord {
 		BizID:          task.BizID,
 		FileName:       task.FileName,
 		FileSize:       task.FileSize,
+		ContentType:    task.ContentType,
 		ChunkSize:      task.ChunkSize,
 		ChunkCount:     task.ChunkCount,
 		UploadedChunks: task.UploadedChunks,
@@ -121,6 +123,7 @@ func copyUploadTaskRecord(task *model.UploadTask, record *UploadTaskRecord) {
 	task.BizID = record.BizID
 	task.FileName = record.FileName
 	task.FileSize = record.FileSize
+	task.ContentType = record.ContentType
 	task.ChunkSize = record.ChunkSize
 	task.ChunkCount = record.ChunkCount
 	task.UploadedChunks = record.UploadedChunks

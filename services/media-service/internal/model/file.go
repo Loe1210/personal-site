@@ -7,6 +7,7 @@ type FileRecord struct {
 	UploadID     string    `json:"upload_id"`
 	OriginalName string    `json:"original_name"`
 	URL          string    `json:"url"`
+	ThumbnailURL string    `json:"thumbnail_url"`
 	Path         string    `json:"path"`
 	ContentType  string    `json:"content_type"`
 	Size         int64     `json:"size"`

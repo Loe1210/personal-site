@@ -16,6 +16,7 @@ type UploadTask struct {
 	BizID          string
 	FileName       string
 	FileSize       int64
+	ContentType    string
 	ChunkSize      int64
 	ChunkCount     int
 	UploadedChunks string

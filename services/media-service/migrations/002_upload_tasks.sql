@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS upload_tasks (
   biz_id VARCHAR(128) NOT NULL DEFAULT '',
   file_name VARCHAR(255) NOT NULL,
   file_size BIGINT NOT NULL,
+  content_type VARCHAR(128) NOT NULL DEFAULT '',
   chunk_size BIGINT NOT NULL,
   chunk_count INT NOT NULL,
   uploaded_chunks VARCHAR(4096) NOT NULL DEFAULT '',
@@ -34,6 +35,7 @@ CREATE TABLE IF NOT EXISTS upload_chunks (
 
 ALTER TABLE files
   ADD COLUMN upload_id VARCHAR(64) NULL,
+  ADD COLUMN thumbnail_url VARCHAR(255) NOT NULL DEFAULT '',
   ADD COLUMN sha256 VARCHAR(64) NOT NULL DEFAULT '',
   ADD COLUMN biz_id VARCHAR(128) NOT NULL DEFAULT '',
   ADD KEY idx_files_upload_id (upload_id);

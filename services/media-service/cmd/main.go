@@ -40,6 +40,7 @@ func main() {
 	uploadTaskRepo := db.NewUploadTaskRepository(database)
 	uploadChunkRepo := db.NewUploadChunkRepository(database)
 	uploadTasks := service.NewUploadTaskService(&cfg.Upload, uploadTaskRepo, uploadChunkRepo)
+	uploadTasks.ConfigureCompletion(service.NewMergeService(cfg.Upload.TmpRootDir, cfg.Upload.RootDir, cfg.Upload.PublicBasePath), fileRepo, service.NewImageProcessor())
 	tmpStore := storage.NewTmpStorage(cfg.Upload.TmpRootDir)
 	chunks := service.NewChunkService(uploadTaskRepo, uploadChunkRepo, tmpStore)
 	media := service.NewMediaService(store, fileRepo)

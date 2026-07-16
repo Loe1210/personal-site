@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"math"
+	"path"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/Loe1210/personal-site/configs"
@@ -31,11 +34,18 @@ type UploadTaskRepository interface {
 	UpdateProgressGuarded(ctx context.Context, uploadID string, userID int64, uploadedChunks string, status string, expectedStatus string, expectedVersion int64) error
 }
 
+type UploadCompletionStore interface {
+	SaveRecordAndCompleteTask(ctx context.Context, task *model.UploadTask, record *model.FileRecord) error
+}
+
 type UploadTaskService struct {
-	cfg         *configs.UploadConfig
-	tasks       UploadTaskRepository
-	chunks      *db.UploadChunkRepository
-	maxUploadSz int64
+	cfg            *configs.UploadConfig
+	tasks          UploadTaskRepository
+	chunks         *db.UploadChunkRepository
+	maxUploadSz    int64
+	merge          *MergeService
+	completion     UploadCompletionStore
+	imageProcessor *ImageProcessor
 }
 
 func NewUploadTaskService(cfg *configs.UploadConfig, tasks UploadTaskRepository, chunks *db.UploadChunkRepository) *UploadTaskService {
@@ -76,17 +86,18 @@ func (s *UploadTaskService) InitUpload(ctx context.Context, in InitInput) (*mode
 	}
 
 	task := &model.UploadTask{
-		UploadID:   uuid.NewString(),
-		UserID:     in.UserID,
-		BizType:    normalizeBizType(in.BizType),
-		BizID:      in.BizID,
-		FileName:   in.FileName,
-		FileSize:   in.FileSize,
-		ChunkSize:  chunkSize,
-		ChunkCount: chunkCount,
-		Status:     model.UploadTaskStatusUploading,
-		Sha256:     in.Sha256,
-		ExpiresAt:  time.Now().Add(24 * time.Hour).UTC(),
+		UploadID:    uuid.NewString(),
+		UserID:      in.UserID,
+		BizType:     normalizeBizType(in.BizType),
+		BizID:       in.BizID,
+		FileName:    in.FileName,
+		FileSize:    in.FileSize,
+		ContentType: in.ContentType,
+		ChunkSize:   chunkSize,
+		ChunkCount:  chunkCount,
+		Status:      model.UploadTaskStatusUploading,
+		Sha256:      in.Sha256,
+		ExpiresAt:   time.Now().Add(24 * time.Hour).UTC(),
 	}
 	if err := s.tasks.Create(ctx, task); err != nil {
 		return nil, err
@@ -113,8 +124,79 @@ func (s *UploadTaskService) CancelUpload(ctx context.Context, uploadID string, u
 	return s.updateStatus(ctx, uploadID, userID, model.UploadTaskStatusCancelled)
 }
 
-func (s *UploadTaskService) CompleteUpload(ctx context.Context, uploadID string, userID int64) error {
-	return s.updateStatus(ctx, uploadID, userID, model.UploadTaskStatusCompleted)
+func (s *UploadTaskService) ConfigureCompletion(merge *MergeService, completion UploadCompletionStore, processors ...*ImageProcessor) {
+	s.merge = merge
+	s.completion = completion
+	if len(processors) > 0 {
+		s.imageProcessor = processors[0]
+		return
+	}
+	s.imageProcessor = NewImageProcessor()
+}
+
+func (s *UploadTaskService) CompleteUpload(ctx context.Context, uploadID string, userID int64) (*model.FileRecord, error) {
+	if s == nil || s.tasks == nil || s.chunks == nil || s.merge == nil || s.completion == nil {
+		return nil, errors.New("upload completion pipeline is not configured")
+	}
+	task, err := s.tasks.GetByUploadID(ctx, uploadID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if task.Status != model.UploadTaskStatusUploading {
+		return nil, errors.New("upload task is not active")
+	}
+	chunks, err := s.chunks.ListByUploadID(ctx, uploadID)
+	if err != nil {
+		return nil, err
+	}
+	result, err := s.merge.Merge(ctx, MergeInput{UploadID: task.UploadID, FileName: task.FileName, ExpectedSHA256: task.Sha256, ChunkCount: task.ChunkCount, Chunks: chunks})
+	if err != nil {
+		return nil, err
+	}
+
+	thumbnailURL, err := s.createThumbnail(result)
+	if err != nil {
+		return nil, err
+	}
+	record := &model.FileRecord{
+		UploadID:     task.UploadID,
+		OriginalName: task.FileName,
+		URL:          result.PublicPath,
+		ThumbnailURL: thumbnailURL,
+		Path:         result.RelativePath,
+		ContentType:  task.ContentType,
+		Size:         result.Size,
+		Sha256:       result.Sha256,
+		BizType:      task.BizType,
+		BizID:        task.BizID,
+	}
+	if err := s.completion.SaveRecordAndCompleteTask(ctx, task, record); err != nil {
+		return nil, err
+	}
+	return record, nil
+}
+
+func (s *UploadTaskService) createThumbnail(result *MergeResult) (string, error) {
+	if s.imageProcessor == nil || result == nil || result.FinalPath == "" {
+		return "", nil
+	}
+	thumbRelative := thumbnailRelativePath(result.RelativePath)
+	thumbPath := filepath.Join(filepath.Dir(result.FinalPath), "thumbs", filepath.Base(thumbRelative))
+	created, err := s.imageProcessor.Process(result.FinalPath, thumbPath)
+	if err != nil || !created {
+		return "", err
+	}
+	return path.Join(path.Dir(result.PublicPath), "thumbs", filepath.Base(thumbRelative)), nil
+}
+
+func thumbnailRelativePath(relative string) string {
+	name := path.Base(filepath.ToSlash(relative))
+	ext := path.Ext(name)
+	base := strings.TrimSuffix(name, ext)
+	if base == "" {
+		base = "thumbnail"
+	}
+	return path.Join(path.Dir(filepath.ToSlash(relative)), "thumbs", base+".jpg")
 }
 
 func (s *UploadTaskService) updateStatus(ctx context.Context, uploadID string, userID int64, status string) error {

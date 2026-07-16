@@ -13,6 +13,7 @@ type FileRecord struct {
 	UploadID     string    `gorm:"column:upload_id;type:varchar(64);index"`
 	OriginalName string    `gorm:"column:original_name;type:varchar(255);not null"`
 	URL          string    `gorm:"column:url;type:varchar(255);not null"`
+	ThumbnailURL string    `gorm:"column:thumbnail_url;type:varchar(255);not null;default:''"`
 	Path         string    `gorm:"column:path;type:varchar(512);not null"`
 	ContentType  string    `gorm:"column:content_type;type:varchar(128);not null"`
 	Size         int64     `gorm:"column:size;not null"`
@@ -39,6 +40,7 @@ func (r *FileRepository) Save(ctx context.Context, record *model.FileRecord) err
 		UploadID:     record.UploadID,
 		OriginalName: record.OriginalName,
 		URL:          record.URL,
+		ThumbnailURL: record.ThumbnailURL,
 		Path:         record.Path,
 		ContentType:  record.ContentType,
 		Size:         record.Size,
@@ -64,6 +66,7 @@ func (r *FileRepository) GetByID(ctx context.Context, id int64) (*model.FileReco
 		UploadID:     modelRecord.UploadID,
 		OriginalName: modelRecord.OriginalName,
 		URL:          modelRecord.URL,
+		ThumbnailURL: modelRecord.ThumbnailURL,
 		Path:         modelRecord.Path,
 		ContentType:  modelRecord.ContentType,
 		Size:         modelRecord.Size,
@@ -72,4 +75,47 @@ func (r *FileRepository) GetByID(ctx context.Context, id int64) (*model.FileReco
 		BizID:        modelRecord.BizID,
 		CreatedAt:    modelRecord.CreatedAt,
 	}, nil
+}
+
+func (r *FileRepository) SaveRecordAndCompleteTask(ctx context.Context, task *model.UploadTask, record *model.FileRecord) error {
+	if r == nil || r.db == nil {
+		return gorm.ErrInvalidDB
+	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		modelRecord := &FileRecord{
+			UploadID:     record.UploadID,
+			OriginalName: record.OriginalName,
+			URL:          record.URL,
+			ThumbnailURL: record.ThumbnailURL,
+			Path:         record.Path,
+			ContentType:  record.ContentType,
+			Size:         record.Size,
+			Sha256:       record.Sha256,
+			BizType:      record.BizType,
+			BizID:        record.BizID,
+		}
+		if err := tx.Create(modelRecord).Error; err != nil {
+			return err
+		}
+
+		result := tx.Model(&UploadTaskRecord{}).
+			Where("upload_id = ? AND user_id = ?", task.UploadID, task.UserID).
+			Where("status = ?", task.Status).
+			Where("version = ?", task.Version).
+			Updates(map[string]any{
+				"uploaded_chunks": task.UploadedChunks,
+				"status":          model.UploadTaskStatusCompleted,
+				"version":         gorm.Expr("version + 1"),
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return ErrUploadTaskStateConflict
+		}
+
+		record.ID = modelRecord.ID
+		record.CreatedAt = modelRecord.CreatedAt
+		return nil
+	})
 }
