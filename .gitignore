@@ -6,3 +6,4 @@ personal-site.exe
 *.exe~
 backups/
 personal-web-static-update.tar.gz
+personal-web-release-*.tar.gz
