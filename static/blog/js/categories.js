@@ -1,118 +1,79 @@
-﻿(function () {
+(function () {
     'use strict';
 
-    function escapeHtml(str) {
-        if (str == null) return '';
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
+    var TEXT = {
+        uncategorized: '\u672a\u5206\u7c7b',
+        articles: '\u7bc7',
+        empty: '\u8fd8\u6ca1\u6709\u53ef\u5c55\u793a\u7684\u5206\u7c7b\u6587\u7ae0',
+        failed: '\u5206\u7c7b\u76ee\u5f55\u52a0\u8f7d\u5931\u8d25',
+        end: '-- \u5df2\u7ecf\u5230\u5e95\u4e86 --'
+    };
+
+    function escapeHtml(value) {
+        return String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
-    function slugify(text) {
-        return String(text || 'uncategorized').toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-').replace(/^-+|-+$/g, '');
+    function categoryKey(name) {
+        return String(name || TEXT.uncategorized).toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-').replace(/^-+|-+$/g, '') || 'uncategorized';
     }
 
-    function groupPostsByCategory(posts) {
+    function groupPosts(posts, categories) {
         var groups = {};
-        posts.forEach(function (post) {
-            var key = post.category || '未分类';
-            if (!groups[key]) groups[key] = [];
-            groups[key].push(post);
+        (categories || []).forEach(function (category) { groups[category.name || TEXT.uncategorized] = []; });
+        (posts || []).forEach(function (post) {
+            var name = post.category || TEXT.uncategorized;
+            if (!groups[name]) groups[name] = [];
+            groups[name].push(post);
         });
         return groups;
     }
 
-    function renderCategoryPostLink(post) {
-        return '<a class="category-group__post-link" href="/blog/post/' + encodeURIComponent(post.id) + '">'
-            + '<span class="category-group__post-title">' + escapeHtml(post.title) + '</span>'
-            + '<span class="category-group__post-date">' + escapeHtml(window.formatDate(post.created_at) || '') + '</span>'
-            + '</a>';
+    function renderPost(post) {
+        var date = window.formatDate(post.published_at || post.created_at || post.updated_at);
+        return '<a class="category-directory__post" href="/blog/post/' + encodeURIComponent(post.slug || post.id) + '"><span class="category-directory__post-title">' + escapeHtml(post.title) + '</span><time class="category-directory__post-date">' + escapeHtml(date) + '</time></a>';
     }
 
-    function renderCategoryGroups(groups, focus) {
-        var names = Object.keys(groups).sort(function (a, b) {
-            return groups[b].length - groups[a].length || a.localeCompare(b, 'zh-CN');
-        });
-
+    function renderCategoryDirectory(groups, focus) {
+        var names = Object.keys(groups).sort(function (left, right) { return groups[right].length - groups[left].length || left.localeCompare(right, 'zh-CN'); });
+        if (!names.length) return '<p class="directory-state">' + TEXT.empty + '</p>';
         return names.map(function (name) {
-            var isFocus = focus && focus === name;
-            return '<section class="category-group' + (isFocus ? ' is-focus' : '') + '" id="category-' + slugify(name) + '">'
-                + '<header class="category-group__head">'
-                + '<h3 class="category-group__title">' + escapeHtml(name) + '</h3>'
-                + '<span class="category-group__count">' + groups[name].length + ' 篇</span>'
-                + '</header>'
-                + '<div class="category-group__posts">' + groups[name].map(renderCategoryPostLink).join('') + '</div>'
-                + '</section>';
-        }).join('');
+            var posts = groups[name];
+            return '<section id="category-' + categoryKey(name) + '" class="category-directory__group' + (focus === name ? ' is-focus' : '') + '"><header class="category-directory__heading"><span class="category-directory__dot" aria-hidden="true"></span><h3 class="category-directory__title">' + escapeHtml(name) + '</h3><span class="category-directory__count">' + posts.length + ' ' + TEXT.articles + '</span><span class="category-directory__line" aria-hidden="true"></span></header><div class="category-directory__posts">' + posts.map(renderPost).join('') + '</div></section>';
+        }).join('') + '<p class="directory-end">' + TEXT.end + '</p>';
     }
 
-    function updateStats(postsTotal, categoriesTotal, tagsTotal) {
-        setText('statPosts', postsTotal);
-        setText('statCategories', categoriesTotal);
-        setText('statTags', tagsTotal);
-    }
-
-    function setText(id, value) {
-        if (value == null) return;
-        var el = document.getElementById(id);
-        if (el) el.textContent = String(value);
-    }
+    function setText(id, value) { var element = document.getElementById(id); if (element) element.textContent = String(value == null ? '' : value); }
+    function setStats(posts, categories, tags) { setText('statPosts', posts); setText('statCategories', categories); setText('statTags', tags); }
 
     function loadBackground() {
         var script = document.createElement('script');
         script.src = '/assets/json/images.js?t=' + Date.now();
         script.onload = function () {
-            if (window.BING_IMAGES && window.BING_IMAGES.length > 0) {
-                var key = 'blog-bg-index';
-                var index = parseInt(sessionStorage.getItem(key), 10);
-                if (isNaN(index) || index >= window.BING_IMAGES.length) {
-                    index = Math.floor(Math.random() * window.BING_IMAGES.length);
-                    sessionStorage.setItem(key, index);
-                }
-                var url = '/assets/' + window.BING_IMAGES[index];
-                document.body.style.backgroundImage = "url('" + url.replace(/['\\]/g, '\\$&') + "')";
-            }
+            if (!window.BING_IMAGES || !window.BING_IMAGES.length) return;
+            var index = Number(sessionStorage.getItem('blog-bg-index'));
+            if (!Number.isInteger(index) || index < 0 || index >= window.BING_IMAGES.length) { index = Math.floor(Math.random() * window.BING_IMAGES.length); sessionStorage.setItem('blog-bg-index', String(index)); }
+            document.body.style.backgroundImage = "url('/assets/" + window.BING_IMAGES[index].replace(/['\\]/g, '\\$&') + "')";
         };
         document.body.appendChild(script);
     }
 
-    function scrollToFocus(focus) {
-        if (!focus) return;
-        var target = document.getElementById('category-' + slugify(focus));
-        if (target) {
-            setTimeout(function () {
-                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 120);
-        }
-    }
-
     document.addEventListener('DOMContentLoaded', function () {
         loadBackground();
-        var params = new URLSearchParams(window.location.search);
-        var focus = params.get('focus') || '';
+        var focus = new URLSearchParams(window.location.search).get('focus') || '';
         var summary = document.getElementById('categoriesSummary');
-        var groupsEl = document.getElementById('categoryGroups');
-
-        Promise.all([
-            BlogAPI.getCategories().catch(function () { return []; }),
-            BlogAPI.getTags().catch(function () { return []; }),
-            BlogAPI.getPosts({ page: 1, limit: 200 }).catch(function () { return { posts: [], total: 0 }; })
-        ]).then(function (result) {
+        var directory = document.getElementById('categoryDirectory');
+        Promise.all([BlogAPI.getCategories(), BlogAPI.getTags(), BlogAPI.getPosts({ page: 1, limit: 200 })]).then(function (result) {
             var categories = result[0];
             var tags = result[1];
             var postsData = result[2];
-            var groups = groupPostsByCategory(postsData.posts || []);
-
-            updateStats(postsData.total || (postsData.posts || []).length, categories.length, tags.length);
-            summary.textContent = '当前共有 ' + categories.length + ' 个分类，收录 ' + (postsData.total || (postsData.posts || []).length) + ' 篇文章';
-            groupsEl.innerHTML = renderCategoryGroups(groups, focus);
-            scrollToFocus(focus);
-        }).catch(function (err) {
-            summary.textContent = '分类加载失败';
-            groupsEl.innerHTML = '<div class="blog-error">加载失败：' + escapeHtml(err.message) + '</div>';
+            var posts = postsData.posts || [];
+            setStats(postsData.total || posts.length, categories.length, tags.length);
+            summary.textContent = '\u5f53\u524d\u5171\u6709 ' + categories.length + ' \u4e2a\u5206\u7c7b\uff0c\u6536\u5f55 ' + (postsData.total || posts.length) + ' \u7bc7\u6587\u7ae0';
+            directory.innerHTML = renderCategoryDirectory(groupPosts(posts, categories), focus);
+            if (focus) { var target = document.getElementById('category-' + categoryKey(focus)); if (target) setTimeout(function () { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 120); }
+        }).catch(function (error) {
+            summary.textContent = TEXT.failed;
+            directory.innerHTML = '<p class="directory-state directory-state--error">' + TEXT.failed + ': ' + escapeHtml(error.message) + '</p>';
         });
     });
-})();
+}());

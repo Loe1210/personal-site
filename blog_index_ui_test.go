@@ -18,12 +18,13 @@ func TestBlogPagesExposeSplitNavigationShell(t *testing.T) {
         "static/blog/categories.html": {
             `class="blog-sidebar-shell"`,
             `class="blog-main blog-categories-page"`,
-            `id="categoryGroups"`,
+            `id="categoryDirectory"`,
         },
         "static/blog/tags.html": {
             `class="blog-sidebar-shell"`,
             `class="blog-main blog-tags-page"`,
-            `id="tagPile"`,
+            `id="tagConstellation"`,
+            `id="tagArticles"`,
         },
     }
 
@@ -37,6 +38,24 @@ func TestBlogPagesExposeSplitNavigationShell(t *testing.T) {
     }
 }
 
+
+
+func TestDirectoryPagesActivateTheirOwnSidebarEntry(t *testing.T) {
+    cases := map[string]string{
+        "static/blog/categories.html": `class="blog-profile-nav__item is-active" href="/blog/categories"`,
+        "static/blog/tags.html":       `class="blog-profile-nav__item is-active" href="/blog/tags"`,
+    }
+
+    for path, activeEntry := range cases {
+        content := readFile(t, path)
+        if !strings.Contains(content, activeEntry) {
+            t.Fatalf("expected %s to activate %q", path, activeEntry)
+        }
+        if strings.Contains(content, `class="blog-profile-nav__item is-active" href="/blog/"`) {
+            t.Fatalf("expected %s not to activate the blog entry", path)
+        }
+    }
+}
 
 func TestBlogPagesExposeWechatModalAndPetMount(t *testing.T) {
     pages := []string{
@@ -94,7 +113,7 @@ func TestBlogHomeUsesSoftEntranceAnimations(t *testing.T) {
         }
     }
 
-    if !strings.Contains(html, `/blog/css/blog.css?v=18`) || !strings.Contains(html, `/blog/js/list.js?v=11`) {
+    if !strings.Contains(html, `/blog/css/blog.css?v=19`) || !strings.Contains(html, `/blog/js/list.js?v=11`) {
         t.Fatalf("expected homepage to load entrance animation assets")
     }
 }
@@ -115,7 +134,7 @@ func TestBlogHeroUsesSignatureCopyAndCuteCursor(t *testing.T) {
         `Build quietly. Ship clearly.`,
         `SYSTEMS / NOTES / BACKEND`,
         `/assets/css/cute-cursor.css`,
-        `/blog/css/blog.css?v=18`,
+        `/blog/css/blog.css?v=19`,
     }
     for _, marker := range requiredHtml {
         if !strings.Contains(html, marker) {
@@ -151,7 +170,7 @@ func TestBlogHeroUsesSignatureCopyAndCuteCursor(t *testing.T) {
 }
 func TestBlogHomepageUsesUpdatedRefreshAssets(t *testing.T) {
     html := readFile(t, "static/blog/index.html")
-    if !strings.Contains(html, `/blog/css/blog.css?v=18`) {
+    if !strings.Contains(html, `/blog/css/blog.css?v=19`) {
         t.Fatalf("expected refreshed stylesheet version")
     }
     if !strings.Contains(html, `/blog/js/sidebar.js?v=2`) {
@@ -221,12 +240,12 @@ func TestBlogHomeRemovesInlineCategoryAndTagPanels(t *testing.T) {
     }
 }
 
-func TestCategoriesPageRendersDirectoryGroups(t *testing.T) {
+func TestCategoriesPageRendersReferenceDirectory(t *testing.T) {
     script := readFile(t, "static/blog/js/categories.js")
     required := []string{
-        `renderCategoryGroups`,
-        `category-group`,
-        `category-group__posts`,
+        `renderCategoryDirectory`,
+        `category-directory__group`,
+        `category-directory__posts`,
     }
     for _, marker := range required {
         if !strings.Contains(script, marker) {
@@ -235,13 +254,13 @@ func TestCategoriesPageRendersDirectoryGroups(t *testing.T) {
     }
 }
 
-func TestTagsPageSupportsPileAnimation(t *testing.T) {
+func TestTagsPageSupportsConstellationAndFocus(t *testing.T) {
     script := readFile(t, "static/blog/js/tags.js")
     styles := readFile(t, "static/blog/css/blog.css")
     required := []string{
-        `renderTagPile`,
-        `tag-pile__item`,
-        `prefers-reduced-motion`,
+        `renderTagConstellation`,
+        `tag-constellation__node`,
+        `renderFocusedArticles`,
     }
     for _, marker := range required {
         if !strings.Contains(script, marker) && !strings.Contains(styles, marker) {

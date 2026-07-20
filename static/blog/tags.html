@@ -4,21 +4,20 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Hins 的技术博客标签导航">
-    <title>Hins 的技术博客 · 标签</title>
+    <meta name="description" content="Hins 的技术博客 - 实习产出与学习笔记">
+    <title>Hins Blog - Tags</title>
     <link rel="stylesheet" href="/assets/css/iconfont.css">
     <link rel="stylesheet" href="/assets/css/cute-cursor.css">
     <link rel="stylesheet" href="/assets/css/vno.css">
-    <link rel="stylesheet" href="/blog/css/blog.css?v=18">
+    <link rel="stylesheet" href="/blog/css/blog.css?v=20">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
     <link href="https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
     <link rel="icon" href="/favicon.ico">
 </head>
-<body class="blog-page blog-page--tags">
+<body class="blog-page blog-page--directory blog-page--tag-constellation">
     <div class="blog-overlay"></div>
-
     <main class="blog-container">
         <div class="blog-page-shell">
             <aside class="blog-sidebar-shell">
@@ -28,7 +27,7 @@
                     </div>
                     <h1 class="blog-profile-name">Hins</h1>
                     <p class="blog-profile-tagline">Code Create Life</p>
-                    <p class="blog-profile-intro">从标签墙里按关键词发现文章，进入时让标签像纸片一样掉下来。</p>
+                    <p class="blog-profile-intro">记录技术思考与实践，持续构建更稳、更清晰的后端系统。</p>
 
                     <div class="blog-profile-actions">
                         <button class="blog-profile-action blog-profile-action--wechat" type="button" data-wechat-open title="微信" aria-haspopup="dialog" aria-controls="blogWechatModal">
@@ -96,30 +95,31 @@
                     <div id="blogSidebarPet" class="blog-sidebar-pet" aria-hidden="true"></div>
                 </div>
                 <div class="blog-profile-footer">
-                    <p class="blog-profile-footer__title">Tag.sort()</p>
-                    <p class="blog-profile-footer__text">散落、堆叠、落位，再通过一个关键词回到对应的文章流。</p>
+                    <p class="blog-profile-footer__title">Hins / Blog</p>
+                    <p class="blog-profile-footer__text">把阶段性实践、长期学习和项目复盘留在同一个安静的记录角落。</p>
                 </div>
             </aside>
-
-            <section class="blog-main blog-tags-page">
-                <header class="blog-section-hero">
-                    <div class="blog-section-hero__eyebrow">TAG / DISCOVERY</div>
-                    <h2 class="blog-section-title">标签</h2>
-                    <p class="blog-section-subtitle" id="tagsSummary">加载中...</p>
+            <section class="blog-main blog-tags-page" aria-labelledby="tagPageTitle">
+                <header class="directory-hero directory-hero--tags">
+                    <p class="directory-hero__eyebrow">TAGS / CONSTELLATION</p>
+                    <h2 id="tagPageTitle" class="directory-hero__title">标签</h2>
+                    <p id="tagsSummary" class="directory-hero__summary">正在点亮标签星图...</p>
                 </header>
-                <section class="blog-tags-panel">
-                    <div id="tagPile" class="blog-tag-pile">
-                        <div class="blog-loading">加载中...</div>
+                <section class="tag-constellation" aria-label="标签星图">
+                    <div class="tag-constellation__orbit tag-constellation__orbit--one" aria-hidden="true"></div>
+                    <div class="tag-constellation__orbit tag-constellation__orbit--two" aria-hidden="true"></div>
+                    <div id="tagConstellation" class="tag-constellation__field" aria-live="polite">
+                        <p class="directory-state">正在生成星图...</p>
                     </div>
                 </section>
+                <section id="tagArticles" class="tag-articles" aria-live="polite"></section>
             </section>
         </div>
     </main>
-
     <script src="/blog/js/api.js?v=5"></script>
     <script src="/blog/js/sidebar.js?v=2"></script>
     <script src="/blog/js/pet.js?v=11"></script>
-    <script src="/blog/js/tags.js?v=2"></script>
+    <script src="/blog/js/tags.js?v=3"></script>
     <div id="blogWechatModal" class="blog-wechat-modal" hidden>
         <button class="blog-wechat-modal__overlay" type="button" data-wechat-overlay aria-label="关闭微信弹窗"></button>
         <section class="blog-wechat-modal__card" role="dialog" aria-modal="true" aria-labelledby="blogWechatTitle">
@@ -133,5 +133,6 @@
             <p class="blog-wechat-modal__hint">后续我可以继续把这里替换成真实二维码、公众号海报或你指定的图片说明。</p>
         </section>
     </div>
+
 </body>
 </html>
