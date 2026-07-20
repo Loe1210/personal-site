@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Hins 的技术博客 - 实习产出与学习笔记">
-    <title>Hins 的技术博客</title>
+    <meta name="description" content="Hins 的技术博客分类导航">
+    <title>Hins 的技术博客 · 分类</title>
     <link rel="stylesheet" href="/assets/css/iconfont.css">
     <link rel="stylesheet" href="/assets/css/cute-cursor.css">
     <link rel="stylesheet" href="/assets/css/vno.css">
@@ -16,7 +16,7 @@
     <link href="https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
     <link rel="icon" href="/favicon.ico">
 </head>
-<body class="blog-page blog-page--home">
+<body class="blog-page blog-page--categories">
     <div class="blog-overlay"></div>
 
     <main class="blog-container">
@@ -28,7 +28,7 @@
                     </div>
                     <h1 class="blog-profile-name">Hins</h1>
                     <p class="blog-profile-tagline">Code Create Life</p>
-                    <p class="blog-profile-intro">记录技术思考与实践，持续构建更稳、更清晰的后端系统。</p>
+                    <p class="blog-profile-intro">从文章流切换到主题目录，更快找到你关心的内容脉络。</p>
 
                     <div class="blog-profile-actions">
                         <button class="blog-profile-action blog-profile-action--wechat" type="button" data-wechat-open title="微信" aria-haspopup="dialog" aria-controls="blogWechatModal">
@@ -65,12 +65,12 @@
                         <span class="blog-profile-nav__label">首页</span>
                         <span class="blog-profile-nav__chevron">‹</span>
                     </a>
-                    <a class="blog-profile-nav__item is-active" href="/blog/">
+                    <a class="blog-profile-nav__item" href="/blog/">
                         <span class="blog-profile-nav__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"></path><path d="M4 12h16"></path><path d="M4 17h16"></path></svg></span>
                         <span class="blog-profile-nav__label">博客</span>
                         <span class="blog-profile-nav__chevron">‹</span>
                     </a>
-                    <a class="blog-profile-nav__item" href="/blog/categories">
+                    <a class="blog-profile-nav__item is-active" href="/blog/categories">
                         <span class="blog-profile-nav__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h7v4H4z"></path><path d="M13 7h7v4h-7z"></path><path d="M4 13h7v4H4z"></path><path d="M13 13h7v4h-7z"></path></svg></span>
                         <span class="blog-profile-nav__label">分类</span>
                         <span class="blog-profile-nav__chevron">‹</span>
@@ -96,43 +96,30 @@
                     <div id="blogSidebarPet" class="blog-sidebar-pet" aria-hidden="true"></div>
                 </div>
                 <div class="blog-profile-footer">
-                    <p class="blog-profile-footer__title">Hins / Blog</p>
-                    <p class="blog-profile-footer__text">把阶段性实践、长期学习和项目复盘留在同一个安静的记录角落。</p>
+                    <p class="blog-profile-footer__title">Category.directory()</p>
+                    <p class="blog-profile-footer__text">像归档页一样按结构浏览内容，但这次按照主题来展开。</p>
                 </div>
             </aside>
 
-            <section class="blog-main blog-home-page">
-                <header class="blog-hero">
-                    <div class="blog-hero__eyebrow">SYSTEMS / NOTES / BACKEND</div>
-                    <h2 class="blog-page-title">Hins.log</h2>
-                    <p class="blog-page-subtitle">Build quietly. Ship clearly.</p>
-                    <div class="blog-hero__toolbar">
-                        <div class="blog-search">
-                            <span class="blog-search__icon">&#128269;</span>
-                            <input type="text" id="searchInput" class="blog-search__input" placeholder="搜索文章标题或摘要...">
-                        </div>
-                    </div>
+            <section class="blog-main blog-categories-page">
+                <header class="blog-section-hero">
+                    <div class="blog-section-hero__eyebrow">CATEGORY / DIRECTORY</div>
+                    <h2 class="blog-section-title">分类</h2>
+                    <p class="blog-section-subtitle" id="categoriesSummary">加载中...</p>
                 </header>
-
-                <div id="postList" class="post-list post-list--stream">
-                    <div class="blog-loading">加载中...</div>
-                </div>
-
-                <div id="pagination" class="blog-pagination" style="display:none;">
-                    <button id="prevPage" class="blog-pagination__btn">&laquo; 上一页</button>
-                    <div id="pageNumbers" class="blog-pagination__numbers"></div>
-                    <button id="nextPage" class="blog-pagination__btn">下一页 &raquo;</button>
-                </div>
+                <section class="blog-directory-panel">
+                    <div id="categoryGroups" class="blog-category-groups">
+                        <div class="blog-loading">加载中...</div>
+                    </div>
+                </section>
             </section>
         </div>
     </main>
 
-    <button id="backToTop" class="back-to-top" title="返回顶部">&#8593;</button>
-
     <script src="/blog/js/api.js?v=5"></script>
     <script src="/blog/js/sidebar.js?v=2"></script>
     <script src="/blog/js/pet.js?v=11"></script>
-    <script src="/blog/js/list.js?v=11"></script>
+    <script src="/blog/js/categories.js?v=2"></script>
     <div id="blogWechatModal" class="blog-wechat-modal" hidden>
         <button class="blog-wechat-modal__overlay" type="button" data-wechat-overlay aria-label="关闭微信弹窗"></button>
         <section class="blog-wechat-modal__card" role="dialog" aria-modal="true" aria-labelledby="blogWechatTitle">

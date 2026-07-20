@@ -1,6 +1,6 @@
 # 个人小站
 
-这是一个基于 Go + Hertz + MySQL 的个人小站项目。当前后端已经从单体入口迁移到微服务运行方式，外部 HTTP 流量统一从 `gateway` 进入，再转发到 `auth-service`、`content-service`、`media-service` 和 `web-bff`。
+这是一个基于 Go + Hertz + MySQL 的个人小站项目。当前后端已从单体入口迁移到微服务运行方式，外部 HTTP 流量统一从 `gateway` 进入，再转发到 `auth-service`、`content-service`、`media-service` 和 `web-bff`。
 
 ## 当前架构
 
@@ -32,12 +32,68 @@ docker compose -f deploy/docker/compose.yaml up -d --build
 http://127.0.0.1:8080
 ```
 
-后端 API 网关仍然保留在：
+后端 API 网关保留在：
 
 ```text
 http://127.0.0.1:8888
 ```
 
+## 本地重新部署前端
+
+静态页面、博客样式、后台页面、宠物资源更新后，可以只重建前端容器：
+
+```bash
+make micro-redeploy
+```
+
+等价命令：
+
+```bash
+docker compose -f deploy/docker/compose.yaml up -d --build frontend
+```
+
+## 服务器更新重部署
+
+默认服务器是 `117.72.95.156`，项目目录是 `/opt/personal-web`。本地改完静态资源、博客页面、后台页面或 `pet/` 宠物资源后，执行：
+
+```bash
+make deploy-frontend
+```
+
+这个命令会做三件事：
+
+- 打包 `static/`、`pet/`、`frontend/` 等前端相关文件
+- 上传到服务器并解压到 `/opt/personal-web`
+- 在服务器上重建并重启 `frontend` 容器，然后验证 `/blog/`
+
+如果服务器 IP 或目录变化，可以覆盖变量：
+
+```bash
+make deploy-frontend SERVER=你的服务器IP REMOTE_DIR=/opt/personal-web
+```
+
+只上传并重启，不做验证：
+
+```bash
+make deploy-static
+```
+
+只验证线上页面：
+
+```bash
+make verify-prod
+```
+
+
+## 后端代码一起上线
+
+如果本次同时改了后端服务代码，例如 `media-service`、`content-service`、`gateway` 或 `web-bff`，先把分支推送到 GitHub，然后在本地执行：
+
+```bash
+make deploy-code BRANCH=你的分支名
+```
+
+`deploy-code` 只会让服务器拉取指定分支并重建应用容器：`frontend`、`media-service`、`content-service`、`web-bff`、`gateway`。它不会执行 `docker compose down -v`，不会导入 SQL，也不会删除或重建 MySQL 数据卷。
 ## 验证
 
 基础 Go 测试：

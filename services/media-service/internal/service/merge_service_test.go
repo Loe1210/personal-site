@@ -33,12 +33,20 @@ func TestMergeServiceMergesChunksInIndexOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("merge: %v", err)
 	}
-	data, err := os.ReadFile(filepath.Join(finalRoot, filepath.FromSlash(result.RelativePath)))
+	finalPath := filepath.Join(finalRoot, filepath.FromSlash(result.RelativePath))
+	data, err := os.ReadFile(finalPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if string(data) != "hello world" {
 		t.Fatalf("content=%q", data)
+	}
+	info, err := os.Stat(finalPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got&0o444 != 0o444 {
+		t.Fatalf("expected merged file to be readable by nginx, got permissions %o", got)
 	}
 	sum := sha256.Sum256([]byte("hello world"))
 	if result.Sha256 != hex.EncodeToString(sum[:]) {

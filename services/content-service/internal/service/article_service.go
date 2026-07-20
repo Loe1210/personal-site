@@ -20,6 +20,10 @@ type ArticleLister interface {
 	List(ctx context.Context, filter ListFilter) (*ListResult, error)
 }
 
+type ArticleAdjacentFinder interface {
+	GetAdjacentPublic(ctx context.Context, id int64) (*model.AdjacentArticles, error)
+}
+
 type ArticleWriter interface {
 	Create(ctx context.Context, article *ArticleDetail) error
 	Update(ctx context.Context, article *ArticleDetail) error
@@ -33,15 +37,19 @@ type ArticleRepository interface {
 }
 
 type ArticleService struct {
-	getter ArticleGetter
-	lister ArticleLister
-	writer ArticleWriter
+	getter   ArticleGetter
+	lister   ArticleLister
+	adjacent ArticleAdjacentFinder
+	writer   ArticleWriter
 }
 
 func NewArticleService(repo ArticleGetter) *ArticleService {
 	service := &ArticleService{getter: repo}
 	if lister, ok := repo.(ArticleLister); ok {
 		service.lister = lister
+	}
+	if adjacent, ok := repo.(ArticleAdjacentFinder); ok {
+		service.adjacent = adjacent
 	}
 	if writer, ok := repo.(ArticleWriter); ok {
 		service.writer = writer
@@ -62,6 +70,16 @@ func (s *ArticleService) ListPublicArticles(ctx context.Context, filter ListFilt
 		return nil, errors.New("article lister is required")
 	}
 	return s.lister.List(ctx, normalizeListFilter(filter))
+}
+
+func (s *ArticleService) GetAdjacentPublicArticles(ctx context.Context, id int64) (*model.AdjacentArticles, error) {
+	if id <= 0 {
+		return nil, errors.New("article id is required")
+	}
+	if s.adjacent == nil {
+		return nil, errors.New("article adjacent finder is required")
+	}
+	return s.adjacent.GetAdjacentPublic(ctx, id)
 }
 
 func (s *ArticleService) ListAdminArticles(ctx context.Context, filter ListFilter) (*ListResult, error) {

@@ -1,6 +1,7 @@
 package upload
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"strconv"
@@ -63,11 +64,16 @@ func (h *Handler) UploadChunk(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusBadRequest, map[string]any{"code": 20031, "message": "invalid chunk index"})
 		return
 	}
+	body, err := c.Body()
+	if err != nil {
+		c.JSON(consts.StatusBadRequest, map[string]any{"code": 20033, "message": "read chunk body failed"})
+		return
+	}
 	chunk, err := h.chunks.UploadChunk(ctx, service.ChunkInput{
 		UserID:     userID,
 		UploadID:   c.Param("upload_id"),
 		ChunkIndex: chunkIndex,
-		Body:       c.RequestBodyStream(),
+		Body:       bytes.NewReader(body),
 	})
 	if err != nil {
 		c.JSON(consts.StatusBadRequest, map[string]any{"code": 20032, "message": err.Error()})

@@ -82,6 +82,30 @@ func (r *ArticleRepository) List(ctx context.Context, filter model.ListFilter) (
 	return &model.ListResult{List: result, Total: total}, nil
 }
 
+func (r *ArticleRepository) GetAdjacentPublic(ctx context.Context, id int64) (*model.AdjacentArticles, error) {
+	var articles []Article
+	if err := r.db.WithContext(ctx).
+		Where("status = ?", "published").
+		Order("is_top DESC, published_at DESC, id DESC").
+		Find(&articles).Error; err != nil {
+		return nil, err
+	}
+
+	result := &model.AdjacentArticles{}
+	for i, article := range articles {
+		if article.ID != id {
+			continue
+		}
+		if i > 0 {
+			result.Prev = toArticleDetail(articles[i-1], nil)
+		}
+		if i+1 < len(articles) {
+			result.Next = toArticleDetail(articles[i+1], nil)
+		}
+		return result, nil
+	}
+	return nil, gorm.ErrRecordNotFound
+}
 func (r *ArticleRepository) Create(ctx context.Context, detail *model.ArticleDetail) error {
 	article := fromArticleDetail(detail)
 	if err := r.db.WithContext(ctx).Create(&article).Error; err != nil {

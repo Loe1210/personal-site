@@ -53,12 +53,15 @@ func (p *ImageProcessor) Process(srcPath string, dstPath string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer func() {
-		_ = out.Close()
-	}()
-
 	if err := jpeg.Encode(out, thumb, &jpeg.Options{Quality: 85}); err != nil {
+		_ = out.Close()
 		_ = os.Remove(dstPath)
+		return false, err
+	}
+	if err := out.Close(); err != nil {
+		return false, err
+	}
+	if err := os.Chmod(dstPath, 0o644); err != nil {
 		return false, err
 	}
 

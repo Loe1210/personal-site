@@ -177,13 +177,13 @@
         },
 
         getPost: function (id) {
-            return request('/articles/id/' + encodeURIComponent(id)).then(function(data) {
+            return request('/articles/' + encodeURIComponent(id)).then(function(data) {
                 return mapBackendArticle(data.article || data);
             });
         },
 
         getAdjacentPosts: function (id) {
-            return request('/articles/id/' + encodeURIComponent(id) + '/adjacent').then(function(data) {
+            return request('/articles/' + encodeURIComponent(id) + '/adjacent').then(function(data) {
                 data = data || {};
                 return {
                     prev: data.prev || null,

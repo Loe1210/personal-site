@@ -8,8 +8,9 @@
     <meta name="description" content="博客后台管理">
     <title>Hins · 博客管理</title>
     <link rel="stylesheet" href="/assets/css/iconfont.css">
+    <link rel="stylesheet" href="/assets/css/cute-cursor.css">
     <link rel="stylesheet" href="/assets/css/vno.css">
-    <link rel="stylesheet" href="/admin/css/admin.css?v=6">
+    <link rel="stylesheet" href="/admin/css/admin.css?v=7">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
@@ -143,8 +144,9 @@
                         <input type="file" id="postCoverFile" class="cover-upload__input" accept="image/*">
                         <label for="postCoverFile" class="btn btn-ghost btn-sm cover-upload__button">选择本地图片</label>
                         <button type="button" id="clearCoverBtn" class="btn btn-ghost btn-sm cover-upload__clear">清除封面</button>
+                        <button type="button" id="openCoverLibraryBtn" class="btn btn-ghost btn-sm cover-upload__library">从素材库选择</button>
                     </div>
-                    <p id="coverUploadStatus" class="form-help">选择图片后会自动上传，并在保存文章时写入封面地址。</p>
+                    <p id="coverUploadStatus" class="form-help">选择图片后会自动分片上传，并在保存文章时写入封面地址。</p>
                     <div id="coverUploadProgress" class="cover-progress">
                         <div class="cover-progress__bar"><span id="coverUploadProgressBar"></span></div>
                         <div id="coverUploadProgressText" class="cover-progress__text"></div>
@@ -214,6 +216,28 @@
         </div>
     </div>
 
+    <!-- Cover library picker -->
+    <div id="coverLibraryModal" class="modal cover-library-modal" style="display:none;">
+        <div class="modal__overlay" data-cover-library-close></div>
+        <div class="modal__content modal__content--wide">
+            <header class="modal__header">
+                <div>
+                    <h2 class="modal__title">选择文章封面</h2>
+                    <p class="cover-library__subtitle">来自 Openverse 的开放版权图片，也可以继续使用本地上传。</p>
+                </div>
+                <button type="button" id="closeCoverLibraryBtn" class="modal__close">&times;</button>
+            </header>
+            <div class="modal__body">
+                <div class="cover-library__search">
+                    <input type="search" id="coverLibraryQuery" class="form-input" placeholder="搜索关键词，例如 technology / mountain / code" value="technology abstract">
+                    <button type="button" id="searchCoverLibraryBtn" class="btn btn-primary btn-sm">搜索素材</button>
+                </div>
+                <p id="coverLibraryStatus" class="form-help">选择一张图片后会写入封面地址，保存文章后生效。</p>
+                <div id="coverLibraryResults" class="cover-library__grid"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- 删除确认弹窗 -->
     <div id="confirmModal" class="modal" style="display:none;">
         <div class="modal__overlay"></div>
@@ -233,7 +257,8 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
-    <script src="/admin/js/admin.js?v=8"></script>
+    <script src="/admin/js/admin.js?v=13"></script>
+    <script src="/blog/js/pet.js?v=11"></script>
 </body>
 
 </html>

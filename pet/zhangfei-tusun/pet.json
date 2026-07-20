@@ -1,0 +1,14 @@
+{
+  "id": "zhangfei-tusun",
+  "displayName": "张飞兔狲",
+  "description": "圆滚滚的张飞兔狲桌宠，支持待机、奔跑、跳跃和挥手动作。",
+  "spriteVersionNumber": 2,
+  "columns": 8,
+  "rows": 11,
+  "idleFrames": 7,
+  "runningRightFrames": 8,
+  "runningLeftFrames": 8,
+  "wavingFrames": 4,
+  "jumpingFrames": 5,
+  "spritesheetPath": "spritesheet.webp"
+}

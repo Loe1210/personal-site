@@ -36,3 +36,8 @@ type ListResult struct {
 	List  []*ArticleDetail `json:"list"`
 	Total int64            `json:"total"`
 }
+
+type AdjacentArticles struct {
+	Prev *ArticleDetail `json:"prev"`
+	Next *ArticleDetail `json:"next"`
+}

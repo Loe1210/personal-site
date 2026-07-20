@@ -1,0 +1,29 @@
+:root {
+    --cute-cursor-default: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cg fill='none' stroke='%2377ace7' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 5 21 17l-7 1.2-2.7 6.6L7 5Z' fill='rgba(246,250,255,.96)'/%3E%3Cpath d='m20.5 5.5 1.2 2.8 2.8 1.2-2.8 1.2-1.2 2.8-1.2-2.8-2.8-1.2 2.8-1.2 1.2-2.8Z' fill='%23d7ecff'/%3E%3C/g%3E%3C/svg%3E") 7 5;
+    --cute-cursor-pointer: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='34' height='34' viewBox='0 0 34 34'%3E%3Cg fill='none' stroke='%23f6fbff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 6 22 17.8l-6.6 1.1-2.8 6.3L9 6Z' fill='%2377ace7'/%3E%3Cpath d='M22.8 8.2c2.9.4 4.8 2.2 5.2 5.1-2.9.5-4.8 2.3-5.2 5.2-.5-2.9-2.3-4.7-5.2-5.2 2.9-.4 4.7-2.2 5.2-5.1Z' fill='%23fff2a8'/%3E%3C/g%3E%3C/svg%3E") 9 6;
+}
+
+html,
+body,
+.blog-page {
+    cursor: var(--cute-cursor-default), auto;
+}
+
+a,
+button,
+input,
+textarea,
+select,
+[role="button"],
+.blog-profile-action,
+.blog-profile-nav__item,
+.post-card,
+.post-card__media-link,
+.post-card__title-link,
+.post-card__readmore,
+.post-card__tag,
+.post-card__category,
+.blog-chip,
+.blog-sidebar-pet {
+    cursor: var(--cute-cursor-pointer), pointer;
+}

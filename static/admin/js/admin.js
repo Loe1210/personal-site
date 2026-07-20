@@ -3,6 +3,7 @@
 
     var API_BASE = '/api/admin';
     var toastTimer = null;
+    var OPENVERSE_IMAGE_ENDPOINT = 'https://api.openverse.org/v1/images/';
 
     function request(path, options) {
         options = options || {};
@@ -32,69 +33,191 @@
         });
     }
 
+    var ADMIN_COVER_CHUNK_SIZE = 1024 * 1024;
+    var ADMIN_UPLOAD_USER_ID = 1;
+
     function uploadCoverFile(file, onProgress) {
         if (!file) return Promise.resolve('');
         if (!file.type || file.type.indexOf('image/') !== 0) {
             return Promise.reject(new Error('请选择图片文件作为封面'));
         }
-
-        return new Promise(function (resolve, reject) {
-            var xhr = new XMLHttpRequest();
-            var formData = new FormData();
-            formData.append('file', file);
-            formData.append('biz_type', 'article_cover');
-
-            xhr.open('POST', '/api/media/upload', true);
-            xhr.withCredentials = true;
-
-            xhr.upload.addEventListener('progress', function (evt) {
-                if (!evt.lengthComputable || typeof onProgress !== 'function') return;
-                var percent = evt.total > 0 ? Math.round((evt.loaded / evt.total) * 100) : 0;
-                onProgress(percent);
+        if (typeof onProgress === 'function') onProgress(0);
+        return createFileSha256(file)
+            .then(function (sha256) {
+                return initChunkUpload(file, sha256);
+            })
+            .then(function (task) {
+                return uploadFileChunks(file, task, onProgress)
+                    .then(function () {
+                        return completeChunkUpload(task.uploadID);
+                    })
+                    .catch(function (err) {
+                        return cancelChunkUpload(task.uploadID).then(function () {
+                            throw err;
+                        }, function () {
+                            throw err;
+                        });
+                    });
+            })
+            .then(function (record) {
+                if (!record || !record.url) {
+                    throw new Error('封面上传成功，但服务没有返回可访问地址');
+                }
+                if (typeof onProgress === 'function') onProgress(100);
+                return record.url;
             });
+    }
 
-            xhr.addEventListener('load', function () {
-                if (xhr.status < 200 || xhr.status >= 300) {
-                    reject(new Error(friendlyHttpError('/api/media/upload', xhr.status)));
-                    return;
-                }
-                var data;
-                try {
-                    data = JSON.parse(xhr.responseText || '{}');
-                } catch (err) {
-                    reject(new Error('封面上传失败，请稍后再试'));
-                    return;
-                }
-                if (data.code !== 0) {
-                    reject(new Error(data.message || '封面上传失败，请稍后再试'));
-                    return;
-                }
-                var record = data.data || {};
-                if (!record.url) {
-                    reject(new Error('封面上传成功，但服务没有返回可访问地址'));
-                    return;
-                }
-                resolve(record.url);
-            });
-
-            xhr.addEventListener('error', function () {
-                reject(new Error('封面上传失败，请检查网络后重试'));
-            });
-
-            xhr.send(formData);
+    function initChunkUpload(file, sha256) {
+        var formData = new FormData();
+        formData.append('user_id', String(ADMIN_UPLOAD_USER_ID));
+        formData.append('file_name', file.name || 'cover-image');
+        formData.append('file_size', String(file.size));
+        formData.append('chunk_size', String(ADMIN_COVER_CHUNK_SIZE));
+        formData.append('content_type', file.type || 'application/octet-stream');
+        formData.append('biz_type', 'article_cover');
+        formData.append('sha256', sha256);
+        return postMediaForm('/api/media/upload/tasks/init', formData).then(function (data) {
+            var uploadID = data.upload_id || data.UploadID;
+            var chunkSize = Number(data.chunk_size || data.ChunkSize || ADMIN_COVER_CHUNK_SIZE);
+            var chunkCount = Number(data.chunk_count || data.ChunkCount || Math.ceil(file.size / chunkSize));
+            if (!uploadID) throw new Error('分片上传初始化失败：服务没有返回上传任务');
+            return {
+                uploadID: uploadID,
+                chunkSize: chunkSize > 0 ? chunkSize : ADMIN_COVER_CHUNK_SIZE,
+                chunkCount: chunkCount > 0 ? chunkCount : Math.max(1, Math.ceil(file.size / ADMIN_COVER_CHUNK_SIZE))
+            };
         });
     }
 
+    function uploadFileChunks(file, task, onProgress) {
+        var uploaded = 0;
+        var promise = Promise.resolve();
+        for (var index = 0; index < task.chunkCount; index += 1) {
+            promise = promise.then((function (chunkIndex) {
+                return function () {
+                    var start = chunkIndex * task.chunkSize;
+                    var end = Math.min(file.size, start + task.chunkSize);
+                    var chunk = file.slice(start, end);
+                    return sendChunkWithProgress(task.uploadID, chunkIndex, chunk, function (loaded) {
+                        if (typeof onProgress !== 'function') return;
+                        var percent = file.size > 0 ? Math.round(((uploaded + loaded) / file.size) * 98) : 98;
+                        onProgress(Math.min(98, Math.max(0, percent)));
+                    }).then(function () {
+                        uploaded += chunk.size;
+                        if (typeof onProgress === 'function') {
+                            var percent = file.size > 0 ? Math.round((uploaded / file.size) * 98) : 98;
+                            onProgress(Math.min(98, percent));
+                        }
+                    });
+                };
+            })(index));
+        }
+        return promise;
+    }
+
+    function sendChunkWithProgress(uploadID, chunkIndex, chunk, onChunkProgress) {
+        return new Promise(function (resolve, reject) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/media/upload/tasks/' + encodeURIComponent(uploadID) + '/chunks/' + chunkIndex + '?user_id=' + ADMIN_UPLOAD_USER_ID, true);
+            xhr.withCredentials = true;
+            xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+            xhr.upload.addEventListener('progress', function (evt) {
+                if (!evt.lengthComputable || typeof onChunkProgress !== 'function') return;
+                onChunkProgress(evt.loaded);
+            });
+            xhr.addEventListener('load', function () {
+                var data = parseMediaResponse(xhr, '/api/media/upload/tasks/' + uploadID + '/chunks/' + chunkIndex);
+                if (data.error) {
+                    reject(data.error);
+                    return;
+                }
+                resolve(data.payload);
+            });
+            xhr.addEventListener('error', function () {
+                reject(new Error('封面分片上传失败，请检查网络后重试'));
+            });
+            xhr.send(chunk);
+        });
+    }
+
+    function completeChunkUpload(uploadID) {
+        var formData = new FormData();
+        formData.append('user_id', String(ADMIN_UPLOAD_USER_ID));
+        return postMediaForm('/api/media/upload/tasks/' + encodeURIComponent(uploadID) + '/complete', formData);
+    }
+
+    function cancelChunkUpload(uploadID) {
+        if (!uploadID) return Promise.resolve();
+        var formData = new FormData();
+        formData.append('user_id', String(ADMIN_UPLOAD_USER_ID));
+        return postMediaForm('/api/media/upload/tasks/' + encodeURIComponent(uploadID) + '/cancel', formData).catch(function () {});
+    }
+
+    function postMediaForm(path, formData) {
+        return fetch(path, {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        }).then(function (res) {
+            return res.text().then(function (text) {
+                var payload = {};
+                try {
+                    payload = text ? JSON.parse(text) : {};
+                } catch (err) {
+                    throw new Error('封面上传失败，请稍后再试');
+                }
+                if (!res.ok) {
+                    throw new Error(friendlyHttpError(path, res.status));
+                }
+                if (payload.code !== 0) {
+                    throw new Error(payload.message || '封面上传失败，请稍后再试');
+                }
+                return payload.data || {};
+            });
+        });
+    }
+
+    function parseMediaResponse(xhr, path) {
+        if (xhr.status < 200 || xhr.status >= 300) {
+            return { error: new Error(friendlyHttpError(path, xhr.status)) };
+        }
+        try {
+            var payload = JSON.parse(xhr.responseText || '{}');
+            if (payload.code !== 0) {
+                return { error: new Error(payload.message || '封面上传失败，请稍后再试') };
+            }
+            return { payload: payload.data || {} };
+        } catch (err) {
+            return { error: new Error('封面上传失败，请稍后再试') };
+        }
+    }
+
+
+    function createFileSha256(file) {
+        if (!window.crypto || !crypto.subtle || typeof crypto.subtle.digest !== 'function') {
+            return Promise.reject(new Error('当前浏览器不支持文件完整性校验，请换用新版浏览器后重试'));
+        }
+        return file.arrayBuffer().then(function (buffer) {
+            return crypto.subtle.digest('SHA-256', buffer);
+        }).then(function (digest) {
+            var bytes = Array.prototype.slice.call(new Uint8Array(digest));
+            return bytes.map(function (byte) {
+                return byte.toString(16).padStart(2, '0');
+            }).join('');
+        });
+    }
     function friendlyHttpError(path, status) {
         if (status === 404) {
             if (path.indexOf('/articles/') === 0) return '没有找到这篇文章，可能已被删除或接口路径尚未同步。';
             return '没有找到对应的数据，请刷新页面后再试。';
         }
+        if (status === 401) return '登录状态已过期，请重新登录。';
         if (status === 403) return '当前账号没有权限执行这个操作。';
+        if (status === 413) return '文件太大，请换一张更小的图片或使用分片上传。';
         if (status >= 500) return '服务暂时开小差了，请稍后再试。';
         return '请求失败，请稍后再试。';
     }
-
     function showToast(message, type) {
         var toast = document.getElementById('adminToast');
         if (!toast) {
@@ -116,7 +239,7 @@
             showLogin();
             return;
         }
-        showToast(prefix + '：' + ((err && err.message) || '请稍后再试'), 'error');
+        showToast(prefix + '：' + ((err && err.message) || '请稍后再试。'), 'error');
     }
     function slugify(str) {
         str = str || '';
@@ -162,7 +285,7 @@
     function setCoverStatus(message) {
         var status = document.getElementById('coverUploadStatus');
         if (status) {
-            status.textContent = message || '选择图片后会自动上传，并在保存文章时写入封面地址。';
+            status.textContent = message || '选择图片后会自动分片上传，并在保存文章时写入封面地址。';
         }
     }
 
@@ -191,7 +314,7 @@
         if (!url) {
             preview.style.display = 'none';
             preview.innerHTML = '';
-            setCoverStatus('选择图片后会自动上传，并在保存文章时写入封面地址。');
+            setCoverStatus('选择图片后会自动分片上传，并在保存文章时写入封面地址。');
             setCoverProgress(0);
             return;
         }
@@ -201,6 +324,158 @@
         setCoverStatus('封面已上传，保存文章后生效。');
     }
 
+    function setCoverLibraryStatus(message) {
+        var status = document.getElementById('coverLibraryStatus');
+        if (status) status.textContent = message || '选择一张图片后会写入封面地址，保存文章后生效。';
+    }
+    function openCoverLibrary() {
+        var modal = document.getElementById('coverLibraryModal');
+        if (!modal) return;
+        modal.style.display = 'flex';
+        setCoverLibraryStatus('正在加载推荐素材...');
+        var results = document.getElementById('coverLibraryResults');
+        if (results && !results.innerHTML) {
+            searchCoverLibrary();
+        }
+    }
+
+    function closeCoverLibrary() {
+        var modal = document.getElementById('coverLibraryModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function searchCoverLibrary() {
+        var queryInput = document.getElementById('coverLibraryQuery');
+        var results = document.getElementById('coverLibraryResults');
+        var query = queryInput && queryInput.value.trim() ? queryInput.value.trim() : 'technology abstract';
+        if (!results) return Promise.resolve();
+
+        results.innerHTML = '<div class="cover-library__empty">正在从素材库加载图片...</div>';
+        setCoverLibraryStatus('正在搜索：' + query);
+
+        var params = new URLSearchParams({
+            q: query,
+            page: '1',
+            page_size: '18'
+        });
+
+        return fetch(OPENVERSE_IMAGE_ENDPOINT + '?' + params.toString())
+            .then(function (res) {
+                if (!res.ok) throw new Error('素材库暂时没有响应');
+                return res.json();
+            })
+            .then(function (data) {
+                renderCoverLibraryResults(data.results || []);
+                setCoverLibraryStatus('点击图片下方按钮即可使用；请按素材来源保留必要署名。');
+            })
+            .catch(function () {
+                renderFallbackCoverLibrary(query);
+                setCoverLibraryStatus('Openverse 响应较慢，已切换到备用封面素材。');
+            });
+    }
+
+    function renderFallbackCoverLibrary(query) {
+        var normalized = (query || 'technology abstract').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'cover';
+        var fallbackItems = [];
+        for (var i = 1; i <= 18; i++) {
+            var seed = normalized + '-' + i;
+            fallbackItems.push({
+                title: '备用封面素材 ' + i,
+                creator: 'Lorem Picsum',
+                license: 'placeholder photo',
+                thumbnail: 'https://picsum.photos/seed/' + encodeURIComponent(seed) + '/360/160',
+                url: 'https://picsum.photos/seed/' + encodeURIComponent(seed) + '/1200/420'
+            });
+        }
+        renderCoverLibraryResults(fallbackItems);
+    }
+
+    function renderCoverLibraryResults(items) {
+        var results = document.getElementById('coverLibraryResults');
+        if (!results) return;
+        if (!items.length) {
+            results.innerHTML = '<div class="cover-library__empty">没有找到合适图片，试试 cloud、code、mountain、abstract。</div>';
+            return;
+        }
+        results.innerHTML = items.map(function (item) {
+            var imageUrl = item.url || item.thumbnail || '';
+            var thumbUrl = item.thumbnail || item.url || '';
+            var title = item.title || 'Untitled image';
+            var creator = item.creator || item.provider || 'Openverse';
+            var license = item.license || 'open license';
+            if (!imageUrl || !thumbUrl) return '';
+            return '<article class="cover-library__card">' +
+                '<img class="cover-library__thumb" src="' + escapeHtml(thumbUrl) + '" alt="' + escapeHtml(title) + '" loading="lazy">' +
+                '<div class="cover-library__meta">' +
+                    '<p class="cover-library__title">' + escapeHtml(title) + '</p>' +
+                    '<p class="cover-library__credit">' + escapeHtml(creator) + ' · ' + escapeHtml(license) + '</p>' +
+                    '<button type="button" class="btn btn-primary btn-sm cover-library__use" data-cover-url="' + escapeHtml(imageUrl) + '">使用这张</button>' +
+                '</div>' +
+            '</article>';
+        }).join('');
+    }
+
+    function initCoverControls() {
+        var coverFileInput = document.getElementById('postCoverFile');
+        var clearCoverBtn = document.getElementById('clearCoverBtn');
+        var openLibraryBtn = document.getElementById('openCoverLibraryBtn');
+        var closeLibraryBtn = document.getElementById('closeCoverLibraryBtn');
+        var searchLibraryBtn = document.getElementById('searchCoverLibraryBtn');
+        var libraryQuery = document.getElementById('coverLibraryQuery');
+        var libraryResults = document.getElementById('coverLibraryResults');
+        var libraryOverlay = document.querySelector('[data-cover-library-close]');
+
+        if (coverFileInput) {
+            coverFileInput.addEventListener('change', function (e) {
+                var file = e.target.files && e.target.files[0];
+                if (!file) return;
+                setCoverProgress(1, '开始上传...');
+                setCoverStatus('封面分片上传中...');
+                uploadCoverFile(file, function (percent) {
+                    setCoverProgress(percent, '上传中 ' + percent + '%');
+                }).then(function (url) {
+                    setCoverImage(url);
+                    setCoverProgress(100, '上传完成');
+                    showToast('封面上传成功', 'success');
+                    setTimeout(function () { setCoverProgress(0); }, 900);
+                }).catch(function (err) {
+                    setCoverImage('');
+                    setCoverProgress(0);
+                    reportError('封面上传失败', err);
+                }).finally(function () {
+                    coverFileInput.value = '';
+                });
+            });
+        }
+        if (clearCoverBtn) {
+            clearCoverBtn.addEventListener('click', function () {
+                setCoverImage('');
+                setCoverProgress(0);
+                if (coverFileInput) coverFileInput.value = '';
+            });
+        }
+        if (openLibraryBtn) openLibraryBtn.addEventListener('click', openCoverLibrary);
+        if (closeLibraryBtn) closeLibraryBtn.addEventListener('click', closeCoverLibrary);
+        if (libraryOverlay) libraryOverlay.addEventListener('click', closeCoverLibrary);
+        if (searchLibraryBtn) searchLibraryBtn.addEventListener('click', searchCoverLibrary);
+        if (libraryQuery) {
+            libraryQuery.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    searchCoverLibrary();
+                }
+            });
+        }
+        if (libraryResults) {
+            libraryResults.addEventListener('click', function (event) {
+                var button = event.target.closest('[data-cover-url]');
+                if (!button) return;
+                setCoverImage(button.getAttribute('data-cover-url'));
+                setCoverStatus('已从素材库选择封面，保存文章后生效。');
+                closeCoverLibrary();
+            });
+        }
+    }
     var cachedCategories = [];
     var cachedTags = [];
 
@@ -456,7 +731,6 @@
             '</label>';
         }).join('');
     }
-
     function populateTagCheckboxes(selectedIds) {
         var container = document.getElementById('postTagCheckboxes');
         selectedIds = selectedIds || [];
@@ -549,40 +823,6 @@
         document.body.style.overflow = '';
         editingPostId = null;
         var previewPane = document.getElementById('previewPane');
-        var coverFileInput = document.getElementById('postCoverFile');
-        var clearCoverBtn = document.getElementById('clearCoverBtn');
-        if (coverFileInput) {
-            coverFileInput.addEventListener('change', function (e) {
-                var file = e.target.files && e.target.files[0];
-                if (!file) return;
-                setCoverProgress(1, '开始上传...');
-                setCoverStatus('封面上传中...');
-                uploadCoverFile(file, function (percent) {
-                    setCoverProgress(percent, '上传中 ' + percent + '%');
-                }).then(function (url) {
-                    setCoverImage(url);
-                    setCoverProgress(100, '上传完成');
-                    showToast('封面上传成功', 'success');
-                    setTimeout(function () {
-                        setCoverProgress(0);
-                    }, 900);
-                }).catch(function (err) {
-                    setCoverImage('');
-                    setCoverProgress(0);
-                    reportError('封面上传失败', err);
-                }).finally(function () {
-                    coverFileInput.value = '';
-                });
-            });
-        }
-        if (clearCoverBtn) {
-            clearCoverBtn.addEventListener('click', function () {
-                setCoverImage('');
-                setCoverProgress(0);
-                if (coverFileInput) coverFileInput.value = '';
-            });
-        }
-
         var previewBtn = document.getElementById('previewToggleBtn');
         if (previewPane) previewPane.style.display = 'none';
         if (previewBtn) {
@@ -603,7 +843,6 @@
         document.getElementById('metaType').value = type;
         document.getElementById('metaOldName').value = name || '';
         document.getElementById('metaName').value = name || '';
-
         if (type === 'category') {
             modalTitle.textContent = id ? '编辑分类' : '新建分类';
             nameLabel.textContent = '分类名称';
@@ -611,7 +850,6 @@
             modalTitle.textContent = id ? '编辑标签' : '新建标签';
             nameLabel.textContent = '标签名称';
         }
-
         metaEditorModal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
         setTimeout(function () { document.getElementById('metaName').focus(); }, 100);
@@ -628,34 +866,20 @@
         document.getElementById('confirmTitle').textContent = title;
         document.getElementById('confirmText').textContent = text;
         var warnEl = document.getElementById('confirmWarn');
-        if (warn) {
-            warnEl.textContent = warn;
-            warnEl.style.display = 'block';
-        } else {
-            warnEl.style.display = 'none';
-        }
+        warnEl.textContent = warn || '';
+        warnEl.style.display = warn ? 'block' : 'none';
         confirmModal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
-
         var confirmBtn = document.getElementById('confirmDeleteBtn');
         var cancelBtn = document.getElementById('cancelDeleteBtn');
-
         function cleanup() {
             confirmModal.style.display = 'none';
             document.body.style.overflow = '';
             confirmBtn.removeEventListener('click', handleConfirm);
             cancelBtn.removeEventListener('click', handleCancel);
         }
-
-        function handleConfirm() {
-            cleanup();
-            onConfirm();
-        }
-
-        function handleCancel() {
-            cleanup();
-        }
-
+        function handleConfirm() { cleanup(); onConfirm(); }
+        function handleCancel() { cleanup(); }
         confirmBtn.addEventListener('click', handleConfirm);
         cancelBtn.addEventListener('click', handleCancel);
     }
@@ -682,14 +906,7 @@
         var username = document.getElementById('loginUsername').value.trim();
         var password = document.getElementById('loginPassword').value;
         loginError.style.display = 'none';
-
-        request('/login', {
-            method: 'POST',
-            body: {
-                username: username,
-                password: password
-            }
-        }).then(function () {
+        request('/login', { method: 'POST', body: { username: username, password: password } }).then(function () {
             hideLogin();
             refreshAll();
             loadBingWallpaper();
@@ -700,22 +917,11 @@
     }
 
     function handleLogout() {
-        request('/logout', { method: 'POST' }).then(function () {
-            showLogin();
-        }).catch(function () {
-            showLogin();
-        });
+        request('/logout', { method: 'POST' }).then(showLogin).catch(showLogin);
     }
 
     function checkAuth() {
-        return request('/me').then(function () {
-            return true;
-        }).catch(function (err) {
-            if (err.message === 'unauthorized') {
-                return false;
-            }
-            return false;
-        });
+        return request('/me').then(function () { return true; }).catch(function () { return false; });
     }
 
     function loadBingWallpaper() {
@@ -738,262 +944,63 @@
 
     function init() {
         loadBingWallpaper();
-
         checkAuth().then(function (loggedIn) {
-            if (loggedIn) {
-                hideLogin();
-                refreshAll();
-            } else {
-                showLogin();
-            }
+            if (loggedIn) { hideLogin(); refreshAll(); } else { showLogin(); }
         });
-
-        document.getElementById('newPostBtn').addEventListener('click', function () {
-            openEditor(null);
-        });
-
+        document.getElementById('newPostBtn').addEventListener('click', function () { openEditor(null); });
         document.getElementById('closeModalBtn').addEventListener('click', closeEditor);
         document.getElementById('cancelBtn').addEventListener('click', closeEditor);
-
-        document.getElementById('newCategoryBtn').addEventListener('click', function () {
-            openMetaEditor('category', null, null);
-        });
-        document.getElementById('newTagBtn').addEventListener('click', function () {
-            openMetaEditor('tag', null, null);
-        });
+        initCoverControls();
+        document.getElementById('newCategoryBtn').addEventListener('click', function () { openMetaEditor('category', null, null); });
+        document.getElementById('newTagBtn').addEventListener('click', function () { openMetaEditor('tag', null, null); });
         document.getElementById('closeMetaModalBtn').addEventListener('click', closeMetaEditor);
         document.getElementById('cancelMetaBtn').addEventListener('click', closeMetaEditor);
-
         document.getElementById('logoutBtn').addEventListener('click', handleLogout);
-
-        document.querySelectorAll('.admin-tab').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                switchTab(btn.dataset.tab);
-            });
-        });
+        document.querySelectorAll('.admin-tab').forEach(function (btn) { btn.addEventListener('click', function () { switchTab(btn.dataset.tab); }); });
 
         var previewBtn = document.getElementById('previewToggleBtn');
         var previewPane = document.getElementById('previewPane');
         var previewContent = document.getElementById('previewContent');
         var contentTextarea = document.getElementById('postContent');
         var previewOn = false;
+        function updatePreview() {
+            var md = contentTextarea.value || '';
+            previewContent.innerHTML = window.marked ? marked.parse(md) : '<pre>' + escapeHtml(md) + '</pre>';
+        }
         if (previewBtn) {
             previewBtn.addEventListener('click', function () {
                 previewOn = !previewOn;
-                if (previewOn) {
-                    previewPane.style.display = 'block';
-                    previewBtn.textContent = '关闭预览';
-                    previewBtn.classList.add('btn-primary');
-                    previewBtn.classList.remove('btn-ghost');
-                    updatePreview();
-                } else {
-                    previewPane.style.display = 'none';
-                    previewBtn.textContent = '预览';
-                    previewBtn.classList.remove('btn-primary');
-                    previewBtn.classList.add('btn-ghost');
-                }
-            });
-        }
-        if (contentTextarea) {
-            contentTextarea.addEventListener('input', function () {
+                previewPane.style.display = previewOn ? 'block' : 'none';
+                previewBtn.textContent = previewOn ? '关闭预览' : '预览';
+                previewBtn.classList.toggle('btn-primary', previewOn);
+                previewBtn.classList.toggle('btn-ghost', !previewOn);
                 if (previewOn) updatePreview();
             });
         }
-        function updatePreview() {
-            var md = contentTextarea.value || '';
-            if (window.marked) {
-                previewContent.innerHTML = marked.parse(md);
-            } else {
-                previewContent.innerHTML = '<pre>' + escapeHtml(md) + '</pre>';
-            }
-        }
+        if (contentTextarea) contentTextarea.addEventListener('input', function () { if (previewOn) updatePreview(); });
 
         document.querySelectorAll('.status-filter__btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                document.querySelectorAll('.status-filter__btn').forEach(function (b) {
-                    b.classList.remove('active');
-                });
+                document.querySelectorAll('.status-filter__btn').forEach(function (b) { b.classList.remove('active'); });
                 btn.classList.add('active');
                 statusFilter = btn.dataset.filter;
-                fetchAllPosts().then(function (posts) {
-                    renderPosts(posts);
-                });
+                fetchAllPosts().then(renderPosts);
             });
         });
-
         loginForm.addEventListener('submit', handleLogin);
-
-        document.getElementById('postForm').addEventListener('submit', function (e) {
-            e.preventDefault();
-            var checkedTagIds = [];
-            document.querySelectorAll('#postTagCheckboxes input:checked').forEach(function (cb) {
-                checkedTagIds.push(parseInt(cb.value, 10));
-            });
-            var checkedCategoryId = 0;
-            var categoryRadio = document.querySelector('#postCategoryCheckboxes input:checked');
-            if (categoryRadio) checkedCategoryId = parseInt(categoryRadio.value, 10);
-
-            var title = document.getElementById('postTitle').value.trim();
-            var summary = document.getElementById('postSummary').value.trim();
-            var content = document.getElementById('postContent').value;
-            var coverImage = document.getElementById('postCoverImage').value.trim();
-            var status = document.querySelector('input[name="postStatus"]:checked').value;
-
-            if (!title) {
-                showToast('请先填写文章标题。', 'warn');
-                return;
-            }
-
-            var slug = generateSlug(title);
-
-            var body = {
-                title: title,
-                slug: slug,
-                summary: summary,
-                content_md: content,
-                content_html: content,
-                cover_image: coverImage,
-                category_id: checkedCategoryId || 0,
-                tag_ids: checkedTagIds,
-                status: status
-            };
-
-            var requestPromise;
-            if (editingPostId) {
-                requestPromise = request('/articles/' + editingPostId, {
-                    method: 'PUT',
-                    body: body
-                });
-            } else {
-                requestPromise = request('/articles', {
-                    method: 'POST',
-                    body: body
-                });
-            }
-
-            requestPromise.then(function () {
-                closeEditor();
-                refreshAll();
-            }).catch(function (err) {
-                reportError('保存失败', err)
-            });
-        });
-
-        document.getElementById('metaForm').addEventListener('submit', function (e) {
-            e.preventDefault();
-            var type = document.getElementById('metaType').value;
-            var newName = document.getElementById('metaName').value.trim();
-            if (!newName) return;
-
-            var slug = generateSlug(newName);
-            var body = {
-                name: newName,
-                slug: slug,
-                description: ''
-            };
-
-            var requestPromise;
-            if (editingMetaId) {
-                requestPromise = request(metaEndpoint(type) + '/' + editingMetaId, {
-                    method: 'PUT',
-                    body: body
-                });
-            } else {
-                requestPromise = request(metaEndpoint(type), {
-                    method: 'POST',
-                    body: body
-                });
-            }
-
-            requestPromise.then(function () {
-                closeMetaEditor();
-                refreshAll();
-            }).catch(function (err) {
-                reportError('保存失败', err)
-            });
-        });
-
-        postList.addEventListener('click', function (e) {
-            var btn = e.target.closest('[data-action]');
-            if (!btn) return;
-            var action = btn.dataset.action;
-            var id = parseInt(btn.dataset.id, 10);
-
-            if (action === 'edit') {
-                openEditor(id);
-            } else if (action === 'delete') {
-                var title = btn.dataset.title;
-                confirmAction(
-                    '删除文章',
-                    '确定要删除「' + (title || '这篇文章') + '」吗？',
-                    '此操作不可恢复',
-                    function () {
-                        request('/articles/' + id, { method: 'DELETE' }).then(function () {
-                            refreshAll();
-                        }).catch(function (err) {
-                            reportError('删除失败', err)
-                        });
-                    }
-                );
-            }
-        });
-
-        function handleMetaClick(e) {
-            var btn = e.target.closest('[data-action]');
-            if (!btn) return;
-            var action = btn.dataset.action;
-            var type = btn.dataset.type;
-            var id = parseInt(btn.dataset.id, 10);
-            var name = btn.dataset.name;
-
-            if (action === 'edit-meta') {
-                openMetaEditor(type, id, name);
-            } else if (action === 'delete-meta') {
-                var count = parseInt(btn.dataset.count || '0', 10);
-                var typeName = type === 'category' ? '分类' : '标签';
-                var warn = count > 0 ? '该' + typeName + '下有 ' + count + ' 篇文章，删除后可能影响文章显示' : '';
-                confirmAction(
-                    '删除' + typeName,
-                    '确定要删除' + typeName + '「' + name + '」吗？',
-                    warn,
-                    function () {
-                        request(metaEndpoint(type) + '/' + id, { method: 'DELETE' }).then(function () {
-                            refreshAll();
-                        }).catch(function (err) {
-                            reportError('删除失败', err)
-                        });
-                    }
-                );
-            }
-        }
-
-        categoryList.addEventListener('click', handleMetaClick);
-        tagListEl.addEventListener('click', handleMetaClick);
-
-        document.getElementById('postCategoryCheckboxes').addEventListener('change', function (e) {
-            var radio = e.target;
-            if (radio.type === 'radio') {
-                document.querySelectorAll('#postCategoryCheckboxes .tag-checkbox').forEach(function (label) {
-                    label.classList.remove('checked');
-                });
-                radio.closest('.tag-checkbox').classList.add('checked');
-            }
-        });
-
-        document.getElementById('postTagCheckboxes').addEventListener('change', function (e) {
-            var cb = e.target;
-            if (cb.type === 'checkbox') {
-                cb.closest('.tag-checkbox').classList.toggle('checked', cb.checked);
-            }
-        });
-
+        document.getElementById('postForm').addEventListener('submit', handlePostSubmit);
+        document.getElementById('metaForm').addEventListener('submit', handleMetaSubmit);
+        postList.addEventListener('click', handlePostListClick);
+        categoryList.addEventListener('click', handleMetaListClick);
+        tagListEl.addEventListener('click', handleMetaListClick);
+        document.getElementById('postCategoryCheckboxes').addEventListener('change', handleCategoryChoice);
+        document.getElementById('postTagCheckboxes').addEventListener('change', handleTagChoice);
         document.querySelectorAll('.modal__overlay').forEach(function (overlay) {
             overlay.addEventListener('click', function () {
                 if (editorModal.style.display === 'flex') closeEditor();
                 if (metaEditorModal.style.display === 'flex') closeMetaEditor();
             });
         });
-
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
                 if (loginModal.style.display === 'flex') return;
@@ -1005,6 +1012,83 @@
                 }
             }
         });
+    }
+
+    function handlePostSubmit(e) {
+        e.preventDefault();
+        var checkedTagIds = [];
+        document.querySelectorAll('#postTagCheckboxes input:checked').forEach(function (cb) { checkedTagIds.push(parseInt(cb.value, 10)); });
+        var categoryRadio = document.querySelector('#postCategoryCheckboxes input:checked');
+        var title = document.getElementById('postTitle').value.trim();
+        if (!title) { showToast('请先填写文章标题。', 'warn'); return; }
+        var body = {
+            title: title,
+            slug: generateSlug(title),
+            summary: document.getElementById('postSummary').value.trim(),
+            content_md: document.getElementById('postContent').value,
+            content_html: document.getElementById('postContent').value,
+            cover_image: document.getElementById('postCoverImage').value.trim(),
+            category_id: categoryRadio ? parseInt(categoryRadio.value, 10) : 0,
+            tag_ids: checkedTagIds,
+            status: document.querySelector('input[name="postStatus"]:checked').value
+        };
+        var requestPromise = editingPostId ? request('/articles/' + editingPostId, { method: 'PUT', body: body }) : request('/articles', { method: 'POST', body: body });
+        requestPromise.then(function () { closeEditor(); refreshAll(); }).catch(function (err) { reportError('保存失败', err); });
+    }
+
+    function handleMetaSubmit(e) {
+        e.preventDefault();
+        var type = document.getElementById('metaType').value;
+        var newName = document.getElementById('metaName').value.trim();
+        if (!newName) return;
+        var body = { name: newName, slug: generateSlug(newName), description: '' };
+        var requestPromise = editingMetaId ? request(metaEndpoint(type) + '/' + editingMetaId, { method: 'PUT', body: body }) : request(metaEndpoint(type), { method: 'POST', body: body });
+        requestPromise.then(function () { closeMetaEditor(); refreshAll(); }).catch(function (err) { reportError('保存失败', err); });
+    }
+
+    function handlePostListClick(e) {
+        var btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        var id = parseInt(btn.dataset.id, 10);
+        if (btn.dataset.action === 'edit') {
+            openEditor(id);
+        } else if (btn.dataset.action === 'delete') {
+            var title = btn.dataset.title;
+            confirmAction('删除文章', '确定要删除「' + (title || '这篇文章') + '」吗？', '此操作不可恢复', function () {
+                request('/articles/' + id, { method: 'DELETE' }).then(refreshAll).catch(function (err) { reportError('删除失败', err); });
+            });
+        }
+    }
+
+    function handleMetaListClick(e) {
+        var btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        var type = btn.dataset.type;
+        var id = parseInt(btn.dataset.id, 10);
+        var name = btn.dataset.name;
+        if (btn.dataset.action === 'edit-meta') {
+            openMetaEditor(type, id, name);
+        } else if (btn.dataset.action === 'delete-meta') {
+            var count = parseInt(btn.dataset.count || '0', 10);
+            var typeName = type === 'category' ? '分类' : '标签';
+            var warn = count > 0 ? '该' + typeName + '下有 ' + count + ' 篇文章，删除后可能影响文章显示' : '';
+            confirmAction('删除' + typeName, '确定要删除' + typeName + '「' + name + '」吗？', warn, function () {
+                request(metaEndpoint(type) + '/' + id, { method: 'DELETE' }).then(refreshAll).catch(function (err) { reportError('删除失败', err); });
+            });
+        }
+    }
+
+    function handleCategoryChoice(e) {
+        var radio = e.target;
+        if (radio.type === 'radio') {
+            document.querySelectorAll('#postCategoryCheckboxes .tag-checkbox').forEach(function (label) { label.classList.remove('checked'); });
+            radio.closest('.tag-checkbox').classList.add('checked');
+        }
+    }
+
+    function handleTagChoice(e) {
+        var cb = e.target;
+        if (cb.type === 'checkbox') cb.closest('.tag-checkbox').classList.toggle('checked', cb.checked);
     }
 
     if (document.readyState === 'loading') {

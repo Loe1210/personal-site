@@ -24,6 +24,7 @@ func NewHandler(articles *service.ArticleService) *Handler {
 func RegisterRoutes(hertz *server.Hertz, articles *service.ArticleService) {
 	handler := NewHandler(articles)
 	hertz.GET("/articles", handler.ListPublicArticles)
+	hertz.GET("/articles/:id/adjacent", handler.GetAdjacentArticles)
 	hertz.GET("/articles/:id", handler.GetArticleByID)
 	hertz.GET("/admin/articles/:id", handler.GetAdminArticleByID)
 	hertz.GET("/admin/articles", handler.ListAdminArticles)
@@ -46,6 +47,19 @@ func (h *Handler) GetArticleByID(ctx context.Context, c *app.RequestContext) {
 	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": article})
 }
 
+func (h *Handler) GetAdjacentArticles(ctx context.Context, c *app.RequestContext) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid article id"})
+		return
+	}
+	adjacent, err := h.articles.GetAdjacentPublicArticles(ctx, id)
+	if err != nil {
+		c.JSON(consts.StatusNotFound, map[string]any{"code": 30001, "message": "article not found"})
+		return
+	}
+	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": adjacent})
+}
 func (h *Handler) GetAdminArticleByID(ctx context.Context, c *app.RequestContext) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || id <= 0 {

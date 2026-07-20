@@ -1,0 +1,14 @@
+{
+  "id": "yuexinmiao",
+  "displayName": "月薪喵",
+  "description": "一只白色小猫办公桌宠，支持待机、奔跑、跳跃和挥手动作。",
+  "spriteVersionNumber": 2,
+  "columns": 8,
+  "rows": 9,
+  "idleFrames": 6,
+  "runningRightFrames": 8,
+  "runningLeftFrames": 8,
+  "wavingFrames": 4,
+  "jumpingFrames": 5,
+  "spritesheetPath": "spritesheet.webp"
+}

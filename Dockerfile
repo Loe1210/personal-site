@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+﻿# syntax=docker/dockerfile:1
 
 FROM golang:1.26 AS builder
 WORKDIR /app
@@ -29,6 +29,7 @@ COPY --from=builder /out/app /app/app
 COPY configs /app/configs
 COPY services /app/services
 COPY static /app/static
+COPY pet /app/static/pet
 
 EXPOSE 8888 9001 9002 9003 9004
 

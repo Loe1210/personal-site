@@ -4,3 +4,5 @@ main.exe
 personal-site.exe
 *.exe
 *.exe~
+backups/
+personal-web-static-update.tar.gz

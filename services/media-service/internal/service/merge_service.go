@@ -109,6 +109,9 @@ func (s *MergeService) Merge(ctx context.Context, in MergeInput) (*MergeResult, 
 	if err := os.Rename(tmpName, finalPath); err != nil {
 		return nil, err
 	}
+	if err := os.Chmod(finalPath, 0o644); err != nil {
+		return nil, err
+	}
 
 	return &MergeResult{RelativePath: relative, PublicPath: path.Join(s.publicBase, relative), FinalPath: finalPath, Size: size, Sha256: actualSHA256}, nil
 }
