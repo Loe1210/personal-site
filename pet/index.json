@@ -3,13 +3,8 @@
   "pets": [
     {
       "id": "yuexinmiao",
-      "name": "月薪喵",
+      "name": "\u6708\u85aa\u55b5",
       "metaPath": "pet/yuexinmiao/pet.json"
-    },
-    {
-      "id": "zhangfei-tusun",
-      "name": "张飞兔狲",
-      "metaPath": "pet/zhangfei-tusun/pet.json"
     }
   ]
 }

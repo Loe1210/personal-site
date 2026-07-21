@@ -307,23 +307,6 @@
     }
 
     // 加载本地随机背景壁纸（会话内保持不变）
-    function loadBingBackground() {
-        var script = document.createElement('script');
-        script.src = '/assets/json/images.js?t=' + Date.now();
-        script.onload = function () {
-            if (window.BING_IMAGES && window.BING_IMAGES.length > 0) {
-                var key = 'blog-bg-index';
-                var index = parseInt(sessionStorage.getItem(key), 10);
-                if (isNaN(index) || index >= window.BING_IMAGES.length) {
-                    index = Math.floor(Math.random() * window.BING_IMAGES.length);
-                    sessionStorage.setItem(key, index);
-                }
-                var url = '/assets/' + window.BING_IMAGES[index];
-                document.body.style.backgroundImage = "url('" + url.replace(/['\\]/g, '\\$&') + "')";
-            }
-        };
-        document.body.appendChild(script);
-    }
 
     // 初始化
     document.addEventListener('DOMContentLoaded', function () {
@@ -351,7 +334,5 @@
         }).then(renderPost).catch(function (err) {
             renderError('文章加载失败：' + err.message);
         });
-
-        loadBingBackground();
     });
 })();

@@ -38,27 +38,47 @@
         if (!names.length) return '<p class="directory-state">' + TEXT.empty + '</p>';
         return names.map(function (name) {
             var posts = groups[name];
-            return '<section id="category-' + categoryKey(name) + '" class="category-directory__group' + (focus === name ? ' is-focus' : '') + '"><header class="category-directory__heading"><span class="category-directory__dot" aria-hidden="true"></span><h3 class="category-directory__title">' + escapeHtml(name) + '</h3><span class="category-directory__count">' + posts.length + ' ' + TEXT.articles + '</span><span class="category-directory__line" aria-hidden="true"></span></header><div class="category-directory__posts">' + posts.map(renderPost).join('') + '</div></section>';
+            var focusHref = '/blog/categories?focus=' + encodeURIComponent(name);
+            return '<section id="category-' + categoryKey(name) + '" class="category-directory__group' + (focus === name ? ' is-focus' : '') + '"><header class="category-directory__heading"><span class="category-directory__dot" aria-hidden="true"></span><a class="category-directory__heading-link" href="' + focusHref + '"><h3 class="category-directory__title">' + escapeHtml(name) + '</h3><span class="category-directory__count">' + posts.length + ' ' + TEXT.articles + '</span></a><span class="category-directory__line" aria-hidden="true"></span></header><div class="category-directory__posts">' + posts.map(renderPost).join('') + '</div></section>';
         }).join('') + '<p class="directory-end">' + TEXT.end + '</p>';
     }
 
     function setText(id, value) { var element = document.getElementById(id); if (element) element.textContent = String(value == null ? '' : value); }
     function setStats(posts, categories, tags) { setText('statPosts', posts); setText('statCategories', categories); setText('statTags', tags); }
 
-    function loadBackground() {
-        var script = document.createElement('script');
-        script.src = '/assets/json/images.js?t=' + Date.now();
-        script.onload = function () {
-            if (!window.BING_IMAGES || !window.BING_IMAGES.length) return;
-            var index = Number(sessionStorage.getItem('blog-bg-index'));
-            if (!Number.isInteger(index) || index < 0 || index >= window.BING_IMAGES.length) { index = Math.floor(Math.random() * window.BING_IMAGES.length); sessionStorage.setItem('blog-bg-index', String(index)); }
-            document.body.style.backgroundImage = "url('/assets/" + window.BING_IMAGES[index].replace(/['\\]/g, '\\$&') + "')";
-        };
-        document.body.appendChild(script);
-    }
 
+    function focusCategory(directory, name, shouldScroll) {
+        var target = document.getElementById('category-' + categoryKey(name));
+        if (!target) return;
+        Array.prototype.forEach.call(directory.querySelectorAll('.category-directory__group.is-focus'), function (group) { group.classList.remove('is-focus'); });
+        target.classList.add('is-focus');
+        window.clearTimeout(focusCategory.highlightTimer);
+        focusCategory.highlightTimer = window.setTimeout(function () { target.classList.remove('is-focus'); }, 1600);
+        if (shouldScroll) {
+            if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                target.scrollIntoView({ block: 'center' });
+            } else {
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+        history.replaceState(null, '', '/blog/categories?focus=' + encodeURIComponent(name));
+    }
+    function animateDirectoryElements(container, selector) {
+        var elements = Array.prototype.slice.call(container.querySelectorAll(selector));
+        if (!elements.length) return;
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            elements.forEach(function (element) { element.classList.add('is-revealed'); });
+            return;
+        }
+        elements.forEach(function (element, index) {
+            element.classList.add('is-revealing');
+            element.style.setProperty('--reveal-delay', Math.min(index * 58, 640) + 'ms');
+        });
+        window.requestAnimationFrame(function () {
+            elements.forEach(function (element) { element.classList.add('is-revealed'); });
+        });
+    }
     document.addEventListener('DOMContentLoaded', function () {
-        loadBackground();
         var focus = new URLSearchParams(window.location.search).get('focus') || '';
         var summary = document.getElementById('categoriesSummary');
         var directory = document.getElementById('categoryDirectory');
@@ -70,7 +90,14 @@
             setStats(postsData.total || posts.length, categories.length, tags.length);
             summary.textContent = '\u5f53\u524d\u5171\u6709 ' + categories.length + ' \u4e2a\u5206\u7c7b\uff0c\u6536\u5f55 ' + (postsData.total || posts.length) + ' \u7bc7\u6587\u7ae0';
             directory.innerHTML = renderCategoryDirectory(groupPosts(posts, categories), focus);
-            if (focus) { var target = document.getElementById('category-' + categoryKey(focus)); if (target) setTimeout(function () { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 120); }
+            animateDirectoryElements(directory, '.category-directory__group, .category-directory__post');
+            directory.addEventListener('click', function (event) {
+                var link = event.target.closest('.category-directory__heading-link');
+                if (!link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                event.preventDefault();
+                focusCategory(directory, new URL(link.href).searchParams.get('focus'), true);
+            });
+            if (focus) window.setTimeout(function () { focusCategory(directory, focus, true); }, 120);
         }).catch(function (error) {
             summary.textContent = TEXT.failed;
             directory.innerHTML = '<p class="directory-state directory-state--error">' + TEXT.failed + ': ' + escapeHtml(error.message) + '</p>';
