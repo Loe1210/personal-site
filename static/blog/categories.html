@@ -9,14 +9,14 @@
     <link rel="stylesheet" href="/assets/css/iconfont.css">
     <link rel="stylesheet" href="/assets/css/cute-cursor.css">
     <link rel="stylesheet" href="/assets/css/vno.css">
-    <link rel="stylesheet" href="/blog/css/blog.css?v=20">
+    <link rel="stylesheet" href="/blog/css/blog.css?v=42">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
     <link href="https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
     <link rel="icon" href="/favicon.ico">
 </head>
-<body class="blog-page blog-page--directory blog-page--category-directory">
+<body class="blog-page blog-page--home blog-page--directory blog-page--category-directory blog-page--sidebar-home">
     <div class="blog-overlay"></div>
     <main class="blog-container">
         <div class="blog-page-shell">
@@ -34,10 +34,10 @@
                             <img class="blog-profile-action__icon-image" src="https://cdn.simpleicons.org/wechat/111820" alt="">
                             <span class="blog-visually-hidden">打开微信弹窗</span>
                         </button>
-                        <a class="blog-profile-action" href="mailto:2509717573@qq.com" title="邮件">
+                        <a class="blog-profile-action blog-profile-action--email" href="mailto:2509717573@qq.com" title="邮件">
                             <i class="social iconfont icon-email"></i>
                         </a>
-                        <a class="blog-profile-action" href="https://github.com/Loe1210" target="_blank" rel="noreferrer" title="GitHub">
+                        <a class="blog-profile-action blog-profile-action--github" href="https://github.com/Loe1210" target="_blank" rel="noreferrer" title="GitHub">
                             <i class="social iconfont icon-github"></i>
                         </a>
                     </div>
@@ -102,7 +102,7 @@
             <section class="blog-main blog-categories-page" aria-labelledby="categoryPageTitle">
                 <header class="directory-hero directory-hero--categories">
                     <p class="directory-hero__eyebrow">CATEGORY / DIRECTORY</p>
-                    <h2 id="categoryPageTitle" class="directory-hero__title">分类</h2>
+                    <h2 id="categoryPageTitle" class="directory-hero__title">Category.sort()</h2>
                     <p id="categoriesSummary" class="directory-hero__summary">正在整理分类目录...</p>
                 </header>
                 <section class="category-directory" aria-live="polite">
@@ -114,7 +114,8 @@
         </div>
     </main>
     <script src="/blog/js/api.js?v=5"></script>
-    <script src="/blog/js/sidebar.js?v=2"></script>
+    <script src="/blog/js/sidebar.js?v=6"></script>
+    <script src="/blog/js/header-stars.js?v=4"></script>
     <script src="/blog/js/pet.js?v=11"></script>
     <script src="/blog/js/categories.js?v=5"></script>
     <div id="blogWechatModal" class="blog-wechat-modal" hidden>

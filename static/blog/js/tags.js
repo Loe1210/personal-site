@@ -15,12 +15,11 @@
         });
     }
 
-    function renderTagConstellation(items, focus) {
-        if (!items.length) return '<p class="directory-state">\u8fd8\u6ca1\u6709\u53ef\u5c55\u793a\u7684\u6807\u7b7e</p>';
+    function renderTagConstellation(items) {
+        if (!items.length) return '<p class="directory-state">还没有可展示的标签</p>';
         return items.map(function (item) {
-            var focused = item.name === focus;
             var style = '--x:' + item.x.toFixed(2) + '%;--y:' + item.y.toFixed(2) + '%;--scale:' + item.scale.toFixed(2) + ';--delay:' + item.delay + 'ms;';
-            return '<button class="tag-constellation__node' + (focused ? ' is-focus' : '') + '" type="button" data-tag="' + escapeHtml(item.name) + '" aria-pressed="' + focused + '" style="' + style + '"><span class="tag-constellation__spark" aria-hidden="true"></span><span class="tag-constellation__name">' + escapeHtml(item.name) + '</span><span class="tag-constellation__count">' + item.count + '</span></button>';
+            return '<button class="tag-constellation__node" type="button" data-tag="' + escapeHtml(item.name) + '" style="' + style + '"><span class="tag-constellation__spark" aria-hidden="true"></span><span class="tag-constellation__name">' + escapeHtml(item.name) + '</span><span class="tag-constellation__count">' + item.count + '</span></button>';
         }).join('');
     }
 
@@ -28,58 +27,143 @@
         return (post.tags || []).some(function (tag) { return (tag.name || tag) === name; });
     }
 
-    function renderFocusedArticles(posts, focus) {
-        if (!focus) return '<p class="tag-articles__hint">\u9009\u62e9\u4e00\u9897\u6807\u7b7e\u661f\uff0c\u67e5\u770b\u5b83\u8fde\u63a5\u7684\u6587\u7ae0\u3002</p>';
-        var matched = posts.filter(function (post) { return articleHasTag(post, focus); });
-        if (!matched.length) return '<p class="tag-articles__hint">\u300c' + escapeHtml(focus) + '\u300d\u6682\u65e0\u516c\u5f00\u6587\u7ae0\u3002</p>';
-        return '<div class="tag-articles__heading"><span>TAG / ' + escapeHtml(focus) + '</span><strong>' + matched.length + ' \u7bc7\u6587\u7ae0</strong></div><div class="tag-articles__list">' + matched.map(function (post) {
+    // The collection endpoint can omit tags, so archive mode resolves only missing records.
+    function hydrateTagPosts(posts) {
+        var missingTags = (posts || []).filter(function (post) {
+            return post.id && (!post.tags || post.tags.length === 0);
+        });
+        if (!missingTags.length) return Promise.resolve(posts);
+        return Promise.all(missingTags.map(function (post) {
+            return BlogAPI.getPost(post.id).then(function (detail) {
+                post.tags = detail.tags || [];
+                return post;
+            }).catch(function () {
+                return post;
+            });
+        })).then(function () {
+            return posts;
+        });
+    }
+
+    function renderTagArchive(focus, posts) {
+        var matched = (posts || []).filter(function (post) { return articleHasTag(post, focus); });
+        var heading = '<div class="tag-archive__header"><button class="tag-archive__return" type="button" data-tag-return>← 返回 Tag.sort()</button><p class="tag-archive__eyebrow">TAG ARCHIVE / ' + escapeHtml(focus) + '</p><h3 class="tag-archive__title">' + escapeHtml(focus) + '</h3><span class="tag-archive__count">' + matched.length + ' 篇文章</span></div>';
+        if (!matched.length) return heading + '<p class="tag-archive__state">「' + escapeHtml(focus) + '」暂无公开文章。</p>';
+        return heading + '<div class="tag-archive__list">' + matched.map(function (post, index) {
             var date = window.formatDate(post.published_at || post.created_at || post.updated_at);
-            return '<a class="tag-articles__item" href="/blog/post/' + encodeURIComponent(post.slug || post.id) + '"><span>' + escapeHtml(post.title) + '</span><time>' + escapeHtml(date) + '</time></a>';
+            var relatedTags = (post.tags || []).filter(function (tag) { return (tag.name || tag) !== focus; }).map(function (tag) {
+                var name = tag.name || tag;
+                return '<button type="button" class="tag-archive__chip" data-tag-switch="' + escapeHtml(name) + '">' + escapeHtml(name) + '</button>';
+            }).join('');
+            return '<article class="tag-archive__item" style="--archive-delay:' + Math.min(index * 70, 420) + 'ms"><a class="tag-archive__article-link" href="/blog/post/' + encodeURIComponent(post.id) + '"><h4>' + escapeHtml(post.title) + '</h4><p>' + escapeHtml(post.summary || '') + '</p></a><footer><time>' + escapeHtml(date) + '</time><div class="tag-archive__chips">' + relatedTags + '</div></footer></article>';
         }).join('') + '</div>';
     }
 
-    function setText(id, value) { var element = document.getElementById(id); if (element) element.textContent = String(value == null ? '' : value); }
-    function loadBackground() {
-        var script = document.createElement('script');
-        script.src = '/assets/json/images.js?t=' + Date.now();
-        script.onload = function () {
-            if (!window.BING_IMAGES || !window.BING_IMAGES.length) return;
-            var index = Number(sessionStorage.getItem('blog-bg-index'));
-            if (!Number.isInteger(index) || index < 0 || index >= window.BING_IMAGES.length) { index = Math.floor(Math.random() * window.BING_IMAGES.length); sessionStorage.setItem('blog-bg-index', String(index)); }
-            document.body.style.backgroundImage = "url('/assets/" + window.BING_IMAGES[index].replace(/['\\]/g, '\\$&') + "')";
-        };
-        document.body.appendChild(script);
+    function animateConstellationNodes(container) {
+        var elements = Array.prototype.slice.call(container.querySelectorAll('.tag-constellation__node'));
+        if (!elements.length) return;
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            elements.forEach(function (element) { element.classList.add('is-revealed'); });
+            return;
+        }
+        elements.forEach(function (element, index) {
+            element.classList.add('is-revealing');
+            element.style.setProperty('--reveal-delay', Math.min(index * 120, 2160) + 'ms');
+        });
+        window.requestAnimationFrame(function () {
+            elements.forEach(function (element) { element.classList.add('is-revealed'); });
+        });
+    }
+
+    function setText(id, value) {
+        var element = document.getElementById(id);
+        if (element) element.textContent = String(value == null ? '' : value);
     }
 
     document.addEventListener('DOMContentLoaded', function () {
-        loadBackground();
         var field = document.getElementById('tagConstellation');
+        var constellation = document.querySelector('.tag-constellation');
         var articles = document.getElementById('tagArticles');
         var summary = document.getElementById('tagsSummary');
-        var state = { focus: new URLSearchParams(window.location.search).get('focus') || '', items: [], posts: [] };
-        function render() { field.innerHTML = renderTagConstellation(state.items, state.focus); articles.innerHTML = renderFocusedArticles(state.posts, state.focus); }
+        var state = { focus: new URLSearchParams(window.location.search).get('focus') || '', items: [], posts: null, loading: false };
+
+        function updateUrl() {
+            var url = new URL(window.location.href);
+            if (state.focus) url.searchParams.set('focus', state.focus);
+            else url.searchParams.delete('focus');
+            history.replaceState(null, '', url.pathname + url.search);
+        }
+
+        function render() {
+            var archiveMode = Boolean(state.focus);
+            document.body.classList.toggle('blog-page--tag-archive', archiveMode);
+            constellation.hidden = archiveMode;
+            if (!archiveMode) {
+                field.innerHTML = renderTagConstellation(state.items);
+                articles.innerHTML = '<p class="tag-articles__hint">选择一颗标签星，查看它连接的文章。</p>';
+                animateConstellationNodes(field);
+                return;
+            }
+            if (state.loading) {
+                articles.innerHTML = '<p class="tag-archive__state">正在整理「' + escapeHtml(state.focus) + '」的文章...</p>';
+                return;
+            }
+            articles.innerHTML = renderTagArchive(state.focus, state.posts || []);
+        }
+
+        function selectTag(name) {
+            state.focus = name || '';
+            updateUrl();
+            if (!state.focus) {
+                render();
+                return;
+            }
+            if (state.posts) {
+                render();
+                return;
+            }
+            state.loading = true;
+            render();
+            BlogAPI.getPosts({ page: 1, limit: 200 }).then(function (data) {
+                return hydrateTagPosts(data.posts || []);
+            }).then(function (posts) {
+                state.posts = posts;
+                state.loading = false;
+                render();
+            }).catch(function () {
+                state.posts = [];
+                state.loading = false;
+                render();
+            });
+        }
+
         field.addEventListener('click', function (event) {
             var node = event.target.closest('[data-tag]');
-            if (!node) return;
-            state.focus = node.getAttribute('data-tag') || '';
-            var url = new URL(window.location.href);
-            url.searchParams.set('focus', state.focus);
-            history.replaceState(null, '', url.pathname + url.search);
-            render();
+            if (node) selectTag(node.getAttribute('data-tag') || '');
         });
-        Promise.all([BlogAPI.getTags(), BlogAPI.getCategories(), BlogAPI.getPosts({ page: 1, limit: 200 })]).then(function (result) {
+        articles.addEventListener('click', function (event) {
+            var returnButton = event.target.closest('[data-tag-return]');
+            if (returnButton) {
+                selectTag('');
+                return;
+            }
+            var tagButton = event.target.closest('[data-tag-switch]');
+            if (tagButton) selectTag(tagButton.getAttribute('data-tag-switch') || '');
+        });
+
+        Promise.all([BlogAPI.getTags(), BlogAPI.getCategories(), BlogAPI.getPosts({ page: 1, limit: 1 })]).then(function (result) {
             var tags = result[0];
             var categories = result[1];
             var postsData = result[2];
             state.items = buildConstellation(tags);
-            state.posts = postsData.posts || [];
-            setText('statPosts', postsData.total || state.posts.length);
+            setText('statPosts', postsData.total || 0);
             setText('statCategories', categories.length);
             setText('statTags', tags.length);
-            summary.textContent = '\u5f53\u524d\u5171\u6709 ' + tags.length + ' \u4e2a\u6807\u7b7e\uff0c\u70b9\u4eae\u5176\u4e2d\u4e00\u9897\u661f\u67e5\u770b\u6587\u7ae0';
+            summary.textContent = '当前共有 ' + tags.length + ' 个标签，点亮其中一颗星查看文章';
             render();
+            if (state.focus) selectTag(state.focus);
         }).catch(function (error) {
-            summary.textContent = '\u6807\u7b7e\u661f\u56fe\u52a0\u8f7d\u5931\u8d25';
+            summary.textContent = '标签星图加载失败';
             field.innerHTML = '<p class="directory-state directory-state--error">' + escapeHtml(error.message) + '</p>';
         });
     });
