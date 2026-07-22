@@ -18,10 +18,17 @@ func (f *fakeArticleClient) GetArticleByID(context.Context, int64) (*contentclie
 	return &contentclient.Article{}, nil
 }
 
+type fakeSessionValidator struct{}
+
+func (f *fakeSessionValidator) ValidateSession(context.Context, string) error {
+	return nil
+}
+
 func TestRegisterRoutesRequiresDependencies(t *testing.T) {
 	deps := Dependencies{
 		AuthServiceName: "auth-service",
 		ContentHandler:  contenthandler.NewHandler(&fakeArticleClient{}),
+		AuthValidator:   &fakeSessionValidator{},
 	}
 	if err := ValidateDependencies(deps); err != nil {
 		t.Fatalf("expected dependencies to validate, got %v", err)
@@ -29,8 +36,15 @@ func TestRegisterRoutesRequiresDependencies(t *testing.T) {
 }
 
 func TestValidateDependenciesRequiresContentHandler(t *testing.T) {
-	deps := Dependencies{AuthServiceName: "auth-service"}
+	deps := Dependencies{AuthServiceName: "auth-service", AuthValidator: &fakeSessionValidator{}}
 	if err := ValidateDependencies(deps); err == nil {
 		t.Fatal("expected missing content handler to fail validation")
+	}
+}
+
+func TestValidateDependenciesRequiresAuthValidator(t *testing.T) {
+	deps := Dependencies{AuthServiceName: "auth-service", ContentHandler: contenthandler.NewHandler(&fakeArticleClient{})}
+	if err := ValidateDependencies(deps); err == nil {
+		t.Fatal("expected missing auth validator to fail validation")
 	}
 }

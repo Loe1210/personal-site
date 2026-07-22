@@ -20,6 +20,7 @@ type Dependencies struct {
 	ContentBaseURL  string
 	MediaBaseURL    string
 	ContentHandler  *contenthandler.Handler
+	AuthValidator   middleware.SessionValidator
 }
 
 func ValidateDependencies(deps Dependencies) error {
@@ -28,6 +29,9 @@ func ValidateDependencies(deps Dependencies) error {
 	}
 	if deps.ContentHandler == nil {
 		return errors.New("content handler is required")
+	}
+	if deps.AuthValidator == nil {
+		return errors.New("auth validator is required")
 	}
 	return nil
 }
@@ -43,7 +47,8 @@ func RegisterRoutes(h *server.Hertz, deps Dependencies) error {
 	h.GET("/api/articles", deps.ContentHandler.ListArticles)
 	h.GET("/api/articles/:id", deps.ContentHandler.GetArticle)
 
-	// Temporary compatibility path until frontend and admin APIs move to first-class gateway handlers.
+	// Temporary compatibility paths until frontend and admin APIs move to first-class gateway handlers.
+	h.Any("/api/content/admin/*path", middleware.AuthRequired(deps.AuthValidator), proxy.NewReverseProxy(deps.ContentBaseURL, "/api/content"))
 	h.Any("/api/content/*path", proxy.NewReverseProxy(deps.ContentBaseURL, "/api/content"))
 	return nil
 }

@@ -92,8 +92,10 @@ services:
     environment:
       <<: *go-env
       MYSQL_DBNAME: auth_db
+      SERVICE_NAME: auth-service
     ports:
       - "9001:9001"
+      - "9101:9101"
 
   media-service:
     <<: *go-service
@@ -140,6 +142,8 @@ services:
       <<: *go-env
       APP_PORT: "8888"
       AUTH_SERVICE_URL: http://auth-service:9001
+      AUTH_SERVICE_NAME: auth-service
+      AUTH_RPC_ADDR: auth-service:9101
       MEDIA_SERVICE_URL: http://media-service:9002
       CONTENT_SERVICE_URL: http://content-service:9003
       CONTENT_SERVICE_NAME: content-service

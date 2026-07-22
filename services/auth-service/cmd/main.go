@@ -55,7 +55,7 @@ func main() {
 	}
 	xauth.UseStore(xauth.NewRedisStore(redisPool, cfg.SessionStore.Prefix))
 	authService := service.NewAuthService(db.NewUserRepository(database))
-	startAuthRPCServer(cfg.RPC.Port, kitexauthhandler.NewHandler(authService))
+	startAuthRPCServer(cfg.RPC.Port, authServiceRPCConfigFromEnv(), kitexauthhandler.NewHandler(authService))
 	h := server.Default(server.WithHostPorts(configs.GetServerAddr()))
 	registerRoutes(h, authService)
 	log.Printf("auth-service listening on %s", configs.GetServerAddr())
