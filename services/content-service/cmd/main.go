@@ -38,7 +38,7 @@ func main() {
 	articles := service.NewArticleService(repo)
 	categories := service.NewCategoryService(repo)
 	tags := service.NewTagService(repo)
-	startContentRPCServer(cfg.RPC.Port, kitexcontenthandler.NewHandler(articles))
+	startContentRPCServer(cfg.RPC.Port, contentServiceRPCConfigFromEnv(), kitexcontenthandler.NewHandler(articles))
 	h := newRouter(articles, categories, tags, configs.GetServerAddr())
 	log.Printf("content-service listening on %s", configs.GetServerAddr())
 	h.Spin()

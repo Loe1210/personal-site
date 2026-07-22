@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 	contentclient "github.com/Loe1210/personal-site/services/gateway/internal/client/content"
 	contenthandler "github.com/Loe1210/personal-site/services/gateway/internal/handler/content"
 	"github.com/Loe1210/personal-site/services/gateway/internal/router"
+	"github.com/Loe1210/personal-site/services/gateway/pkg/xnacos"
 	"github.com/Loe1210/personal-site/services/gateway/pkg/xotel"
 )
 
@@ -22,6 +23,7 @@ var configPath = flag.String("config", "configs/config.yaml", "gateway config pa
 type contentRPCConfig struct {
 	ServiceName string
 	Address     string
+	NacosAddr   string
 }
 
 func main() {
@@ -37,8 +39,7 @@ func main() {
 	}
 	defer shutdown(ctx)
 
-	contentRPC := contentRPCConfigFromEnv()
-	contentServiceClient, err := contentservice.NewClient(contentRPC.ServiceName, kitexclient.WithHostPorts(contentRPC.Address))
+	contentServiceClient, err := newContentServiceClient(contentRPCConfigFromEnv())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -60,10 +61,22 @@ func main() {
 	h.Spin()
 }
 
+func newContentServiceClient(cfg contentRPCConfig) (contentservice.Client, error) {
+	resolver, err := xnacos.NewResolver(cfg.NacosAddr)
+	if err != nil {
+		return nil, err
+	}
+	if resolver != nil {
+		return contentservice.NewClient(cfg.ServiceName, kitexclient.WithResolver(resolver))
+	}
+	return contentservice.NewClient(cfg.ServiceName, kitexclient.WithHostPorts(cfg.Address))
+}
+
 func contentRPCConfigFromEnv() contentRPCConfig {
 	return contentRPCConfig{
 		ServiceName: envOrDefault("CONTENT_SERVICE_NAME", "content-service"),
 		Address:     envOrDefault("CONTENT_RPC_ADDR", "127.0.0.1:9103"),
+		NacosAddr:   os.Getenv("NACOS_ADDR"),
 	}
 }
 

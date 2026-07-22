@@ -1,4 +1,4 @@
-x-go-env: &go-env
+﻿x-go-env: &go-env
   MYSQL_HOST: mysql
   MYSQL_PORT: "3306"
   MYSQL_USER: root
@@ -123,8 +123,10 @@ services:
     environment:
       <<: *go-env
       MYSQL_DBNAME: content_db
+      SERVICE_NAME: content-service
     ports:
       - "9003:9003"
+      - "9103:9103"
 
   web-bff:
     <<: *go-service
@@ -153,6 +155,8 @@ services:
       AUTH_SERVICE_URL: http://auth-service:9001
       MEDIA_SERVICE_URL: http://media-service:9002
       CONTENT_SERVICE_URL: http://content-service:9003
+      CONTENT_SERVICE_NAME: content-service
+      CONTENT_RPC_ADDR: content-service:9103
       WEB_BFF_URL: http://web-bff:9004
     ports:
       - "8888:8888"
@@ -173,3 +177,5 @@ volumes:
   mysql-data:
   upload-images-data:
   upload-tmp-data:
+
+
