@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package base;
+
+option go_package = "github.com/Loe1210/personal-site/kitex_gen/base;base";
+
+enum ErrorCode {
+  ERROR_NONE = 0;
+  ERROR_INVALID_ARGUMENT = 20010001;
+  ERROR_INTERNAL = 20010002;
+  ERROR_AUTH_LOGIN_REQUIRED = 20020001;
+  ERROR_AUTH_SESSION_EXPIRED = 20020002;
+  ERROR_AUTH_PERMISSION_DENIED = 20020003;
+  ERROR_AUTH_UPSTREAM_FAILED = 20020004;
+  ERROR_CONTENT_ARTICLE_NOT_FOUND = 20030001;
+}
+
+message BaseResp {
+  int32 code = 1;
+  string msg = 2;
+}

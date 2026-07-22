@@ -11,6 +11,8 @@ import (
 	"github.com/gomodule/redigo/redis"
 
 	"github.com/Loe1210/personal-site/configs"
+	"github.com/Loe1210/personal-site/internal/xhttp"
+	"github.com/Loe1210/personal-site/internal/xsafe"
 	"github.com/Loe1210/personal-site/services/auth-service/internal/dal/db"
 	kitexauthhandler "github.com/Loe1210/personal-site/services/auth-service/internal/handler/rpc"
 	"github.com/Loe1210/personal-site/services/auth-service/internal/service"
@@ -22,6 +24,7 @@ var configPath = flag.String("config", "services/auth-service/configs/config.yam
 
 func main() {
 	flag.Parse()
+	xsafe.InstallGoPoolPanicHandler()
 	ctx := context.Background()
 	cfg, err := configs.Load(*configPath)
 	if err != nil {
@@ -57,6 +60,7 @@ func main() {
 	authService := service.NewAuthService(db.NewUserRepository(database))
 	startAuthRPCServer(cfg.RPC.Port, authServiceRPCConfigFromEnv(), kitexauthhandler.NewHandler(authService))
 	h := server.Default(server.WithHostPorts(configs.GetServerAddr()))
+	h.Use(xhttp.Recover())
 	registerRoutes(h, authService)
 	log.Printf("auth-service listening on %s", configs.GetServerAddr())
 	h.Spin()

@@ -4,10 +4,13 @@ package auth;
 
 option go_package = "github.com/Loe1210/personal-site/kitex_gen/auth;auth";
 
+import "base/base.proto";
+
 message AuthContext {
   int64 user_id = 1;
   string username = 2;
   repeated string roles = 3;
+  base.BaseResp base_resp = 100;
 }
 
 message ValidateSessionRequest {
@@ -21,6 +24,7 @@ message CheckPermissionRequest {
 
 message CheckPermissionResponse {
   bool allowed = 1;
+  base.BaseResp base_resp = 100;
 }
 
 service AuthService {

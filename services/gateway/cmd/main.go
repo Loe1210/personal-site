@@ -10,6 +10,8 @@ import (
 	kitexclient "github.com/cloudwego/kitex/client"
 
 	"github.com/Loe1210/personal-site/configs"
+	"github.com/Loe1210/personal-site/internal/xhttp"
+	"github.com/Loe1210/personal-site/internal/xsafe"
 	"github.com/Loe1210/personal-site/kitex_gen/auth/authservice"
 	authclient "github.com/Loe1210/personal-site/services/gateway/internal/client/auth"
 	"github.com/Loe1210/personal-site/services/gateway/internal/router"
@@ -29,6 +31,7 @@ type authRPCConfig = serviceRPCConfig
 
 func main() {
 	flag.Parse()
+	xsafe.InstallGoPoolPanicHandler()
 	ctx := context.Background()
 	_, err := configs.Load(*configPath)
 	if err != nil {
@@ -47,6 +50,7 @@ func main() {
 	authValidator := authclient.NewKitexClient(authServiceClient)
 
 	h := server.Default(server.WithHostPorts(configs.GetServerAddr()))
+	h.Use(xhttp.Recover())
 	deps := router.Dependencies{
 		AuthServiceName: "auth-service",
 		AuthBaseURL:     envOrDefault("AUTH_SERVICE_URL", "http://127.0.0.1:9001"),

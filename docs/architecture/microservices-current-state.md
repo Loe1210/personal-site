@@ -64,3 +64,32 @@ If Docker or Kubernetes is unavailable locally, record that as an environment li
 - `go test ./...`: passed.
 - `make proto-check`: passed.
 - `make micro-smoke`: passed after Docker Desktop was available and the Compose stack was running.
+
+## Error Response Contract
+
+Existing HTTP API routes return a stable JSON envelope:
+
+```json
+{"code":0,"msg":"success","data":{}}
+```
+
+Expected failures keep HTTP transport successful and set `code` and `msg` in the envelope. Parameter and binding errors are handled in HTTP handlers. Business errors are returned by services and translated by handlers. Panics and other unexpected failures are captured by the shared base recover middleware and returned as the internal error envelope.
+
+Route misses are still transport-level 404. This is why `/api/articles` can remain a 404 while `/api/content/articles` returns envelope-shaped content responses.
+
+## Shared RPC Base Response
+
+`idl/base/base.proto` defines `BaseResp` and project-local error codes. Auth and content RPC responses embed `base_resp`; handlers return nil RPC error for expected business failures and fill `base_resp` instead. Gateway auth validation reads `base_resp` and maps it into typed application errors before the HTTP middleware writes the unified envelope.
+
+## Content Cache Boundary
+
+Article detail caching is owned only by `content-service`:
+
+```text
+content-service ArticleService
+  -> local article cache
+  -> Redis article cache
+  -> MySQL article repository
+```
+
+Gateway remains a thin router/proxy and does not add content cache, article lookup, or fallback business logic. Content writes invalidate article detail cache keys inside content-service.

@@ -4,6 +4,7 @@ package content
 
 import (
 	"context"
+	"github.com/Loe1210/personal-site/kitex_gen/base"
 
 	"github.com/cloudwego/prutal"
 )
@@ -234,8 +235,9 @@ func (x *ListPublicArticlesRequest) GetKeyword() string {
 }
 
 type ListArticlesResponse struct {
-	List  []*Article `protobuf:"bytes,1,rep,name=list" json:"list,omitempty"`
-	Total int64      `protobuf:"varint,2,opt,name=total" json:"total,omitempty"`
+	List     []*Article     `protobuf:"bytes,1,rep,name=list" json:"list,omitempty"`
+	Total    int64          `protobuf:"varint,2,opt,name=total" json:"total,omitempty"`
+	BaseResp *base.BaseResp `protobuf:"bytes,100,opt,name=base_resp" json:"base_resp,omitempty"`
 }
 
 func (x *ListArticlesResponse) Reset() { *x = ListArticlesResponse{} }
@@ -258,8 +260,16 @@ func (x *ListArticlesResponse) GetTotal() int64 {
 	return 0
 }
 
+func (x *ListArticlesResponse) GetBaseResp() *base.BaseResp {
+	if x != nil {
+		return x.BaseResp
+	}
+	return nil
+}
+
 type GetArticleResponse struct {
-	Article *Article `protobuf:"bytes,1,opt,name=article" json:"article,omitempty"`
+	Article  *Article       `protobuf:"bytes,1,opt,name=article" json:"article,omitempty"`
+	BaseResp *base.BaseResp `protobuf:"bytes,100,opt,name=base_resp" json:"base_resp,omitempty"`
 }
 
 func (x *GetArticleResponse) Reset() { *x = GetArticleResponse{} }
@@ -271,6 +281,13 @@ func (x *GetArticleResponse) Unmarshal(in []byte) error { return prutal.Unmarsha
 func (x *GetArticleResponse) GetArticle() *Article {
 	if x != nil {
 		return x.Article
+	}
+	return nil
+}
+
+func (x *GetArticleResponse) GetBaseResp() *base.BaseResp {
+	if x != nil {
+		return x.BaseResp
 	}
 	return nil
 }
@@ -327,7 +344,8 @@ func (x *DeleteArticleRequest) GetId() int64 {
 }
 
 type DeleteArticleResponse struct {
-	Success bool `protobuf:"varint,1,opt,name=success" json:"success,omitempty"`
+	Success  bool           `protobuf:"varint,1,opt,name=success" json:"success,omitempty"`
+	BaseResp *base.BaseResp `protobuf:"bytes,100,opt,name=base_resp" json:"base_resp,omitempty"`
 }
 
 func (x *DeleteArticleResponse) Reset() { *x = DeleteArticleResponse{} }
@@ -343,6 +361,13 @@ func (x *DeleteArticleResponse) GetSuccess() bool {
 		return x.Success
 	}
 	return false
+}
+
+func (x *DeleteArticleResponse) GetBaseResp() *base.BaseResp {
+	if x != nil {
+		return x.BaseResp
+	}
+	return nil
 }
 
 type ContentService interface {

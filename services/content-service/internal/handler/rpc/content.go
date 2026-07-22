@@ -3,6 +3,8 @@ package rpc
 import (
 	"context"
 
+	"github.com/Loe1210/personal-site/internal/xerrors"
+	kitexbase "github.com/Loe1210/personal-site/kitex_gen/base"
 	kitexcontent "github.com/Loe1210/personal-site/kitex_gen/content"
 	"github.com/Loe1210/personal-site/services/content-service/internal/model"
 	"github.com/Loe1210/personal-site/services/content-service/internal/service"
@@ -19,9 +21,9 @@ func NewHandler(articles *service.ArticleService) *Handler {
 func (h *Handler) GetArticleByID(ctx context.Context, req *kitexcontent.GetArticleByIDRequest) (*kitexcontent.GetArticleResponse, error) {
 	article, err := h.articles.GetArticleByID(ctx, req.GetId())
 	if err != nil {
-		return nil, err
+		return &kitexcontent.GetArticleResponse{BaseResp: baseRespFromError(err)}, nil
 	}
-	return &kitexcontent.GetArticleResponse{Article: toPBArticle(article)}, nil
+	return &kitexcontent.GetArticleResponse{Article: toPBArticle(article), BaseResp: okBaseResp()}, nil
 }
 
 func (h *Handler) ListPublicArticles(ctx context.Context, req *kitexcontent.ListPublicArticlesRequest) (*kitexcontent.ListArticlesResponse, error) {
@@ -31,32 +33,42 @@ func (h *Handler) ListPublicArticles(ctx context.Context, req *kitexcontent.List
 		Keyword:  req.GetKeyword(),
 	})
 	if err != nil {
-		return nil, err
+		return &kitexcontent.ListArticlesResponse{BaseResp: baseRespFromError(err)}, nil
 	}
-	return toPBListResult(result), nil
+	resp := toPBListResult(result)
+	resp.BaseResp = okBaseResp()
+	return resp, nil
 }
 
 func (h *Handler) CreateArticle(ctx context.Context, req *kitexcontent.CreateArticleRequest) (*kitexcontent.GetArticleResponse, error) {
 	created, err := h.articles.CreateArticle(ctx, toInternalArticle(req.GetArticle()))
 	if err != nil {
-		return nil, err
+		return &kitexcontent.GetArticleResponse{BaseResp: baseRespFromError(err)}, nil
 	}
-	return &kitexcontent.GetArticleResponse{Article: toPBArticle(created)}, nil
+	return &kitexcontent.GetArticleResponse{Article: toPBArticle(created), BaseResp: okBaseResp()}, nil
 }
 
 func (h *Handler) UpdateArticle(ctx context.Context, req *kitexcontent.UpdateArticleRequest) (*kitexcontent.GetArticleResponse, error) {
 	updated, err := h.articles.UpdateArticle(ctx, toInternalArticle(req.GetArticle()))
 	if err != nil {
-		return nil, err
+		return &kitexcontent.GetArticleResponse{BaseResp: baseRespFromError(err)}, nil
 	}
-	return &kitexcontent.GetArticleResponse{Article: toPBArticle(updated)}, nil
+	return &kitexcontent.GetArticleResponse{Article: toPBArticle(updated), BaseResp: okBaseResp()}, nil
 }
 
 func (h *Handler) DeleteArticle(ctx context.Context, req *kitexcontent.DeleteArticleRequest) (*kitexcontent.DeleteArticleResponse, error) {
 	if err := h.articles.DeleteArticle(ctx, req.GetId()); err != nil {
-		return nil, err
+		return &kitexcontent.DeleteArticleResponse{BaseResp: baseRespFromError(err)}, nil
 	}
-	return &kitexcontent.DeleteArticleResponse{Success: true}, nil
+	return &kitexcontent.DeleteArticleResponse{Success: true, BaseResp: okBaseResp()}, nil
+}
+
+func okBaseResp() *kitexbase.BaseResp {
+	return &kitexbase.BaseResp{Code: xerrors.CodeOK, Msg: "success"}
+}
+
+func baseRespFromError(err error) *kitexbase.BaseResp {
+	return &kitexbase.BaseResp{Code: xerrors.CodeOf(err), Msg: xerrors.MessageOf(err)}
 }
 
 func toPBListResult(result *model.ListResult) *kitexcontent.ListArticlesResponse {

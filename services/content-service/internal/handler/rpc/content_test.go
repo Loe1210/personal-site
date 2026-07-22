@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	kitexcontent "github.com/Loe1210/personal-site/kitex_gen/content"
@@ -113,17 +112,16 @@ func TestGetArticleByIDMapsRequestAndResponse(t *testing.T) {
 	}
 }
 
-func TestGetArticleByIDReturnsErrorWhenMissing(t *testing.T) {
-	expected := errors.New("not found")
-	repo := &fakeArticleRepo{getErr: expected}
+func TestGetArticleByIDReturnsBaseRespWhenMissing(t *testing.T) {
+	repo := &fakeArticleRepo{getErr: service.ErrArticleNotFound}
 	handler := NewHandler(service.NewArticleService(repo))
 
 	resp, err := handler.GetArticleByID(context.Background(), &kitexcontent.GetArticleByIDRequest{Id: 404})
 
-	if !errors.Is(err, expected) {
-		t.Fatalf("expected not found error, got %v", err)
+	if err != nil {
+		t.Fatalf("expected nil rpc error, got %v", err)
 	}
-	if resp != nil {
-		t.Fatalf("expected nil response, got %#v", resp)
+	if resp.GetBaseResp().GetCode() != 20030001 {
+		t.Fatalf("expected article not found base resp, got %#v", resp.GetBaseResp())
 	}
 }

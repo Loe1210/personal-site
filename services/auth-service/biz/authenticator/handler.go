@@ -5,8 +5,9 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol"
-	"github.com/cloudwego/hertz/pkg/protocol/consts"
 
+	"github.com/Loe1210/personal-site/internal/xerrors"
+	"github.com/Loe1210/personal-site/internal/xhttp"
 	bizmodel "github.com/Loe1210/personal-site/services/auth-service/biz/model"
 	"github.com/Loe1210/personal-site/services/auth-service/internal/service"
 	"github.com/Loe1210/personal-site/services/auth-service/pkg/xauth"
@@ -23,29 +24,29 @@ func NewHandler(service *service.Service) *Handler {
 func (h *Handler) Login(ctx context.Context, c *app.RequestContext) {
 	var request bizmodel.LoginRequest
 	if err := c.BindAndValidate(&request); err != nil {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid request"})
+		xhttp.Fail(c, xerrors.New(xerrors.CodeInvalidArgument, "invalid request"))
 		return
 	}
 	bundle, err := h.service.CreateSession(ctx, request.Username, request.Password)
 	if err != nil {
-		c.JSON(consts.StatusUnauthorized, map[string]any{"code": 10002, "message": "invalid credentials"})
+		xhttp.Fail(c, xerrors.New(xerrors.CodeAuthSessionExpired, "invalid credentials"))
 		return
 	}
 	c.SetCookie(bundle.CookieName, bundle.SessionID, 7200, "/", "", protocol.CookieSameSiteLaxMode, false, true)
-	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": bundle})
+	xhttp.OK(c, bundle)
 }
 
 func (h *Handler) Logout(_ context.Context, c *app.RequestContext) {
 	_ = xauth.DestroySession(xauth.SessionIDFromRequest(c))
 	xauth.ClearSessionCookie(c)
-	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success"})
+	xhttp.OK(c, map[string]bool{"success": true})
 }
 
 func (h *Handler) Me(ctx context.Context, c *app.RequestContext) {
 	user, err := h.service.GetCurrentUser(ctx, xauth.SessionIDFromRequest(c))
 	if err != nil {
-		c.JSON(consts.StatusUnauthorized, map[string]any{"code": 10002, "message": "login expired"})
+		xhttp.Fail(c, xerrors.New(xerrors.CodeAuthSessionExpired, "login expired"))
 		return
 	}
-	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": user})
+	xhttp.OK(c, user)
 }

@@ -4,7 +4,9 @@ import (
 	"context"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/cloudwego/hertz/pkg/protocol/consts"
+
+	"github.com/Loe1210/personal-site/internal/xerrors"
+	"github.com/Loe1210/personal-site/internal/xhttp"
 )
 
 type SessionValidator interface {
@@ -15,13 +17,13 @@ func AuthRequired(validator SessionValidator) app.HandlerFunc {
 	return func(ctx context.Context, c *app.RequestContext) {
 		sessionID := string(c.Cookie("session_id"))
 		if sessionID == "" {
-			c.JSON(consts.StatusUnauthorized, map[string]any{"code": 10002, "message": "login required"})
+			xhttp.Fail(c, xerrors.New(xerrors.CodeAuthLoginRequired, "login required"))
 			c.Abort()
 			return
 		}
 		if validator != nil {
 			if err := validator.ValidateSession(ctx, sessionID); err != nil {
-				c.JSON(consts.StatusUnauthorized, map[string]any{"code": 10002, "message": "login expired"})
+				xhttp.Fail(c, err)
 				c.Abort()
 				return
 			}

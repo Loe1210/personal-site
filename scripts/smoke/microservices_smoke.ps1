@@ -11,19 +11,41 @@ function Invoke-JsonPost($Url, $Body, $Session) {
   return Invoke-WebRequest $Url -Method Post -Body $json -ContentType "application/json" -WebSession $Session
 }
 
-function Assert-Unauthorized($Url, $Name) {
+function Get-ErrorStatusCode($ErrorRecord) {
+  $response = $ErrorRecord.Exception.Response
+  if ($null -eq $response) {
+    throw $ErrorRecord
+  }
+  return [int]$response.StatusCode
+}
+
+function Assert-AuthAnonymous($Url, $Name) {
   try {
     $response = Invoke-WebRequest $Url
-    throw "$Name expected 401, got $($response.StatusCode)"
-  } catch {
-    $response = $_.Exception.Response
-    if ($null -eq $response) {
-      throw
+    Assert-StatusOk $response $Name
+    $json = $response.Content | ConvertFrom-Json
+    if ($json.code -eq 0) {
+      throw "$Name expected auth error envelope, got success"
     }
-
-    $statusCode = [int]$response.StatusCode
+    if ([string]::IsNullOrWhiteSpace($json.msg)) {
+      throw "$Name expected auth error msg"
+    }
+  } catch {
+    $statusCode = Get-ErrorStatusCode $_
     if ($statusCode -ne 401) {
-      throw "$Name expected 401, got $statusCode"
+      throw "$Name expected auth envelope or legacy 401, got $statusCode"
+    }
+  }
+}
+
+function Assert-NotFound($Url, $Name) {
+  try {
+    $response = Invoke-WebRequest $Url
+    throw "$Name expected 404, got $($response.StatusCode)"
+  } catch {
+    $statusCode = Get-ErrorStatusCode $_
+    if ($statusCode -ne 404) {
+      throw "$Name expected 404, got $statusCode"
     }
   }
 }
@@ -33,11 +55,18 @@ $gateway = Invoke-WebRequest "http://127.0.0.1:8888/healthz"
 Assert-StatusOk $gateway "gateway health"
 
 Write-Host "Checking auth anonymous /me..."
-Assert-Unauthorized "http://127.0.0.1:9001/me" "auth anonymous /me"
+Assert-AuthAnonymous "http://127.0.0.1:9001/me" "auth anonymous /me"
 
 Write-Host "Checking content article list..."
 $contentList = Invoke-WebRequest "http://127.0.0.1:9003/articles?page=1&page_size=1"
 Assert-StatusOk $contentList "content article list"
+
+Write-Host "Checking gateway content article list..."
+$gatewayContentList = Invoke-WebRequest "http://127.0.0.1:8888/api/content/articles?page=1&page_size=1"
+Assert-StatusOk $gatewayContentList "gateway content article list"
+
+Write-Host "Checking deprecated gateway /api/articles 404..."
+Assert-NotFound "http://127.0.0.1:8888/api/articles?page=1&page_size=1" "deprecated /api/articles"
 
 Write-Host "Checking login cookie flow..."
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession

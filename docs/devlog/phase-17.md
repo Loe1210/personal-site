@@ -59,3 +59,15 @@ make micro-smoke
 - Decide whether auth for content admin APIs should eventually move into `content-service`; only then can gateway's admin content proxy be removed entirely.
 - If a future page needs cross-service aggregation, add a dedicated gateway handler for that use case instead of recreating generic content CRUD in gateway.
 
+
+## Error And Cache Hardening Addendum
+
+This follow-up keeps the thin gateway boundary from Phase 17 and standardizes failure semantics across services.
+
+- Added shared `idl/base/base.proto` with `BaseResp` and project-local error codes.
+- Auth and content RPC handlers now use `base_resp` for expected business failures and reserve RPC errors for transport/unexpected failures.
+- HTTP handlers return a unified envelope for existing routes: `code`, `msg`, and `data`. Business failures should not become HTTP 401/404/500 responses.
+- Handler-owned errors are request parsing and binding failures. Service-owned errors are business outcomes such as expired sessions, permission denial, and missing articles.
+- Unexpected panics are handled by shared base recover middleware; services also register a gopool panic handler through `xsafe`.
+- `content-service` owns article detail caching with a local -> Redis -> MySQL lookup order. Gateway does not cache or inspect content-domain objects.
+- Smoke now covers gateway `/api/content/articles` and confirms deprecated `/api/articles` remains a route-level 404.
