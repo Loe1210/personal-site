@@ -51,7 +51,6 @@ func main() {
 		AuthBaseURL:     envOrDefault("AUTH_SERVICE_URL", "http://127.0.0.1:9001"),
 		MediaBaseURL:    envOrDefault("MEDIA_SERVICE_URL", "http://127.0.0.1:9002"),
 		ContentBaseURL:  envOrDefault("CONTENT_SERVICE_URL", "http://127.0.0.1:9003"),
-		BFFBaseURL:      envOrDefault("WEB_BFF_URL", "http://127.0.0.1:9004"),
 		ContentHandler:  contenthandler.NewHandler(articleClient),
 	}
 	if err := router.RegisterRoutes(h, deps); err != nil {

@@ -1,7 +1,0 @@
-server:
-  host: ""
-  port: "9004"
-
-site:
-  title: "Web BFF"
-  base_url: "http://localhost:9004"

@@ -1,4 +1,4 @@
-# 本地微服务运行手册
+﻿# 本地微服务运行手册
 
 ## 一键启动
 
@@ -8,7 +8,7 @@
 make micro-up
 ```
 
-该命令会通过 `deploy/docker/compose.yaml` 拉起 MySQL、Redis、Nacos、OTEL Collector、Prometheus、Grafana、Jaeger，以及 `auth-service`、`media-service`、`content-service`、`web-bff`、`gateway` 和 `frontend`。
+该命令会通过 `deploy/docker/compose.yaml` 拉起 MySQL、Redis、Nacos、OTEL Collector、Prometheus、Grafana、Jaeger，以及 `auth-service`、`media-service`、`content-service`、`gateway` 和 `frontend`。
 
 ## 数据库初始化
 
@@ -44,7 +44,6 @@ make micro-smoke
 - auth-service: `http://127.0.0.1:9001`
 - media-service: `http://127.0.0.1:9002`
 - content-service: `http://127.0.0.1:9003`
-- web-bff: `http://127.0.0.1:9004`
 - Nacos: `http://127.0.0.1:8848`
 - OTEL Collector: `4317` / `4318`
 - Prometheus: `http://127.0.0.1:9090`
@@ -60,3 +59,4 @@ make micro-smoke
 - Jaeger：查看分布式链路追踪。
 - Redis：保存 `session cookie` 对应的共享会话。
 - MySQL：为每个服务提供独立 schema。
+

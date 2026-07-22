@@ -1,4 +1,4 @@
-﻿package router
+package router
 
 import (
 	"context"
@@ -19,7 +19,6 @@ type Dependencies struct {
 	AuthBaseURL     string
 	ContentBaseURL  string
 	MediaBaseURL    string
-	BFFBaseURL      string
 	ContentHandler  *contenthandler.Handler
 }
 
@@ -46,9 +45,6 @@ func RegisterRoutes(h *server.Hertz, deps Dependencies) error {
 
 	// Temporary compatibility path until frontend and admin APIs move to first-class gateway handlers.
 	h.Any("/api/content/*path", proxy.NewReverseProxy(deps.ContentBaseURL, "/api/content"))
-	if deps.BFFBaseURL != "" {
-		h.Any("/api/blog/*path", proxy.NewReverseProxy(deps.BFFBaseURL, "/api/blog"))
-	}
 	return nil
 }
 

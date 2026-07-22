@@ -128,19 +128,6 @@ services:
       - "9003:9003"
       - "9103:9103"
 
-  web-bff:
-    <<: *go-service
-    build:
-      context: ../..
-      dockerfile: Dockerfile
-      args:
-        SERVICE_PATH: ./services/web-bff/cmd
-    command: ["./app", "-config", "services/web-bff/configs/config.yaml", "-content-service-url", "http://content-service:9003"]
-    environment:
-      <<: *go-env
-    ports:
-      - "9004:9004"
-
   gateway:
     <<: *go-service
     build:
@@ -157,7 +144,6 @@ services:
       CONTENT_SERVICE_URL: http://content-service:9003
       CONTENT_SERVICE_NAME: content-service
       CONTENT_RPC_ADDR: content-service:9103
-      WEB_BFF_URL: http://web-bff:9004
     ports:
       - "8888:8888"
 
