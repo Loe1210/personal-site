@@ -3,20 +3,7 @@ package router
 import (
 	"context"
 	"testing"
-
-	contentclient "github.com/Loe1210/personal-site/services/gateway/internal/client/content"
-	contenthandler "github.com/Loe1210/personal-site/services/gateway/internal/handler/content"
 )
-
-type fakeArticleClient struct{}
-
-func (f *fakeArticleClient) ListPublicArticles(context.Context, contentclient.ListPublicArticlesRequest) (*contentclient.ListPublicArticlesResponse, error) {
-	return &contentclient.ListPublicArticlesResponse{}, nil
-}
-
-func (f *fakeArticleClient) GetArticleByID(context.Context, int64) (*contentclient.Article, error) {
-	return &contentclient.Article{}, nil
-}
 
 type fakeSessionValidator struct{}
 
@@ -27,7 +14,6 @@ func (f *fakeSessionValidator) ValidateSession(context.Context, string) error {
 func TestRegisterRoutesRequiresDependencies(t *testing.T) {
 	deps := Dependencies{
 		AuthServiceName: "auth-service",
-		ContentHandler:  contenthandler.NewHandler(&fakeArticleClient{}),
 		AuthValidator:   &fakeSessionValidator{},
 	}
 	if err := ValidateDependencies(deps); err != nil {
@@ -35,15 +21,8 @@ func TestRegisterRoutesRequiresDependencies(t *testing.T) {
 	}
 }
 
-func TestValidateDependenciesRequiresContentHandler(t *testing.T) {
-	deps := Dependencies{AuthServiceName: "auth-service", AuthValidator: &fakeSessionValidator{}}
-	if err := ValidateDependencies(deps); err == nil {
-		t.Fatal("expected missing content handler to fail validation")
-	}
-}
-
 func TestValidateDependenciesRequiresAuthValidator(t *testing.T) {
-	deps := Dependencies{AuthServiceName: "auth-service", ContentHandler: contenthandler.NewHandler(&fakeArticleClient{})}
+	deps := Dependencies{AuthServiceName: "auth-service"}
 	if err := ValidateDependencies(deps); err == nil {
 		t.Fatal("expected missing auth validator to fail validation")
 	}
