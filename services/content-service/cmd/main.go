@@ -10,11 +10,11 @@ import (
 	"github.com/gomodule/redigo/redis"
 
 	"github.com/Loe1210/personal-site/configs"
+	"github.com/Loe1210/personal-site/internal/xotel"
 	"github.com/Loe1210/personal-site/internal/xsafe"
 	"github.com/Loe1210/personal-site/services/content-service/internal/dal/db"
 	kitexcontenthandler "github.com/Loe1210/personal-site/services/content-service/internal/handler/rpc"
 	"github.com/Loe1210/personal-site/services/content-service/internal/service"
-	"github.com/Loe1210/personal-site/services/content-service/pkg/xotel"
 )
 
 var configPath = flag.String("config", "services/content-service/configs/config.yaml", "content service config path")

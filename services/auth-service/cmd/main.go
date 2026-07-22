@@ -12,12 +12,12 @@ import (
 
 	"github.com/Loe1210/personal-site/configs"
 	"github.com/Loe1210/personal-site/internal/xhttp"
+	"github.com/Loe1210/personal-site/internal/xotel"
 	"github.com/Loe1210/personal-site/internal/xsafe"
 	"github.com/Loe1210/personal-site/services/auth-service/internal/dal/db"
 	kitexauthhandler "github.com/Loe1210/personal-site/services/auth-service/internal/handler/rpc"
 	"github.com/Loe1210/personal-site/services/auth-service/internal/service"
 	"github.com/Loe1210/personal-site/services/auth-service/pkg/xauth"
-	"github.com/Loe1210/personal-site/services/auth-service/pkg/xotel"
 )
 
 var configPath = flag.String("config", "services/auth-service/configs/config.yaml", "auth service config path")

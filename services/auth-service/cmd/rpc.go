@@ -6,9 +6,9 @@ import (
 	"net"
 	"os"
 
+	"github.com/Loe1210/personal-site/internal/xnacos"
 	kitexauthservice "github.com/Loe1210/personal-site/kitex_gen/auth/authservice"
 	kitexauthhandler "github.com/Loe1210/personal-site/services/auth-service/internal/handler/rpc"
-	"github.com/Loe1210/personal-site/services/auth-service/pkg/xnacos"
 	"github.com/cloudwego/kitex/pkg/rpcinfo"
 	"github.com/cloudwego/kitex/server"
 )

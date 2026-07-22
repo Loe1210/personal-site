@@ -93,3 +93,7 @@ content-service ArticleService
 ```
 
 Gateway remains a thin router/proxy and does not add content cache, article lookup, or fallback business logic. Content writes invalidate article detail cache keys inside content-service.
+
+## Shared Internal Infrastructure
+
+Repository-local infrastructure helpers that are reused by multiple services live under top-level `internal/` rather than per-service `pkg/` directories. Current shared helpers include `internal/xnacos`, `internal/xotel`, `internal/xerrors`, `internal/xhttp`, and `internal/xsafe`. Keep `pkg/` reserved for packages that are intentionally stable for external module consumers.

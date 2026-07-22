@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/Loe1210/personal-site/configs"
+	"github.com/Loe1210/personal-site/internal/xotel"
 	db "github.com/Loe1210/personal-site/services/media-service/internal/dal/db"
 	"github.com/Loe1210/personal-site/services/media-service/internal/dal/storage"
 	kitexmediahandler "github.com/Loe1210/personal-site/services/media-service/internal/handler/rpc"
 	"github.com/Loe1210/personal-site/services/media-service/internal/service"
-	"github.com/Loe1210/personal-site/services/media-service/pkg/xotel"
 )
 
 var configPath = flag.String("config", "services/media-service/configs/config.yaml", "media service config path")

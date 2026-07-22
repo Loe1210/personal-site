@@ -11,12 +11,12 @@ import (
 
 	"github.com/Loe1210/personal-site/configs"
 	"github.com/Loe1210/personal-site/internal/xhttp"
+	"github.com/Loe1210/personal-site/internal/xnacos"
+	"github.com/Loe1210/personal-site/internal/xotel"
 	"github.com/Loe1210/personal-site/internal/xsafe"
 	"github.com/Loe1210/personal-site/kitex_gen/auth/authservice"
 	authclient "github.com/Loe1210/personal-site/services/gateway/internal/client/auth"
 	"github.com/Loe1210/personal-site/services/gateway/internal/router"
-	"github.com/Loe1210/personal-site/services/gateway/pkg/xnacos"
-	"github.com/Loe1210/personal-site/services/gateway/pkg/xotel"
 )
 
 var configPath = flag.String("config", "configs/config.yaml", "gateway config path")
