@@ -307,8 +307,37 @@ func TestAdminCoverUploadUsesChunkedMediaApi(t *testing.T) {
     if strings.Contains(script, `xhr.open('POST', '/api/media/upload', true)`) {
         t.Fatalf("expected admin upload script to stop using whole-file media upload")
     }
-    if !strings.Contains(html, `/admin/js/admin.js?v=13`) {
+    if !strings.Contains(html, `/admin/js/admin.js?v=14`) {
         t.Fatalf("expected admin page to load the refreshed chunk upload script")
+    }
+}
+
+func TestAdminApiRoutesDirectlyToGatewayContracts(t *testing.T) {
+    script := readFile(t, "static/admin/js/admin.js")
+    required := []string{
+        `function adminApiURL(path)`,
+        `return '/api/auth' + path;`,
+        `return '/api/content/admin' + path;`,
+    }
+    for _, marker := range required {
+        if !strings.Contains(script, marker) {
+            t.Fatalf("expected admin API client to contain %q", marker)
+        }
+    }
+    if strings.Contains(script, `var API_BASE = '/api/admin';`) {
+        t.Fatal("expected admin API client to stop depending on /api/admin nginx compatibility routes")
+    }
+}
+
+func TestFrontendApiClientsReadMsgEnvelopeField(t *testing.T) {
+    for _, path := range []string{
+        "static/blog/js/api.js",
+        "static/admin/js/admin.js",
+    } {
+        script := readFile(t, path)
+        if !strings.Contains(script, `data.msg || data.message`) && !strings.Contains(script, `payload.msg || payload.message`) {
+            t.Fatalf("expected %s to read msg before legacy message", path)
+        }
     }
 }
 func TestNginxRoutesSupportBlogSplitPages(t *testing.T) {

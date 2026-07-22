@@ -32,7 +32,7 @@
             return res.json();
         }).then(function (data) {
             if (data.code !== 0) {
-                throw new Error(data.message || 'API error');
+                throw new Error(data.msg || data.message || 'API error');
             }
             return data.data;
         });

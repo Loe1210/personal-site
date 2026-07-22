@@ -1,13 +1,19 @@
 (function () {
     'use strict';
 
-    var API_BASE = '/api/admin';
     var toastTimer = null;
     var OPENVERSE_IMAGE_ENDPOINT = 'https://api.openverse.org/v1/images/';
 
+    function adminApiURL(path) {
+        if (path === '/login' || path === '/logout' || path === '/me') {
+            return '/api/auth' + path;
+        }
+        return '/api/content/admin' + path;
+    }
+
     function request(path, options) {
         options = options || {};
-        return fetch(API_BASE + path, {
+        return fetch(adminApiURL(path), {
             method: options.method || 'GET',
             headers: Object.assign({
                 'Content-Type': 'application/json'
@@ -27,7 +33,7 @@
             return res.json();
         }).then(function (data) {
             if (data.code !== 0) {
-                throw new Error(data.message || '服务暂时没有返回可用结果，请稍后再试');
+                throw new Error(data.msg || data.message || '服务暂时没有返回可用结果，请稍后再试');
             }
             return data.data;
         });
@@ -171,7 +177,7 @@
                     throw new Error(friendlyHttpError(path, res.status));
                 }
                 if (payload.code !== 0) {
-                    throw new Error(payload.message || '封面上传失败，请稍后再试');
+                    throw new Error(payload.msg || payload.message || '封面上传失败，请稍后再试');
                 }
                 return payload.data || {};
             });
@@ -185,7 +191,7 @@
         try {
             var payload = JSON.parse(xhr.responseText || '{}');
             if (payload.code !== 0) {
-                return { error: new Error(payload.message || '封面上传失败，请稍后再试') };
+                return { error: new Error(payload.msg || payload.message || '封面上传失败，请稍后再试') };
             }
             return { payload: payload.data || {} };
         } catch (err) {
