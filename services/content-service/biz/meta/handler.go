@@ -6,8 +6,9 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
-	"github.com/cloudwego/hertz/pkg/protocol/consts"
 
+	"github.com/Loe1210/personal-site/internal/xerrors"
+	"github.com/Loe1210/personal-site/internal/xhttp"
 	"github.com/Loe1210/personal-site/services/content-service/internal/model"
 	"github.com/Loe1210/personal-site/services/content-service/internal/service"
 )
@@ -53,109 +54,119 @@ func RegisterRoutes(hertz *server.Hertz, categories *service.CategoryService, ta
 func (h *Handler) ListCategories(ctx context.Context, c *app.RequestContext) {
 	items, err := h.categories.ListCategories(ctx)
 	if err != nil {
-		c.JSON(consts.StatusInternalServerError, map[string]any{"code": 50000, "message": "list categories failed"})
+		xhttp.Fail(c, err)
 		return
 	}
-	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": map[string]any{"list": items}})
+	xhttp.OK(c, map[string]any{"list": items})
 }
 
 func (h *Handler) CreateCategory(ctx context.Context, c *app.RequestContext) {
-	var req metaRequest
-	if err := c.BindAndValidate(&req); err != nil || req.Name == "" || req.Slug == "" {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid request"})
+	req, ok := bindMetaRequest(c)
+	if !ok {
 		return
 	}
 	created, err := h.categories.CreateCategory(ctx, &model.Category{Name: req.Name, Slug: req.Slug, Description: req.Description})
 	if err != nil {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 30002, "message": err.Error()})
+		xhttp.Fail(c, err)
 		return
 	}
-	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": created})
+	xhttp.OK(c, created)
 }
 
 func (h *Handler) UpdateCategory(ctx context.Context, c *app.RequestContext) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil || id <= 0 {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid category id"})
+	id, ok := metaIDFromParam(c, "category")
+	if !ok {
 		return
 	}
-	var req metaRequest
-	if err := c.BindAndValidate(&req); err != nil || req.Name == "" || req.Slug == "" {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid request"})
+	req, ok := bindMetaRequest(c)
+	if !ok {
 		return
 	}
 	updated, err := h.categories.UpdateCategory(ctx, &model.Category{ID: id, Name: req.Name, Slug: req.Slug, Description: req.Description})
 	if err != nil {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 30003, "message": err.Error()})
+		xhttp.Fail(c, err)
 		return
 	}
-	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": updated})
+	xhttp.OK(c, updated)
 }
 
 func (h *Handler) DeleteCategory(ctx context.Context, c *app.RequestContext) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil || id <= 0 {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid category id"})
+	id, ok := metaIDFromParam(c, "category")
+	if !ok {
 		return
 	}
 	if err := h.categories.DeleteCategory(ctx, id); err != nil {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 30004, "message": err.Error()})
+		xhttp.Fail(c, err)
 		return
 	}
-	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success"})
+	xhttp.OK(c, map[string]bool{"success": true})
 }
 
 func (h *Handler) ListTags(ctx context.Context, c *app.RequestContext) {
 	items, err := h.tags.ListTags(ctx)
 	if err != nil {
-		c.JSON(consts.StatusInternalServerError, map[string]any{"code": 50000, "message": "list tags failed"})
+		xhttp.Fail(c, err)
 		return
 	}
-	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": map[string]any{"list": items}})
+	xhttp.OK(c, map[string]any{"list": items})
 }
 
 func (h *Handler) CreateTag(ctx context.Context, c *app.RequestContext) {
-	var req metaRequest
-	if err := c.BindAndValidate(&req); err != nil || req.Name == "" || req.Slug == "" {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid request"})
+	req, ok := bindMetaRequest(c)
+	if !ok {
 		return
 	}
 	created, err := h.tags.CreateTag(ctx, &model.Tag{Name: req.Name, Slug: req.Slug, Description: req.Description})
 	if err != nil {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 30002, "message": err.Error()})
+		xhttp.Fail(c, err)
 		return
 	}
-	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": created})
+	xhttp.OK(c, created)
 }
 
 func (h *Handler) UpdateTag(ctx context.Context, c *app.RequestContext) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil || id <= 0 {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid tag id"})
+	id, ok := metaIDFromParam(c, "tag")
+	if !ok {
 		return
 	}
-	var req metaRequest
-	if err := c.BindAndValidate(&req); err != nil || req.Name == "" || req.Slug == "" {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid request"})
+	req, ok := bindMetaRequest(c)
+	if !ok {
 		return
 	}
 	updated, err := h.tags.UpdateTag(ctx, &model.Tag{ID: id, Name: req.Name, Slug: req.Slug, Description: req.Description})
 	if err != nil {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 30003, "message": err.Error()})
+		xhttp.Fail(c, err)
 		return
 	}
-	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": updated})
+	xhttp.OK(c, updated)
 }
 
 func (h *Handler) DeleteTag(ctx context.Context, c *app.RequestContext) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil || id <= 0 {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid tag id"})
+	id, ok := metaIDFromParam(c, "tag")
+	if !ok {
 		return
 	}
 	if err := h.tags.DeleteTag(ctx, id); err != nil {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 30004, "message": err.Error()})
+		xhttp.Fail(c, err)
 		return
 	}
-	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success"})
+	xhttp.OK(c, map[string]bool{"success": true})
+}
+
+func bindMetaRequest(c *app.RequestContext) (metaRequest, bool) {
+	var req metaRequest
+	if err := c.BindAndValidate(&req); err != nil || req.Name == "" || req.Slug == "" {
+		xhttp.Fail(c, xerrors.New(xerrors.CodeInvalidArgument, "invalid request"))
+		return metaRequest{}, false
+	}
+	return req, true
+}
+
+func metaIDFromParam(c *app.RequestContext, name string) (int64, bool) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		xhttp.Fail(c, xerrors.New(xerrors.CodeInvalidArgument, "invalid "+name+" id"))
+		return 0, false
+	}
+	return id, true
 }
