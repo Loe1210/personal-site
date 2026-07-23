@@ -44,6 +44,8 @@ func NewUploadTaskRepository(db *gorm.DB) *UploadTaskRepository {
 }
 
 func (r *UploadTaskRepository) Create(ctx context.Context, task *model.UploadTask) error {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	record := uploadTaskToRecord(task)
 	if record.Status == "" {
 		record.Status = model.UploadTaskStatusUploading
@@ -56,6 +58,8 @@ func (r *UploadTaskRepository) Create(ctx context.Context, task *model.UploadTas
 }
 
 func (r *UploadTaskRepository) GetByUploadID(ctx context.Context, uploadID string, userID int64) (*model.UploadTask, error) {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	var record UploadTaskRecord
 	if err := r.db.WithContext(ctx).
 		Where("upload_id = ? AND user_id = ?", uploadID, userID).
@@ -66,6 +70,8 @@ func (r *UploadTaskRepository) GetByUploadID(ctx context.Context, uploadID strin
 }
 
 func (r *UploadTaskRepository) UpdateProgressGuarded(ctx context.Context, uploadID string, userID int64, uploadedChunks string, status string, expectedStatus string, expectedVersion int64) error {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	query := r.db.WithContext(ctx).Model(&UploadTaskRecord{}).
 		Where("upload_id = ? AND user_id = ?", uploadID, userID)
 	if expectedStatus != "" {
@@ -137,6 +143,8 @@ func copyUploadTaskRecord(task *model.UploadTask, record *UploadTaskRecord) {
 }
 
 func (r *UploadTaskRepository) ListExpired(ctx context.Context, now time.Time, limit int) ([]model.UploadTask, error) {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	if limit <= 0 {
 		limit = 100
 	}
@@ -156,5 +164,7 @@ func (r *UploadTaskRepository) ListExpired(ctx context.Context, now time.Time, l
 }
 
 func (r *UploadTaskRepository) Delete(ctx context.Context, uploadID string) error {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	return r.db.WithContext(ctx).Where("upload_id = ?", uploadID).Delete(&UploadTaskRecord{}).Error
 }

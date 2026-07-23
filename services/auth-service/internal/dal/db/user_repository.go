@@ -26,6 +26,8 @@ func NewUserRepository(db *gorm.DB) *UserRepository {
 }
 
 func (r *UserRepository) Login(ctx context.Context, username, password string) (*model.User, []string, error) {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	var record userRecord
 	if err := r.db.WithContext(ctx).Table("users").Where("username = ? AND status = ?", username, "active").First(&record).Error; err != nil {
 		return nil, nil, err
@@ -41,6 +43,8 @@ func (r *UserRepository) Login(ctx context.Context, username, password string) (
 }
 
 func (r *UserRepository) GetByID(ctx context.Context, userID int64) (*model.User, error) {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	var record userRecord
 	if err := r.db.WithContext(ctx).Table("users").First(&record, userID).Error; err != nil {
 		return nil, err
@@ -49,6 +53,8 @@ func (r *UserRepository) GetByID(ctx context.Context, userID int64) (*model.User
 }
 
 func (r *UserRepository) HasPermission(ctx context.Context, userID int64, code string) (bool, error) {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	var count int64
 	err := r.db.WithContext(ctx).Table("user_roles").
 		Joins("JOIN role_permissions ON user_roles.role_id = role_permissions.role_id").
@@ -59,6 +65,8 @@ func (r *UserRepository) HasPermission(ctx context.Context, userID int64, code s
 }
 
 func (r *UserRepository) rolesByUserID(ctx context.Context, userID int64) ([]string, error) {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	var roles []string
 	err := r.db.WithContext(ctx).Table("roles").
 		Select("roles.code").

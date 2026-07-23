@@ -11,6 +11,7 @@ import (
 
 	"github.com/Loe1210/personal-site/configs"
 	"github.com/Loe1210/personal-site/internal/xotel"
+	"github.com/Loe1210/personal-site/internal/xresilience"
 	"github.com/Loe1210/personal-site/internal/xsafe"
 	"github.com/Loe1210/personal-site/services/content-service/internal/dal/db"
 	kitexcontenthandler "github.com/Loe1210/personal-site/services/content-service/internal/handler/rpc"
@@ -48,6 +49,9 @@ func main() {
 			return redis.Dial("tcp", cfg.Redis.Addr,
 				redis.DialPassword(cfg.Redis.Password),
 				redis.DialDatabase(cfg.Redis.DB),
+				redis.DialConnectTimeout(xresilience.DefaultRedisTimeout),
+				redis.DialReadTimeout(xresilience.DefaultRedisTimeout),
+				redis.DialWriteTimeout(xresilience.DefaultRedisTimeout),
 			)
 		},
 	}

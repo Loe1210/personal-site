@@ -11,6 +11,9 @@ const (
 	CodeAuthPermissionDenied   int32 = 20020003
 	CodeAuthUpstreamFailed     int32 = 20020004
 	CodeContentArticleNotFound int32 = 20030001
+	CodeGatewayUpstreamMissing int32 = 20040001
+	CodeGatewayUpstreamFailed  int32 = 20040002
+	CodeGatewayUpstreamTimeout int32 = 20040003
 )
 
 type AppError struct {

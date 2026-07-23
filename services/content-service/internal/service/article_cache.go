@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Loe1210/personal-site/internal/xresilience"
 	"github.com/gomodule/redigo/redis"
 )
 
@@ -49,20 +50,32 @@ func (c *LocalArticleCache) DeleteArticle(_ context.Context, id int64) error {
 	return nil
 }
 
-type RedisArticleCache struct {
-	pool   *redis.Pool
-	prefix string
-	ttl    time.Duration
+type redisPool interface {
+	Get() redis.Conn
 }
 
-func NewRedisArticleCache(pool *redis.Pool, prefix string, ttl time.Duration) *RedisArticleCache {
+type RedisArticleCache struct {
+	pool           redisPool
+	prefix         string
+	ttl            time.Duration
+	commandTimeout time.Duration
+}
+
+func NewRedisArticleCache(pool redisPool, prefix string, ttl time.Duration) *RedisArticleCache {
+	return NewRedisArticleCacheWithTimeout(pool, prefix, ttl, xresilience.DefaultRedisTimeout)
+}
+
+func NewRedisArticleCacheWithTimeout(pool redisPool, prefix string, ttl time.Duration, commandTimeout time.Duration) *RedisArticleCache {
 	if prefix == "" {
 		prefix = "content:article:"
 	}
 	if ttl <= 0 {
 		ttl = 10 * time.Minute
 	}
-	return &RedisArticleCache{pool: pool, prefix: prefix, ttl: ttl}
+	if commandTimeout <= 0 {
+		commandTimeout = xresilience.DefaultRedisTimeout
+	}
+	return &RedisArticleCache{pool: pool, prefix: prefix, ttl: ttl, commandTimeout: commandTimeout}
 }
 
 func (c *RedisArticleCache) GetArticle(_ context.Context, id int64) (*ArticleDetail, bool, error) {
@@ -71,7 +84,7 @@ func (c *RedisArticleCache) GetArticle(_ context.Context, id int64) (*ArticleDet
 	}
 	conn := c.pool.Get()
 	defer conn.Close()
-	payload, err := redis.Bytes(conn.Do("GET", c.key(id)))
+	payload, err := redis.Bytes(redis.DoWithTimeout(conn, c.commandTimeout, "GET", c.key(id)))
 	if err == redis.ErrNil {
 		return nil, false, nil
 	}
@@ -95,7 +108,7 @@ func (c *RedisArticleCache) SetArticle(_ context.Context, article *ArticleDetail
 	}
 	conn := c.pool.Get()
 	defer conn.Close()
-	_, err = conn.Do("SETEX", c.key(article.ID), int(c.ttl.Seconds()), payload)
+	_, err = redis.DoWithTimeout(conn, c.commandTimeout, "SETEX", c.key(article.ID), int(c.ttl.Seconds()), payload)
 	return err
 }
 
@@ -105,7 +118,7 @@ func (c *RedisArticleCache) DeleteArticle(_ context.Context, id int64) error {
 	}
 	conn := c.pool.Get()
 	defer conn.Close()
-	_, err := conn.Do("DEL", c.key(id))
+	_, err := redis.DoWithTimeout(conn, c.commandTimeout, "DEL", c.key(id))
 	return err
 }
 

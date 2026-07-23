@@ -46,6 +46,8 @@ func NewArticleRepository(db *gorm.DB) *ArticleRepository {
 }
 
 func (r *ArticleRepository) GetByID(ctx context.Context, id int64) (*model.ArticleDetail, error) {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	var article Article
 	if err := r.db.WithContext(ctx).First(&article, id).Error; err != nil {
 		return nil, err
@@ -58,6 +60,8 @@ func (r *ArticleRepository) GetByID(ctx context.Context, id int64) (*model.Artic
 }
 
 func (r *ArticleRepository) List(ctx context.Context, filter model.ListFilter) (*model.ListResult, error) {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	var articles []Article
 	query := r.db.WithContext(ctx).Model(&Article{})
 	if filter.Status != "" {
@@ -83,6 +87,8 @@ func (r *ArticleRepository) List(ctx context.Context, filter model.ListFilter) (
 }
 
 func (r *ArticleRepository) GetAdjacentPublic(ctx context.Context, id int64) (*model.AdjacentArticles, error) {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	var articles []Article
 	if err := r.db.WithContext(ctx).
 		Where("status = ?", "published").
@@ -107,6 +113,8 @@ func (r *ArticleRepository) GetAdjacentPublic(ctx context.Context, id int64) (*m
 	return nil, gorm.ErrRecordNotFound
 }
 func (r *ArticleRepository) Create(ctx context.Context, detail *model.ArticleDetail) error {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	article := fromArticleDetail(detail)
 	if err := r.db.WithContext(ctx).Create(&article).Error; err != nil {
 		return err
@@ -116,6 +124,8 @@ func (r *ArticleRepository) Create(ctx context.Context, detail *model.ArticleDet
 }
 
 func (r *ArticleRepository) Update(ctx context.Context, detail *model.ArticleDetail) error {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	article := fromArticleDetail(detail)
 	if err := r.db.WithContext(ctx).Model(&Article{}).Where("id = ?", detail.ID).Updates(article).Error; err != nil {
 		return err
@@ -124,6 +134,8 @@ func (r *ArticleRepository) Update(ctx context.Context, detail *model.ArticleDet
 }
 
 func (r *ArticleRepository) Delete(ctx context.Context, id int64) error {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	if err := r.db.WithContext(ctx).Where("article_id = ?", id).Delete(&ArticleTag{}).Error; err != nil {
 		return err
 	}
@@ -131,6 +143,8 @@ func (r *ArticleRepository) Delete(ctx context.Context, id int64) error {
 }
 
 func (r *ArticleRepository) ListCategories(ctx context.Context) ([]model.Category, error) {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	var rows []categoryMigrationModel
 	if err := r.db.WithContext(ctx).Order("id ASC").Find(&rows).Error; err != nil {
 		return nil, err
@@ -162,6 +176,8 @@ func (r *ArticleRepository) ListCategories(ctx context.Context) ([]model.Categor
 }
 
 func (r *ArticleRepository) CreateCategory(ctx context.Context, category *model.Category) error {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	row := categoryMigrationModel{Name: category.Name, Slug: category.Slug, Description: category.Description}
 	if err := r.db.WithContext(ctx).Create(&row).Error; err != nil {
 		return err
@@ -171,15 +187,21 @@ func (r *ArticleRepository) CreateCategory(ctx context.Context, category *model.
 }
 
 func (r *ArticleRepository) UpdateCategory(ctx context.Context, category *model.Category) error {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	row := categoryMigrationModel{Name: category.Name, Slug: category.Slug, Description: category.Description}
 	return r.db.WithContext(ctx).Model(&categoryMigrationModel{}).Where("id = ?", category.ID).Updates(row).Error
 }
 
 func (r *ArticleRepository) DeleteCategory(ctx context.Context, id int64) error {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	return r.db.WithContext(ctx).Delete(&categoryMigrationModel{}, id).Error
 }
 
 func (r *ArticleRepository) ListTags(ctx context.Context) ([]model.Tag, error) {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	var rows []Tag
 	if err := r.db.WithContext(ctx).Order("id ASC").Find(&rows).Error; err != nil {
 		return nil, err
@@ -211,6 +233,8 @@ func (r *ArticleRepository) ListTags(ctx context.Context) ([]model.Tag, error) {
 }
 
 func (r *ArticleRepository) CreateTag(ctx context.Context, tag *model.Tag) error {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	row := Tag{Name: tag.Name, Slug: tag.Slug, Description: tag.Description}
 	if err := r.db.WithContext(ctx).Create(&row).Error; err != nil {
 		return err
@@ -220,11 +244,15 @@ func (r *ArticleRepository) CreateTag(ctx context.Context, tag *model.Tag) error
 }
 
 func (r *ArticleRepository) UpdateTag(ctx context.Context, tag *model.Tag) error {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	row := Tag{Name: tag.Name, Slug: tag.Slug, Description: tag.Description}
 	return r.db.WithContext(ctx).Model(&Tag{}).Where("id = ?", tag.ID).Updates(row).Error
 }
 
 func (r *ArticleRepository) DeleteTag(ctx context.Context, id int64) error {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	if err := r.db.WithContext(ctx).Where("tag_id = ?", id).Delete(&ArticleTag{}).Error; err != nil {
 		return err
 	}
@@ -232,6 +260,8 @@ func (r *ArticleRepository) DeleteTag(ctx context.Context, id int64) error {
 }
 
 func (r *ArticleRepository) tagsForArticle(ctx context.Context, articleID int64) ([]model.TagDTO, error) {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	var tags []Tag
 	err := r.db.WithContext(ctx).
 		Joins("JOIN article_tags ON article_tags.tag_id = tags.id").
@@ -248,6 +278,8 @@ func (r *ArticleRepository) tagsForArticle(ctx context.Context, articleID int64)
 }
 
 func (r *ArticleRepository) syncTags(ctx context.Context, articleID int64, tagIDs []int64) error {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	if err := r.db.WithContext(ctx).Where("article_id = ?", articleID).Delete(&ArticleTag{}).Error; err != nil {
 		return err
 	}

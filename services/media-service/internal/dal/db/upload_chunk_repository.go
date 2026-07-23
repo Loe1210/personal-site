@@ -31,6 +31,8 @@ func NewUploadChunkRepository(db *gorm.DB) *UploadChunkRepository {
 }
 
 func (r *UploadChunkRepository) Save(ctx context.Context, chunk *model.UploadChunk) error {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	record := uploadChunkToRecord(chunk)
 	if err := r.db.WithContext(ctx).Save(record).Error; err != nil {
 		return err
@@ -40,6 +42,8 @@ func (r *UploadChunkRepository) Save(ctx context.Context, chunk *model.UploadChu
 }
 
 func (r *UploadChunkRepository) Delete(ctx context.Context, uploadID string, chunkIndex int) error {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	result := r.db.WithContext(ctx).
 		Where("upload_id = ? AND chunk_index = ?", uploadID, chunkIndex).
 		Delete(&UploadChunkRecord{})
@@ -47,6 +51,8 @@ func (r *UploadChunkRepository) Delete(ctx context.Context, uploadID string, chu
 }
 
 func (r *UploadChunkRepository) ListByUploadID(ctx context.Context, uploadID string) ([]model.UploadChunk, error) {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	var records []UploadChunkRecord
 	if err := r.db.WithContext(ctx).
 		Where("upload_id = ?", uploadID).

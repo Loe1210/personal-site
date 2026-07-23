@@ -64,6 +64,13 @@ Assert-StatusOk $contentList "content article list"
 Write-Host "Checking gateway content article list..."
 $gatewayContentList = Invoke-WebRequest "http://127.0.0.1:8888/api/content/articles?page=1&page_size=1"
 Assert-StatusOk $gatewayContentList "gateway content article list"
+$gatewayContentJson = $gatewayContentList.Content | ConvertFrom-Json
+if ($gatewayContentJson.code -ne 0) {
+  throw "gateway content article list expected success envelope, got code $($gatewayContentJson.code)"
+}
+if ([string]::IsNullOrWhiteSpace($gatewayContentJson.msg)) {
+  throw "gateway content article list expected envelope msg"
+}
 
 Write-Host "Checking deprecated gateway /api/articles 404..."
 Assert-NotFound "http://127.0.0.1:8888/api/articles?page=1&page_size=1" "deprecated /api/articles"
@@ -105,3 +112,4 @@ $me = Invoke-WebRequest "http://127.0.0.1:9001/me" -WebSession $session
 Assert-StatusOk $me "auth /me"
 
 Write-Host "Microservice smoke verification passed."
+

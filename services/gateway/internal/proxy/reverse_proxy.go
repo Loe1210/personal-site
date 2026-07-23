@@ -1,15 +1,38 @@
 package proxy
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/cloudwego/hertz/pkg/protocol/consts"
+
+	"github.com/Loe1210/personal-site/internal/xerrors"
+	"github.com/Loe1210/personal-site/internal/xhttp"
+	"github.com/Loe1210/personal-site/internal/xresilience"
 )
+
+type Options struct {
+	TargetBaseURL string
+	StripPrefix   string
+	Timeout       time.Duration
+	MaxAttempts   int
+	Backoff       time.Duration
+	Client        *http.Client
+	Stats         *xresilience.FailureStats
+}
+
+type retryableStatusError struct {
+	status int
+}
+
+func (e retryableStatusError) Error() string {
+	return http.StatusText(e.status)
+}
 
 func RewritePath(path string, stripPrefix string) string {
 	rewritten := strings.TrimPrefix(path, stripPrefix)
@@ -23,34 +46,99 @@ func RewritePath(path string, stripPrefix string) string {
 }
 
 func NewReverseProxy(targetBaseURL string, stripPrefix string) app.HandlerFunc {
-	client := &http.Client{Timeout: 10 * time.Second}
-	baseURL := strings.TrimRight(targetBaseURL, "/")
+	return NewReverseProxyWithOptions(Options{TargetBaseURL: targetBaseURL, StripPrefix: stripPrefix})
+}
+
+func NewReverseProxyWithOptions(opts Options) app.HandlerFunc {
+	baseURL := strings.TrimRight(opts.TargetBaseURL, "/")
+	timeout := opts.Timeout
+	if timeout <= 0 {
+		timeout = xresilience.DefaultGatewayProxyTimeout
+	}
+	client := opts.Client
+	if client == nil {
+		client = &http.Client{Timeout: timeout}
+	}
+	maxAttempts := opts.MaxAttempts
+	if maxAttempts <= 0 {
+		maxAttempts = xresilience.DefaultReadMaxAttempts
+	}
+	backoff := opts.Backoff
+	if backoff <= 0 {
+		backoff = xresilience.DefaultRetryBackoff
+	}
+	stats := opts.Stats
+	if stats == nil {
+		stats = &xresilience.FailureStats{}
+	}
+
 	return func(ctx context.Context, c *app.RequestContext) {
 		if baseURL == "" {
-			c.JSON(consts.StatusBadGateway, map[string]any{"code": 40001, "message": "upstream is not configured"})
+			xhttp.Fail(c, xerrors.New(xerrors.CodeGatewayUpstreamMissing, "upstream is not configured"))
 			return
 		}
-		path := RewritePath(string(c.Path()), stripPrefix)
+		path := RewritePath(string(c.Path()), opts.StripPrefix)
 		if query := string(c.QueryArgs().QueryString()); query != "" {
 			path += "?" + query
 		}
-		req, err := http.NewRequestWithContext(ctx, string(c.Method()), baseURL+path, strings.NewReader(string(c.Request.Body())))
-		if err != nil {
-			c.JSON(consts.StatusBadGateway, map[string]any{"code": 40002, "message": "build upstream request failed"})
-			return
+		method := string(c.Method())
+		body := append([]byte(nil), c.Request.Body()...)
+		requestCtx, cancel := xresilience.WithTimeout(ctx, timeout)
+		defer cancel()
+
+		var resp *http.Response
+		policy := xresilience.RetryPolicy{MaxAttempts: 1}
+		if xresilience.IsIdempotentReadMethod(method) {
+			policy = xresilience.RetryPolicy{
+				MaxAttempts: maxAttempts,
+				Backoff:     backoff,
+				Retryable: func(err error) bool {
+					if err == nil {
+						return false
+					}
+					if xresilience.IsTimeoutError(err) {
+						return true
+					}
+					var statusErr retryableStatusError
+					return errors.As(err, &statusErr)
+				},
+			}
 		}
-		c.Request.Header.VisitAll(func(key, value []byte) {
-			req.Header.Set(string(key), string(value))
+
+		err := xresilience.DoWithRetry(requestCtx, policy, func(attemptCtx context.Context) error {
+			attemptReq, reqErr := http.NewRequestWithContext(attemptCtx, method, baseURL+path, bytes.NewReader(body))
+			if reqErr != nil {
+				return reqErr
+			}
+			c.Request.Header.VisitAll(func(key, value []byte) {
+				attemptReq.Header.Set(string(key), string(value))
+			})
+			var callErr error
+			resp, callErr = client.Do(attemptReq)
+			if callErr != nil {
+				return callErr
+			}
+			if xresilience.IsIdempotentReadMethod(method) && resp.StatusCode >= http.StatusInternalServerError {
+				_, _ = io.Copy(io.Discard, resp.Body)
+				_ = resp.Body.Close()
+				return retryableStatusError{status: resp.StatusCode}
+			}
+			return nil
 		})
-		resp, err := client.Do(req)
 		if err != nil {
-			c.JSON(consts.StatusBadGateway, map[string]any{"code": 40003, "message": "upstream request failed"})
+			stats.RecordFailure()
+			if xresilience.IsTimeoutError(err) || errors.Is(err, context.DeadlineExceeded) {
+				xhttp.Fail(c, xerrors.New(xerrors.CodeGatewayUpstreamTimeout, "upstream request timeout"))
+				return
+			}
+			xhttp.Fail(c, xerrors.New(xerrors.CodeGatewayUpstreamFailed, "upstream request failed"))
 			return
 		}
+		stats.RecordSuccess()
 		defer resp.Body.Close()
-		body, err := io.ReadAll(resp.Body)
+		responseBody, err := io.ReadAll(resp.Body)
 		if err != nil {
-			c.JSON(consts.StatusBadGateway, map[string]any{"code": 40004, "message": "read upstream response failed"})
+			xhttp.Fail(c, xerrors.New(xerrors.CodeGatewayUpstreamFailed, "read upstream response failed"))
 			return
 		}
 		for key, values := range resp.Header {
@@ -58,6 +146,6 @@ func NewReverseProxy(targetBaseURL string, stripPrefix string) app.HandlerFunc {
 				c.Response.Header.Add(key, value)
 			}
 		}
-		c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), body)
+		c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), responseBody)
 	}
 }
