@@ -129,6 +129,81 @@ func TestChunkServiceWritesChunkToTmpPath(t *testing.T) {
 	}
 }
 
+func TestChunkServiceSameChunkRetryWithSameDigestIsIdempotent(t *testing.T) {
+	database, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	if err := db.Migrate(database); err != nil {
+		t.Fatalf("migrate test database: %v", err)
+	}
+
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	tmpStorage := storage.NewTmpStorage(tmpDir)
+	taskRepo := db.NewUploadTaskRepository(database)
+	chunkRepo := db.NewUploadChunkRepository(database)
+	svc := NewChunkService(taskRepo, chunkRepo, tmpStorage)
+	task := &model.UploadTask{
+		UploadID:   "upload-idempotent",
+		UserID:     42,
+		ChunkCount: 2,
+		Status:     model.UploadTaskStatusUploading,
+		ExpiresAt:  time.Now().Add(time.Hour).UTC(),
+	}
+	if err := taskRepo.Create(ctx, task); err != nil {
+		t.Fatalf("create upload task: %v", err)
+	}
+
+	first, err := svc.UploadChunk(ctx, ChunkInput{UserID: task.UserID, UploadID: task.UploadID, ChunkIndex: 0, Body: strings.NewReader("same body")})
+	if err != nil {
+		t.Fatalf("upload first chunk: %v", err)
+	}
+	chunkPath := filepath.Join(tmpDir, filepath.FromSlash(first.StoragePath))
+	info, err := os.Stat(chunkPath)
+	if err != nil {
+		t.Fatalf("stat first chunk: %v", err)
+	}
+	originalModTime := info.ModTime()
+	if err := os.Chtimes(chunkPath, originalModTime.Add(-time.Hour), originalModTime.Add(-time.Hour)); err != nil {
+		t.Fatalf("set chunk mtime: %v", err)
+	}
+	info, err = os.Stat(chunkPath)
+	if err != nil {
+		t.Fatalf("stat adjusted chunk: %v", err)
+	}
+	originalModTime = info.ModTime()
+
+	second, err := svc.UploadChunk(ctx, ChunkInput{UserID: task.UserID, UploadID: task.UploadID, ChunkIndex: 0, Body: strings.NewReader("same body")})
+	if err != nil {
+		t.Fatalf("retry same chunk: %v", err)
+	}
+	if second.StoragePath != first.StoragePath || second.Sha256 != first.Sha256 || second.Size != first.Size {
+		t.Fatalf("expected retry to return existing chunk, got %+v want %+v", second, first)
+	}
+	info, err = os.Stat(chunkPath)
+	if err != nil {
+		t.Fatalf("stat retried chunk: %v", err)
+	}
+	if !info.ModTime().Equal(originalModTime) {
+		t.Fatalf("expected identical retry not to rewrite chunk, mtime changed from %v to %v", originalModTime, info.ModTime())
+	}
+
+	stored, err := chunkRepo.ListByUploadID(ctx, task.UploadID)
+	if err != nil {
+		t.Fatalf("list chunks: %v", err)
+	}
+	if len(stored) != 1 {
+		t.Fatalf("expected one chunk row after idempotent retry, got %d", len(stored))
+	}
+	reloaded, err := taskRepo.GetByUploadID(ctx, task.UploadID, task.UserID)
+	if err != nil {
+		t.Fatalf("reload task: %v", err)
+	}
+	if reloaded.UploadedChunks != "0" {
+		t.Fatalf("expected uploaded chunks to stay deduped, got %q", reloaded.UploadedChunks)
+	}
+}
 func TestChunkServiceRollsBackChunkOnProgressError(t *testing.T) {
 	database, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {

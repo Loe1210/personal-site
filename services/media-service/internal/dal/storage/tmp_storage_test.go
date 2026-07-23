@@ -56,3 +56,15 @@ func TestTmpStorageReplacesExistingChunk(t *testing.T) {
 		t.Fatalf("expected retry to replace chunk content, got %q", string(data))
 	}
 }
+
+func TestTmpStorageRejectsUploadIDPathTraversal(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewTmpStorage(tmpDir)
+
+	if _, _, _, err := store.SaveChunk("../escape", 0, strings.NewReader("bad")); err == nil {
+		t.Fatal("expected traversal upload id to be rejected")
+	}
+	if _, err := os.Stat(filepath.Join(tmpDir, "..", "escape")); !os.IsNotExist(err) {
+		t.Fatalf("expected no escaped directory, got %v", err)
+	}
+}

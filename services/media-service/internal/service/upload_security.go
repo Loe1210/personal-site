@@ -5,7 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"io"
 	"net/http"
+	"os"
 	"strings"
 )
 
@@ -50,4 +52,28 @@ func matchesDeclaredImageType(contentType string, content []byte) bool {
 	default:
 		return false
 	}
+}
+
+func ValidateUploadFileContent(contentType string, filePath string) error {
+	mediaType := normalizeContentType(contentType)
+	if !isAllowedImageContentType(mediaType) {
+		return errors.New("only image uploads are allowed")
+	}
+	file, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	limited, err := io.ReadAll(io.LimitReader(file, 4096))
+	if err != nil {
+		return err
+	}
+	if len(limited) == 0 {
+		return errors.New("file content is required")
+	}
+	if !matchesDeclaredImageType(mediaType, limited) {
+		return errors.New("file content does not match declared image type")
+	}
+	return nil
 }

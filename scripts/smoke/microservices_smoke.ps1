@@ -68,6 +68,34 @@ Assert-StatusOk $gatewayContentList "gateway content article list"
 Write-Host "Checking deprecated gateway /api/articles 404..."
 Assert-NotFound "http://127.0.0.1:8888/api/articles?page=1&page_size=1" "deprecated /api/articles"
 
+Write-Host "Checking media upload through gateway..."
+Add-Type -AssemblyName System.Net.Http
+$pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="
+$pngBytes = [Convert]::FromBase64String($pngBase64)
+$httpClient = New-Object System.Net.Http.HttpClient
+$multipart = New-Object System.Net.Http.MultipartFormDataContent
+$fileContent = New-Object System.Net.Http.ByteArrayContent -ArgumentList @(,$pngBytes)
+$fileContent.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse("image/png")
+$multipart.Add($fileContent, "file", "micro-smoke.png")
+try {
+  $mediaResponse = $httpClient.PostAsync("http://127.0.0.1:8888/api/media/upload?user_id=1&biz_type=smoke&biz_id=micro-smoke", $multipart).GetAwaiter().GetResult()
+  if ([int]$mediaResponse.StatusCode -lt 200 -or [int]$mediaResponse.StatusCode -ge 300) {
+    throw "gateway media upload failed with status $([int]$mediaResponse.StatusCode)"
+  }
+  $mediaContent = $mediaResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+  $mediaJson = $mediaContent | ConvertFrom-Json
+  if ($mediaJson.code -ne 0) {
+    throw "gateway media upload expected success code, got $($mediaJson.code)"
+  }
+  if ([string]::IsNullOrWhiteSpace($mediaJson.data.url)) {
+    throw "gateway media upload expected media url"
+  }
+} finally {
+  if ($null -ne $mediaResponse) { $mediaResponse.Dispose() }
+  $multipart.Dispose()
+  $httpClient.Dispose()
+}
+
 Write-Host "Checking login cookie flow..."
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 $body = @{ username = "admin"; password = "admin" }
