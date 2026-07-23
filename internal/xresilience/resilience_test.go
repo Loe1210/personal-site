@@ -69,3 +69,65 @@ func TestFailureStatsTracksConsecutiveFailures(t *testing.T) {
 		t.Fatalf("expected consecutive failures to reset, got %#v", snapshot)
 	}
 }
+
+func TestCircuitBreakerOpensAfterConsecutiveFailures(t *testing.T) {
+	breaker := NewCircuitBreaker(CircuitBreakerConfig{Name: "test-upstream", FailureThreshold: 2, OpenTimeout: time.Minute})
+
+	if !breaker.Allow() {
+		t.Fatal("expected initial call to be allowed")
+	}
+	breaker.RecordFailure()
+	breaker.RecordFailure()
+
+	if breaker.Allow() {
+		t.Fatal("expected open breaker to reject calls")
+	}
+	snapshot := breaker.Snapshot()
+	if snapshot.State != BreakerOpen || snapshot.RejectedCalls != 1 || snapshot.FailureCount != 2 {
+		t.Fatalf("unexpected breaker snapshot: %#v", snapshot)
+	}
+}
+
+func TestCircuitBreakerHalfOpenSuccessRecovers(t *testing.T) {
+	now := time.Unix(100, 0)
+	breaker := NewCircuitBreaker(CircuitBreakerConfig{
+		Name:             "test-upstream",
+		FailureThreshold: 1,
+		OpenTimeout:      10 * time.Second,
+		Now:              func() time.Time { return now },
+	})
+
+	breaker.RecordFailure()
+	now = now.Add(11 * time.Second)
+
+	if !breaker.Allow() {
+		t.Fatal("expected breaker to allow half-open probe after cooldown")
+	}
+	if breaker.Snapshot().State != BreakerHalfOpen {
+		t.Fatalf("expected half-open state, got %#v", breaker.Snapshot())
+	}
+
+	breaker.RecordSuccess()
+	snapshot := breaker.Snapshot()
+	if snapshot.State != BreakerClosed || snapshot.RecoveryCount != 1 {
+		t.Fatalf("expected recovered closed breaker, got %#v", snapshot)
+	}
+}
+
+func TestCircuitBreakerRunRejectsOpenBreakerWithoutCallingOperation(t *testing.T) {
+	breaker := NewCircuitBreaker(CircuitBreakerConfig{Name: "test-upstream", FailureThreshold: 1, OpenTimeout: time.Minute})
+	breaker.RecordFailure()
+	called := false
+
+	err := breaker.Run(func() error {
+		called = true
+		return nil
+	})
+
+	if !errors.Is(err, ErrCircuitOpen) {
+		t.Fatalf("expected circuit open error, got %v", err)
+	}
+	if called {
+		t.Fatal("operation must not run while breaker is open")
+	}
+}

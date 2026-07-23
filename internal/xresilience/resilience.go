@@ -19,7 +19,17 @@ const (
 	DefaultReadMaxAttempts     = 2
 )
 
+var ErrCircuitOpen = errors.New("circuit breaker is open")
+
 type CancelFunc = context.CancelFunc
+
+type BreakerState string
+
+const (
+	BreakerClosed   BreakerState = "closed"
+	BreakerOpen     BreakerState = "open"
+	BreakerHalfOpen BreakerState = "half_open"
+)
 
 func WithTimeout(ctx context.Context, timeout time.Duration) (context.Context, CancelFunc) {
 	if timeout <= 0 {
@@ -132,4 +142,121 @@ func (s *FailureStats) Snapshot() FailureSnapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return FailureSnapshot{TotalFailures: s.totalFailures, ConsecutiveFailures: s.consecutiveFailures, LastFailureAt: s.lastFailureAt}
+}
+
+type CircuitBreakerConfig struct {
+	Name             string
+	FailureThreshold int64
+	OpenTimeout      time.Duration
+	Now              func() time.Time
+}
+
+type CircuitBreakerSnapshot struct {
+	Name                string
+	State               BreakerState
+	FailureCount        int64
+	RejectedCalls       int64
+	RecoveryCount       int64
+	LastFailureAt       time.Time
+	LastStateTransition time.Time
+}
+
+type CircuitBreaker struct {
+	mu                  sync.Mutex
+	name                string
+	failureThreshold    int64
+	openTimeout         time.Duration
+	now                 func() time.Time
+	state               BreakerState
+	failureCount        int64
+	rejectedCalls       int64
+	recoveryCount       int64
+	lastFailureAt       time.Time
+	lastStateTransition time.Time
+}
+
+func NewCircuitBreaker(cfg CircuitBreakerConfig) *CircuitBreaker {
+	if cfg.FailureThreshold <= 0 {
+		cfg.FailureThreshold = 3
+	}
+	if cfg.OpenTimeout <= 0 {
+		cfg.OpenTimeout = 5 * time.Second
+	}
+	if cfg.Now == nil {
+		cfg.Now = time.Now
+	}
+	return &CircuitBreaker{name: cfg.Name, failureThreshold: cfg.FailureThreshold, openTimeout: cfg.OpenTimeout, now: cfg.Now, state: BreakerClosed, lastStateTransition: cfg.Now()}
+}
+
+func (b *CircuitBreaker) Allow() bool {
+	if b == nil {
+		return true
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.state == BreakerOpen && !b.now().Before(b.lastStateTransition.Add(b.openTimeout)) {
+		b.state = BreakerHalfOpen
+		b.lastStateTransition = b.now()
+	}
+	if b.state == BreakerOpen {
+		b.rejectedCalls++
+		return false
+	}
+	return true
+}
+
+func (b *CircuitBreaker) Run(operation func() error) error {
+	if b == nil {
+		return operation()
+	}
+	if !b.Allow() {
+		return ErrCircuitOpen
+	}
+	err := operation()
+	if err != nil {
+		b.RecordFailure()
+		return err
+	}
+	b.RecordSuccess()
+	return nil
+}
+
+func (b *CircuitBreaker) RecordFailure() {
+	if b == nil {
+		return
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	now := b.now()
+	b.failureCount++
+	b.lastFailureAt = now
+	if b.state == BreakerHalfOpen || b.failureCount >= b.failureThreshold {
+		b.state = BreakerOpen
+		b.lastStateTransition = now
+	}
+}
+
+func (b *CircuitBreaker) RecordSuccess() {
+	if b == nil {
+		return
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.state == BreakerHalfOpen {
+		b.recoveryCount++
+	}
+	b.failureCount = 0
+	if b.state != BreakerClosed {
+		b.state = BreakerClosed
+		b.lastStateTransition = b.now()
+	}
+}
+
+func (b *CircuitBreaker) Snapshot() CircuitBreakerSnapshot {
+	if b == nil {
+		return CircuitBreakerSnapshot{State: BreakerClosed}
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return CircuitBreakerSnapshot{Name: b.name, State: b.state, FailureCount: b.failureCount, RejectedCalls: b.rejectedCalls, RecoveryCount: b.recoveryCount, LastFailureAt: b.lastFailureAt, LastStateTransition: b.lastStateTransition}
 }

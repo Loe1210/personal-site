@@ -3,10 +3,10 @@
 ## Current Timeout Inventory
 
 - `gateway` proxy previously used a fixed `http.Client{Timeout: 10s}` and returned ad hoc JSON for proxy failures.
-- `gateway` upload guard already bounds upload request handling with a 2 minute context timeout and a concurrency gate.
-- `gateway` auth RPC validation previously forwarded the caller context without a gateway-owned RPC deadline.
-- `auth-service` and `content-service` Redis pools previously set only idle timeout; Redis commands did not have per-command read bounds.
-- `auth-service`, `content-service`, and `media-service` MySQL repositories already accepted `context.Context`, but did not add a service-owned short deadline at the repository boundary.
+- `gateway` upload guard bounds upload request handling with a 2 minute context timeout and a concurrency gate.
+- `gateway` auth RPC validation uses a gateway-owned RPC deadline.
+- `auth-service` and `content-service` Redis pools set connect/read/write timeouts, and Redis commands use per-command timeouts.
+- `auth-service`, `content-service`, and `media-service` MySQL repositories accept `context.Context` and add a service-owned short deadline at the repository boundary.
 
 ## Timeout Hierarchy
 
@@ -21,7 +21,7 @@ client/browser request
   -> upload guard timeout: 2m for upload bodies only
 ```
 
-The gateway remains thin: it owns proxy deadlines and auth validation deadlines, but does not own content, media, or auth business fallback logic.
+The gateway remains thin: it owns proxy deadlines, auth validation deadlines, retry gates, and breaker gates, but it does not own content, media, or auth business fallback logic.
 
 ## Retry Policy
 
@@ -40,23 +40,63 @@ No automatic retry is applied to:
 - Upload complete/finalization.
 - Any POST, PUT, PATCH, or DELETE proxy request.
 
+Non-idempotent requests can still fail fast when their upstream breaker is already open, but they are never replayed.
+
+## Circuit Breaker V1
+
+`internal/xresilience.CircuitBreaker` is a small in-repository state machine with three states:
+
+```text
+closed -> open -> half_open -> closed
+              \-> open on failed probe
+```
+
+Default behavior:
+
+- Consecutive infrastructure failures open the breaker after the configured threshold.
+- Open breakers reject immediately with `ErrCircuitOpen`.
+- After the open timeout, the next call becomes a half-open probe.
+- A successful half-open probe closes the breaker and increments recovery count.
+- A failed half-open probe opens the breaker again.
+
+Gateway???:
+
+- `gateway -> auth-service` HTTP proxy: `/api/auth/*`.
+- `gateway -> content-service` HTTP proxy: `/api/content/*` and `/api/content/admin/*`.
+- `gateway -> media-service` HTTP proxy: `/api/media/*`.
+- `gateway -> auth-service` Kitex RPC: session validation and permission checks.
+
+Database breaker is intentionally not implemented in this phase. Database calls keep repository timeouts only. If database breaker is added later, it should be service-local and owned by each domain service, not by gateway.
+
+## Content Read Degradation
+
+Public content reads can degrade through content-service's existing cache chain:
+
+```text
+content-service ArticleService
+  -> local article cache
+  -> Redis article cache
+  -> MySQL article repository
+```
+
+Redis cache failures are ignored when MySQL can answer. Gateway does not serve cached content itself and does not return fake success when content-service is unavailable or circuit-open.
+
 ## Error Semantics
 
-Timeout and retry exhaustion use the shared application envelope through `xhttp.Fail` and `xerrors` codes. Gateway proxy failures no longer return ad hoc `message` fields.
+Timeout, retry exhaustion, and circuit-open rejection use the shared application envelope through `xhttp.Fail` and `xerrors` codes. Gateway proxy failures do not return ad hoc `message` fields.
 
-Expected service business failures continue to use business codes. Transport or dependency failures are mapped to upstream failure or timeout codes at the boundary that observes them.
+Expected service business failures continue to use business codes. Transport or dependency failures are mapped to upstream failure, timeout, or circuit-open codes at the boundary that observes them.
 
-## Failure Statistics And Protection Principles
+## Metrics And Logs
 
-This phase does not introduce a circuit breaker library. The shared `xresilience.FailureStats` counter records total failures, consecutive failures, and last failure time so future protection can be added without changing call sites.
+The breaker snapshot exposes these fields:
 
-Protection principles for a future breaker:
+- `breaker_state`
+- `breaker_rejected`
+- `breaker_failures`
+- `breaker_recoveries`
 
-- Break only at infrastructure boundaries, not inside domain services.
-- Use conservative thresholds and short half-open probes.
-- Never retry or replay non-idempotent writes.
-- Prefer returning the unified timeout/upstream envelope over queueing unbounded work.
-- Keep gateway protection generic; domain-specific fallback belongs in the owning service.
+Gateway proxy and auth RPC client log these fields on success, failure, and rejection. This is intentionally basic so the next observability phase can wire the same snapshot into metrics without changing breaker behavior.
 
 ## Verification
 

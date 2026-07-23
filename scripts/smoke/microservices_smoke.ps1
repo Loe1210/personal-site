@@ -57,6 +57,9 @@ Assert-StatusOk $gateway "gateway health"
 Write-Host "Checking auth anonymous /me..."
 Assert-AuthAnonymous "http://127.0.0.1:9001/me" "auth anonymous /me"
 
+Write-Host "Checking gateway auth proxy anonymous /me..."
+Assert-AuthAnonymous "http://127.0.0.1:8888/api/auth/me" "gateway auth anonymous /me"
+
 Write-Host "Checking content article list..."
 $contentList = Invoke-WebRequest "http://127.0.0.1:9003/articles?page=1&page_size=1"
 Assert-StatusOk $contentList "content article list"
