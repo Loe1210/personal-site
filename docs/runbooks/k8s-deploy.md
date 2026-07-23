@@ -47,4 +47,4 @@ kubectl apply -k deploy/k8s/prod
 
 ## Nacos 落地方式
 
-服务启动后通过统一封装 `pkg/xnacos` 注册自身实例，并通过 Nacos 查询下游服务地址。当前仓库先固定封装接口，后续接入真实 Nacos SDK 时，业务服务只需要继续调用封装层。
+服务启动后通过统一封装 `internal/xnacos` 注册自身实例，并通过 Nacos 查询下游服务地址。当前仓库先固定封装接口，后续接入真实 Nacos SDK 时，业务服务只需要继续调用封装层。

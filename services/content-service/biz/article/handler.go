@@ -6,8 +6,9 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
-	"github.com/cloudwego/hertz/pkg/protocol/consts"
 
+	"github.com/Loe1210/personal-site/internal/xerrors"
+	"github.com/Loe1210/personal-site/internal/xhttp"
 	bizmodel "github.com/Loe1210/personal-site/services/content-service/biz/model"
 	"github.com/Loe1210/personal-site/services/content-service/internal/model"
 	"github.com/Loe1210/personal-site/services/content-service/internal/service"
@@ -34,108 +35,113 @@ func RegisterRoutes(hertz *server.Hertz, articles *service.ArticleService) {
 }
 
 func (h *Handler) GetArticleByID(ctx context.Context, c *app.RequestContext) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil || id <= 0 {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid article id"})
+	id, ok := articleIDFromParam(c)
+	if !ok {
 		return
 	}
 	article, err := h.articles.GetArticleByID(ctx, id)
 	if err != nil {
-		c.JSON(consts.StatusNotFound, map[string]any{"code": 30001, "message": "article not found"})
+		xhttp.Fail(c, err)
 		return
 	}
-	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": article})
+	xhttp.OK(c, article)
 }
 
 func (h *Handler) GetAdjacentArticles(ctx context.Context, c *app.RequestContext) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil || id <= 0 {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid article id"})
+	id, ok := articleIDFromParam(c)
+	if !ok {
 		return
 	}
 	adjacent, err := h.articles.GetAdjacentPublicArticles(ctx, id)
 	if err != nil {
-		c.JSON(consts.StatusNotFound, map[string]any{"code": 30001, "message": "article not found"})
+		xhttp.Fail(c, err)
 		return
 	}
-	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": adjacent})
+	xhttp.OK(c, adjacent)
 }
+
 func (h *Handler) GetAdminArticleByID(ctx context.Context, c *app.RequestContext) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil || id <= 0 {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid article id"})
+	id, ok := articleIDFromParam(c)
+	if !ok {
 		return
 	}
 	article, err := h.articles.GetArticleByID(ctx, id)
 	if err != nil {
-		c.JSON(consts.StatusNotFound, map[string]any{"code": 30001, "message": "article not found"})
+		xhttp.Fail(c, err)
 		return
 	}
-	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": article})
+	xhttp.OK(c, article)
 }
 
 func (h *Handler) ListPublicArticles(ctx context.Context, c *app.RequestContext) {
 	result, err := h.articles.ListPublicArticles(ctx, listFilterFromRequest(c))
 	if err != nil {
-		c.JSON(consts.StatusInternalServerError, map[string]any{"code": 50000, "message": "list articles failed"})
+		xhttp.Fail(c, err)
 		return
 	}
-	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": result})
+	xhttp.OK(c, result)
 }
 
 func (h *Handler) ListAdminArticles(ctx context.Context, c *app.RequestContext) {
 	result, err := h.articles.ListAdminArticles(ctx, listFilterFromRequest(c))
 	if err != nil {
-		c.JSON(consts.StatusInternalServerError, map[string]any{"code": 50000, "message": "list articles failed"})
+		xhttp.Fail(c, err)
 		return
 	}
-	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": result})
+	xhttp.OK(c, result)
 }
 
 func (h *Handler) CreateArticle(ctx context.Context, c *app.RequestContext) {
 	var article bizmodel.ArticleRequest
 	if err := c.BindAndValidate(&article); err != nil {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid request"})
+		xhttp.Fail(c, xerrors.New(xerrors.CodeInvalidArgument, "invalid request"))
 		return
 	}
 	created, err := h.articles.CreateArticle(ctx, toArticleDetail(article))
 	if err != nil {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 30002, "message": err.Error()})
+		xhttp.Fail(c, err)
 		return
 	}
-	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": created})
+	xhttp.OK(c, created)
 }
 
 func (h *Handler) UpdateArticle(ctx context.Context, c *app.RequestContext) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil || id <= 0 {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid article id"})
+	id, ok := articleIDFromParam(c)
+	if !ok {
 		return
 	}
 	var article bizmodel.ArticleRequest
 	if err := c.BindAndValidate(&article); err != nil {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid request"})
+		xhttp.Fail(c, xerrors.New(xerrors.CodeInvalidArgument, "invalid request"))
 		return
 	}
 	updated, err := h.articles.UpdateArticle(ctx, withID(toArticleDetail(article), id))
 	if err != nil {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 30003, "message": err.Error()})
+		xhttp.Fail(c, err)
 		return
 	}
-	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success", "data": updated})
+	xhttp.OK(c, updated)
 }
 
 func (h *Handler) DeleteArticle(ctx context.Context, c *app.RequestContext) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil || id <= 0 {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 10001, "message": "invalid article id"})
+	id, ok := articleIDFromParam(c)
+	if !ok {
 		return
 	}
 	if err := h.articles.DeleteArticle(ctx, id); err != nil {
-		c.JSON(consts.StatusBadRequest, map[string]any{"code": 30004, "message": err.Error()})
+		xhttp.Fail(c, err)
 		return
 	}
-	c.JSON(consts.StatusOK, map[string]any{"code": 0, "message": "success"})
+	xhttp.OK(c, map[string]bool{"success": true})
+}
+
+func articleIDFromParam(c *app.RequestContext) (int64, bool) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		xhttp.Fail(c, xerrors.New(xerrors.CodeInvalidArgument, "invalid article id"))
+		return 0, false
+	}
+	return id, true
 }
 
 func listFilterFromRequest(c *app.RequestContext) model.ListFilter {

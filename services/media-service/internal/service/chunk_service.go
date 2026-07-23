@@ -125,6 +125,10 @@ func (s *ChunkService) UploadChunk(ctx context.Context, in ChunkInput) (*model.U
 		_ = s.restorePreviousChunk(ctx, in.UploadID, in.ChunkIndex, previousChunk, previousBackupPath, storagePath)
 		return nil, err
 	}
+	if previousChunk != nil && previousChunk.StoragePath == storagePath && previousChunk.Size == size && strings.EqualFold(previousChunk.Sha256, digest) {
+		_ = s.storage.DiscardChunkBackup(previousBackupPath)
+		return previousChunk, nil
+	}
 
 	chunk := &model.UploadChunk{
 		UploadID:    in.UploadID,

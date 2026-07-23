@@ -11,17 +11,21 @@ import (
 	"github.com/gomodule/redigo/redis"
 
 	"github.com/Loe1210/personal-site/configs"
+	"github.com/Loe1210/personal-site/internal/xhttp"
+	"github.com/Loe1210/personal-site/internal/xotel"
+	"github.com/Loe1210/personal-site/internal/xresilience"
+	"github.com/Loe1210/personal-site/internal/xsafe"
 	"github.com/Loe1210/personal-site/services/auth-service/internal/dal/db"
 	kitexauthhandler "github.com/Loe1210/personal-site/services/auth-service/internal/handler/rpc"
 	"github.com/Loe1210/personal-site/services/auth-service/internal/service"
 	"github.com/Loe1210/personal-site/services/auth-service/pkg/xauth"
-	"github.com/Loe1210/personal-site/services/auth-service/pkg/xotel"
 )
 
 var configPath = flag.String("config", "services/auth-service/configs/config.yaml", "auth service config path")
 
 func main() {
 	flag.Parse()
+	xsafe.InstallGoPoolPanicHandler()
 	ctx := context.Background()
 	cfg, err := configs.Load(*configPath)
 	if err != nil {
@@ -50,13 +54,17 @@ func main() {
 			return redis.Dial("tcp", cfg.Redis.Addr,
 				redis.DialPassword(cfg.Redis.Password),
 				redis.DialDatabase(cfg.Redis.DB),
+				redis.DialConnectTimeout(xresilience.DefaultRedisTimeout),
+				redis.DialReadTimeout(xresilience.DefaultRedisTimeout),
+				redis.DialWriteTimeout(xresilience.DefaultRedisTimeout),
 			)
 		},
 	}
 	xauth.UseStore(xauth.NewRedisStore(redisPool, cfg.SessionStore.Prefix))
 	authService := service.NewAuthService(db.NewUserRepository(database))
-	startAuthRPCServer(cfg.RPC.Port, kitexauthhandler.NewHandler(authService))
+	startAuthRPCServer(cfg.RPC.Port, authServiceRPCConfigFromEnv(), kitexauthhandler.NewHandler(authService))
 	h := server.Default(server.WithHostPorts(configs.GetServerAddr()))
+	h.Use(xhttp.Recover())
 	registerRoutes(h, authService)
 	log.Printf("auth-service listening on %s", configs.GetServerAddr())
 	h.Spin()

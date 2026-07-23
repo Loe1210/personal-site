@@ -1,4 +1,4 @@
-# 当前待办与后续开发计划
+﻿# 当前待办与后续开发计划
 
 本文只记录当前微服务版本后续要做的事情，旧单体计划不再作为执行依据。
 
@@ -7,10 +7,10 @@
 - 本地入口已经切到 `frontend` 容器，浏览器访问 `http://127.0.0.1:8080`。
 - 前端静态资源由 Nginx 承载，`/api` 请求由 Nginx 转发到 `gateway`。
 - `gateway` 对外 HTTP 入口为 `http://127.0.0.1:8888`。
-- 后端服务拆分为 `auth-service`、`content-service`、`media-service`、`web-bff`。
+- 后端服务收敛为 `auth-service`、`content-service`、`media-service` 和 `gateway`；`web-bff` 已不再作为主运行链路。
 - 登录鉴权采用 `session cookie + Redis`，不使用 JWT 作为当前主线方案。
 - `content-service` 已恢复文章、分类、标签相关接口，分类和标签模型已从文章模型中拆出。
-- RPC 当前以 `proto + Kitex` 为规范方向，服务端骨架已具备；没有真实跨服务调用需求前，不强行引入 RPC client。
+- RPC 当前以 `proto + Kitex` 为规范方向，服务端骨架已具备；当前优先将 `gateway -> content-service` 作为 Kitex RPC 样板链路，再逐步推广到鉴权和媒体元数据场景。
 
 ## 近期优先级
 

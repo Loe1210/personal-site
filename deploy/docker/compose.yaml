@@ -92,8 +92,10 @@ services:
     environment:
       <<: *go-env
       MYSQL_DBNAME: auth_db
+      SERVICE_NAME: auth-service
     ports:
       - "9001:9001"
+      - "9101:9101"
 
   media-service:
     <<: *go-service
@@ -123,21 +125,10 @@ services:
     environment:
       <<: *go-env
       MYSQL_DBNAME: content_db
+      SERVICE_NAME: content-service
     ports:
       - "9003:9003"
-
-  web-bff:
-    <<: *go-service
-    build:
-      context: ../..
-      dockerfile: Dockerfile
-      args:
-        SERVICE_PATH: ./services/web-bff/cmd
-    command: ["./app", "-config", "services/web-bff/configs/config.yaml", "-content-service-url", "http://content-service:9003"]
-    environment:
-      <<: *go-env
-    ports:
-      - "9004:9004"
+      - "9103:9103"
 
   gateway:
     <<: *go-service
@@ -151,9 +142,10 @@ services:
       <<: *go-env
       APP_PORT: "8888"
       AUTH_SERVICE_URL: http://auth-service:9001
+      AUTH_SERVICE_NAME: auth-service
+      AUTH_RPC_ADDR: auth-service:9101
       MEDIA_SERVICE_URL: http://media-service:9002
       CONTENT_SERVICE_URL: http://content-service:9003
-      WEB_BFF_URL: http://web-bff:9004
     ports:
       - "8888:8888"
 

@@ -33,7 +33,9 @@ func main() {
 		require(file, content, "syntax = \"proto3\";")
 		require(file, content, "package ")
 		require(file, content, "option go_package")
-		require(file, content, "service ")
+		if !strings.HasPrefix(filepath.ToSlash(file), "idl/base/") {
+			require(file, content, "service ")
+		}
 	}
 }
 

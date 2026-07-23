@@ -1,4 +1,4 @@
-.PHONY: micro-up micro-down micro-test micro-smoke proto-check proto-gen micro-redeploy deploy-static deploy-frontend deploy-code verify-prod
+﻿.PHONY: micro-up micro-down micro-test micro-smoke proto-check proto-gen micro-redeploy deploy-static deploy-frontend deploy-code verify-prod
 
 SERVER ?= 117.72.95.156
 REMOTE_DIR ?= /opt/personal-web
@@ -34,7 +34,8 @@ deploy-static:
 
 deploy-frontend: deploy-static verify-prod
 deploy-code:
-	ssh root@$(SERVER) "cd $(REMOTE_DIR) && git fetch origin $(BRANCH) && git checkout $(BRANCH) && git pull --ff-only origin $(BRANCH) && docker compose $(PROD_COMPOSE_FILES) up -d --build frontend media-service content-service web-bff gateway"
+	ssh root@$(SERVER) "cd $(REMOTE_DIR) && git fetch origin $(BRANCH) && git checkout $(BRANCH) && git pull --ff-only origin $(BRANCH) && docker compose $(PROD_COMPOSE_FILES) up -d --build frontend media-service content-service gateway"
 verify-prod:
 	curl -I --max-time 10 http://$(SERVER):8080/blog/
 	curl -s --max-time 10 http://$(SERVER):8080/blog/ | grep -E 'blog.css|pet.js'
+

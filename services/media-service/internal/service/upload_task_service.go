@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -71,6 +72,9 @@ func (s *UploadTaskService) InitUpload(ctx context.Context, in InitInput) (*mode
 	}
 	if s.maxUploadSz > 0 && in.FileSize > s.maxUploadSz {
 		return nil, errors.New("file too large")
+	}
+	if !isAllowedImageContentType(normalizeContentType(in.ContentType)) {
+		return nil, errors.New("only image uploads are allowed")
 	}
 	if s.tasks == nil {
 		return nil, errors.New("upload task repository is required")
@@ -153,9 +157,18 @@ func (s *UploadTaskService) CompleteUpload(ctx context.Context, uploadID string,
 	if err != nil {
 		return nil, err
 	}
+	if result.Size != task.FileSize {
+		s.cleanupCompletedFiles(result, "")
+		return nil, errors.New("final file size mismatch")
+	}
+	if err := ValidateUploadFileContent(task.ContentType, result.FinalPath); err != nil {
+		s.cleanupCompletedFiles(result, "")
+		return nil, err
+	}
 
 	thumbnailURL, err := s.createThumbnail(result)
 	if err != nil {
+		s.cleanupCompletedFiles(result, "")
 		return nil, err
 	}
 	record := &model.FileRecord{
@@ -171,6 +184,7 @@ func (s *UploadTaskService) CompleteUpload(ctx context.Context, uploadID string,
 		BizID:        task.BizID,
 	}
 	if err := s.completion.SaveRecordAndCompleteTask(ctx, task, record); err != nil {
+		s.cleanupCompletedFiles(result, thumbnailURL)
 		return nil, err
 	}
 	return record, nil
@@ -189,6 +203,37 @@ func (s *UploadTaskService) createThumbnail(result *MergeResult) (string, error)
 	return path.Join(path.Dir(result.PublicPath), "thumbs", filepath.Base(thumbRelative)), nil
 }
 
+func (s *UploadTaskService) cleanupCompletedFiles(result *MergeResult, thumbnailURL string) {
+	if result == nil {
+		return
+	}
+	if thumbnailURL != "" {
+		thumbRelative := thumbnailRelativePath(result.RelativePath)
+		thumbPath := filepath.Join(filepath.Dir(result.FinalPath), "thumbs", filepath.Base(thumbRelative))
+		removeFileAndEmptyParents(filepath.Dir(result.FinalPath), thumbPath)
+	}
+	removeFileAndEmptyParents(filepath.Dir(filepath.Dir(result.FinalPath)), result.FinalPath)
+}
+
+func removeFileAndEmptyParents(root string, target string) {
+	if target == "" {
+		return
+	}
+	_ = os.Remove(target)
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return
+	}
+	for dir := filepath.Dir(target); dir != "." && dir != string(filepath.Separator); dir = filepath.Dir(dir) {
+		dirAbs, err := filepath.Abs(dir)
+		if err != nil || dirAbs == rootAbs || !strings.HasPrefix(dirAbs, rootAbs+string(filepath.Separator)) {
+			return
+		}
+		if err := os.Remove(dir); err != nil {
+			return
+		}
+	}
+}
 func thumbnailRelativePath(relative string) string {
 	name := path.Base(filepath.ToSlash(relative))
 	ext := path.Ext(name)

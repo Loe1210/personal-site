@@ -4,8 +4,12 @@ import (
 	"context"
 	"errors"
 
+	"github.com/Loe1210/personal-site/internal/xerrors"
 	"github.com/Loe1210/personal-site/services/content-service/internal/model"
+	"gorm.io/gorm"
 )
+
+var ErrArticleNotFound = xerrors.New(xerrors.CodeContentArticleNotFound, "article not found")
 
 type ArticleDetail = model.ArticleDetail
 type TagDTO = model.TagDTO
@@ -37,14 +41,20 @@ type ArticleRepository interface {
 }
 
 type ArticleService struct {
-	getter   ArticleGetter
-	lister   ArticleLister
-	adjacent ArticleAdjacentFinder
-	writer   ArticleWriter
+	getter      ArticleGetter
+	lister      ArticleLister
+	adjacent    ArticleAdjacentFinder
+	writer      ArticleWriter
+	localCache  ArticleCache
+	remoteCache ArticleCache
 }
 
 func NewArticleService(repo ArticleGetter) *ArticleService {
-	service := &ArticleService{getter: repo}
+	return NewArticleServiceWithCaches(repo, nil, nil)
+}
+
+func NewArticleServiceWithCaches(repo ArticleGetter, localCache ArticleCache, remoteCache ArticleCache) *ArticleService {
+	service := &ArticleService{getter: repo, localCache: localCache, remoteCache: remoteCache}
 	if lister, ok := repo.(ArticleLister); ok {
 		service.lister = lister
 	}
@@ -59,9 +69,25 @@ func NewArticleService(repo ArticleGetter) *ArticleService {
 
 func (s *ArticleService) GetArticleByID(ctx context.Context, id int64) (*ArticleDetail, error) {
 	if id <= 0 {
-		return nil, errors.New("article id is required")
+		return nil, xerrors.New(xerrors.CodeInvalidArgument, "article id is required")
 	}
-	return s.getter.GetByID(ctx, id)
+	if article, ok := s.getFromCache(ctx, s.localCache, id); ok {
+		return article, nil
+	}
+	if article, ok := s.getFromCache(ctx, s.remoteCache, id); ok {
+		s.setCache(ctx, s.localCache, article)
+		return article, nil
+	}
+	article, err := s.getter.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, ErrArticleNotFound) || errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrArticleNotFound
+		}
+		return nil, err
+	}
+	s.setCache(ctx, s.remoteCache, article)
+	s.setCache(ctx, s.localCache, article)
+	return article, nil
 }
 
 func (s *ArticleService) ListPublicArticles(ctx context.Context, filter ListFilter) (*ListResult, error) {
@@ -74,12 +100,19 @@ func (s *ArticleService) ListPublicArticles(ctx context.Context, filter ListFilt
 
 func (s *ArticleService) GetAdjacentPublicArticles(ctx context.Context, id int64) (*model.AdjacentArticles, error) {
 	if id <= 0 {
-		return nil, errors.New("article id is required")
+		return nil, xerrors.New(xerrors.CodeInvalidArgument, "article id is required")
 	}
 	if s.adjacent == nil {
 		return nil, errors.New("article adjacent finder is required")
 	}
-	return s.adjacent.GetAdjacentPublic(ctx, id)
+	result, err := s.adjacent.GetAdjacentPublic(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrArticleNotFound
+		}
+		return nil, err
+	}
+	return result, nil
 }
 
 func (s *ArticleService) ListAdminArticles(ctx context.Context, filter ListFilter) (*ListResult, error) {
@@ -91,7 +124,7 @@ func (s *ArticleService) ListAdminArticles(ctx context.Context, filter ListFilte
 
 func (s *ArticleService) CreateArticle(ctx context.Context, article *ArticleDetail) (*ArticleDetail, error) {
 	if article == nil {
-		return nil, errors.New("article is required")
+		return nil, xerrors.New(xerrors.CodeInvalidArgument, "article is required")
 	}
 	if s.writer == nil {
 		return nil, errors.New("article writer is required")
@@ -102,12 +135,13 @@ func (s *ArticleService) CreateArticle(ctx context.Context, article *ArticleDeta
 	if err := s.writer.Create(ctx, article); err != nil {
 		return nil, err
 	}
+	s.deleteArticleCaches(ctx, article.ID)
 	return article, nil
 }
 
 func (s *ArticleService) UpdateArticle(ctx context.Context, article *ArticleDetail) (*ArticleDetail, error) {
 	if article == nil || article.ID <= 0 {
-		return nil, errors.New("article id is required")
+		return nil, xerrors.New(xerrors.CodeInvalidArgument, "article id is required")
 	}
 	if s.writer == nil {
 		return nil, errors.New("article writer is required")
@@ -115,17 +149,48 @@ func (s *ArticleService) UpdateArticle(ctx context.Context, article *ArticleDeta
 	if err := s.writer.Update(ctx, article); err != nil {
 		return nil, err
 	}
-	return s.getter.GetByID(ctx, article.ID)
+	s.deleteArticleCaches(ctx, article.ID)
+	return s.GetArticleByID(ctx, article.ID)
 }
 
 func (s *ArticleService) DeleteArticle(ctx context.Context, id int64) error {
 	if id <= 0 {
-		return errors.New("article id is required")
+		return xerrors.New(xerrors.CodeInvalidArgument, "article id is required")
 	}
 	if s.writer == nil {
 		return errors.New("article writer is required")
 	}
-	return s.writer.Delete(ctx, id)
+	if err := s.writer.Delete(ctx, id); err != nil {
+		return err
+	}
+	s.deleteArticleCaches(ctx, id)
+	return nil
+}
+
+func (s *ArticleService) getFromCache(ctx context.Context, cache ArticleCache, id int64) (*ArticleDetail, bool) {
+	if cache == nil {
+		return nil, false
+	}
+	article, ok, err := cache.GetArticle(ctx, id)
+	if err != nil {
+		return nil, false
+	}
+	return article, ok
+}
+
+func (s *ArticleService) setCache(ctx context.Context, cache ArticleCache, article *ArticleDetail) {
+	if cache != nil {
+		_ = cache.SetArticle(ctx, article)
+	}
+}
+
+func (s *ArticleService) deleteArticleCaches(ctx context.Context, id int64) {
+	if s.localCache != nil {
+		_ = s.localCache.DeleteArticle(ctx, id)
+	}
+	if s.remoteCache != nil {
+		_ = s.remoteCache.DeleteArticle(ctx, id)
+	}
 }
 
 func normalizeListFilter(filter ListFilter) ListFilter {

@@ -5,7 +5,7 @@
 (function () {
     'use strict';
 
-    var API_BASE = '/api';
+    var API_BASE = '/api/content';
 
     var categoryCache = {};
     var tagCache = {};
@@ -32,7 +32,7 @@
             return res.json();
         }).then(function (data) {
             if (data.code !== 0) {
-                throw new Error(data.message || 'API error');
+                throw new Error(data.msg || data.message || 'API error');
             }
             return data.data;
         });
@@ -75,8 +75,8 @@
             .filter(Boolean)
             .join(' ')
             .replace(/<[^>]*>/g, ' ');
-        var chineseChars = (text.match(/[一-鿿]/g) || []).length;
-        var englishWords = (text.replace(/[一-鿿]/g, ' ').match(/[A-Za-z0-9_]+(?:[-'][A-Za-z0-9_]+)*/g) || []).length;
+        var chineseChars = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+        var englishWords = (text.replace(/[\u4e00-\u9fff]/g, ' ').match(/[A-Za-z0-9_]+(?:[-'][A-Za-z0-9_]+)*/g) || []).length;
         var minutes = (chineseChars / 350) + (englishWords / 200);
         return Math.max(1, Math.ceil(minutes || 1));
     }

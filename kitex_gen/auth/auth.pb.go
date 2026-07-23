@@ -4,14 +4,16 @@ package auth
 
 import (
 	"context"
+	"github.com/Loe1210/personal-site/kitex_gen/base"
 
 	"github.com/cloudwego/prutal"
 )
 
 type AuthContext struct {
-	UserId   int64    `protobuf:"varint,1,opt,name=user_id" json:"user_id,omitempty"`
-	Username string   `protobuf:"bytes,2,opt,name=username" json:"username,omitempty"`
-	Roles    []string `protobuf:"bytes,3,rep,name=roles" json:"roles,omitempty"`
+	UserId   int64          `protobuf:"varint,1,opt,name=user_id" json:"user_id,omitempty"`
+	Username string         `protobuf:"bytes,2,opt,name=username" json:"username,omitempty"`
+	Roles    []string       `protobuf:"bytes,3,rep,name=roles" json:"roles,omitempty"`
+	BaseResp *base.BaseResp `protobuf:"bytes,100,opt,name=base_resp" json:"base_resp,omitempty"`
 }
 
 func (x *AuthContext) Reset() { *x = AuthContext{} }
@@ -37,6 +39,13 @@ func (x *AuthContext) GetUsername() string {
 func (x *AuthContext) GetRoles() []string {
 	if x != nil {
 		return x.Roles
+	}
+	return nil
+}
+
+func (x *AuthContext) GetBaseResp() *base.BaseResp {
+	if x != nil {
+		return x.BaseResp
 	}
 	return nil
 }
@@ -88,7 +97,8 @@ func (x *CheckPermissionRequest) GetCode() string {
 }
 
 type CheckPermissionResponse struct {
-	Allowed bool `protobuf:"varint,1,opt,name=allowed" json:"allowed,omitempty"`
+	Allowed  bool           `protobuf:"varint,1,opt,name=allowed" json:"allowed,omitempty"`
+	BaseResp *base.BaseResp `protobuf:"bytes,100,opt,name=base_resp" json:"base_resp,omitempty"`
 }
 
 func (x *CheckPermissionResponse) Reset() { *x = CheckPermissionResponse{} }
@@ -104,6 +114,13 @@ func (x *CheckPermissionResponse) GetAllowed() bool {
 		return x.Allowed
 	}
 	return false
+}
+
+func (x *CheckPermissionResponse) GetBaseResp() *base.BaseResp {
+	if x != nil {
+		return x.BaseResp
+	}
+	return nil
 }
 
 type AuthService interface {

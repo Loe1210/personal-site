@@ -36,6 +36,8 @@ func NewFileRepository(db *gorm.DB) *FileRepository {
 }
 
 func (r *FileRepository) Save(ctx context.Context, record *model.FileRecord) error {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	modelRecord := &FileRecord{
 		UploadID:     record.UploadID,
 		OriginalName: record.OriginalName,
@@ -57,6 +59,8 @@ func (r *FileRepository) Save(ctx context.Context, record *model.FileRecord) err
 }
 
 func (r *FileRepository) GetByID(ctx context.Context, id int64) (*model.FileRecord, error) {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	var modelRecord FileRecord
 	if err := r.db.WithContext(ctx).First(&modelRecord, id).Error; err != nil {
 		return nil, err
@@ -78,6 +82,8 @@ func (r *FileRepository) GetByID(ctx context.Context, id int64) (*model.FileReco
 }
 
 func (r *FileRepository) SaveRecordAndCompleteTask(ctx context.Context, task *model.UploadTask, record *model.FileRecord) error {
+	ctx, cancel := withRepositoryTimeout(ctx)
+	defer cancel()
 	if r == nil || r.db == nil {
 		return gorm.ErrInvalidDB
 	}

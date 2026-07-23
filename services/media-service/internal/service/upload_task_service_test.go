@@ -70,6 +70,22 @@ func TestInitUploadRejectsTooLargeFile(t *testing.T) {
 	}
 }
 
+func TestInitUploadRejectsUnsupportedContentType(t *testing.T) {
+	svc := NewUploadTaskService(&configs.UploadConfig{}, db.NewUploadTaskRepository(nil), db.NewUploadChunkRepository(nil))
+
+	_, err := svc.InitUpload(context.Background(), InitInput{
+		UserID:      1,
+		FileName:    "note.txt",
+		FileSize:    10,
+		ContentType: "text/plain",
+	})
+	if err == nil {
+		t.Fatal("expected unsupported content type to be rejected")
+	}
+	if !strings.Contains(err.Error(), "image uploads") {
+		t.Fatalf("expected image-only error, got %v", err)
+	}
+}
 func TestCancelUploadUsesTaskStatusAndVersionGuard(t *testing.T) {
 	store := &capturingUploadTaskStore{
 		task: &model.UploadTask{
@@ -221,16 +237,16 @@ func TestCompleteUploadDoesNotPersistFileRecordWhenTaskStateChanges(t *testing.T
 	chunkRepo := db.NewUploadChunkRepository(database)
 	fileRepo := db.NewFileRepository(database)
 
-	body := []byte("hello")
+	body := testPNGBytes(t)
 	sum := sha256.Sum256(body)
 	task := &model.UploadTask{
 		UploadID:       "complete-race",
 		UserID:         10,
 		BizType:        "article",
 		BizID:          "race-1",
-		FileName:       "note.txt",
+		FileName:       "note.png",
 		FileSize:       int64(len(body)),
-		ContentType:    "text/plain",
+		ContentType:    "image/png",
 		ChunkSize:      int64(len(body)),
 		ChunkCount:     1,
 		UploadedChunks: "0",
@@ -268,6 +284,73 @@ func TestCompleteUploadDoesNotPersistFileRecordWhenTaskStateChanges(t *testing.T
 	}
 	if count != 0 {
 		t.Fatalf("expected no durable file record after completion conflict, got %d", count)
+	}
+	entries, err := os.ReadDir(finalRoot)
+	if err != nil {
+		t.Fatalf("read final root: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("expected merged final files to be removed after completion conflict, got %d entries", len(entries))
+	}
+}
+
+func TestCompleteUploadRejectsMergedContentTypeMismatch(t *testing.T) {
+	database, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	if err := db.Migrate(database); err != nil {
+		t.Fatalf("migrate test database: %v", err)
+	}
+
+	ctx := context.Background()
+	tmpRoot := t.TempDir()
+	finalRoot := t.TempDir()
+	taskRepo := db.NewUploadTaskRepository(database)
+	chunkRepo := db.NewUploadChunkRepository(database)
+	fileRepo := db.NewFileRepository(database)
+
+	body := []byte("not a png")
+	sum := sha256.Sum256(body)
+	task := &model.UploadTask{
+		UploadID:       "complete-type-mismatch",
+		UserID:         14,
+		FileName:       "cover.png",
+		FileSize:       int64(len(body)),
+		ContentType:    "image/png",
+		ChunkSize:      int64(len(body)),
+		ChunkCount:     1,
+		UploadedChunks: "0",
+		Status:         model.UploadTaskStatusUploading,
+		Sha256:         hex.EncodeToString(sum[:]),
+		ExpiresAt:      time.Now().Add(time.Hour).UTC(),
+	}
+	if err := taskRepo.Create(ctx, task); err != nil {
+		t.Fatalf("create upload task: %v", err)
+	}
+	chunkPath := filepath.Join(tmpRoot, task.UploadID, "chunk_000000.part")
+	if err := os.MkdirAll(filepath.Dir(chunkPath), 0o755); err != nil {
+		t.Fatalf("create chunk dir: %v", err)
+	}
+	if err := os.WriteFile(chunkPath, body, 0o644); err != nil {
+		t.Fatalf("write chunk: %v", err)
+	}
+	if err := chunkRepo.Save(ctx, &model.UploadChunk{UploadID: task.UploadID, ChunkIndex: 0, Size: int64(len(body)), Sha256: task.Sha256, StoragePath: filepath.ToSlash(filepath.Join(task.UploadID, "chunk_000000.part"))}); err != nil {
+		t.Fatalf("save chunk: %v", err)
+	}
+
+	svc := NewUploadTaskService(&configs.UploadConfig{}, taskRepo, chunkRepo)
+	svc.ConfigureCompletion(NewMergeService(tmpRoot, finalRoot, "/static/uploads/images"), fileRepo)
+
+	if _, err := svc.CompleteUpload(ctx, task.UploadID, task.UserID); err == nil || !strings.Contains(err.Error(), "declared image type") {
+		t.Fatalf("expected content type mismatch error, got %v", err)
+	}
+	var count int64
+	if err := database.WithContext(ctx).Table("files").Where("upload_id = ?", task.UploadID).Count(&count).Error; err != nil {
+		t.Fatalf("count file records: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("expected no file record after type mismatch, got %d", count)
 	}
 }
 

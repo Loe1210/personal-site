@@ -15,19 +15,18 @@ import (
 
 type Dependencies struct {
 	AuthServiceName string
-	BFFServiceName  string
 	AuthBaseURL     string
 	ContentBaseURL  string
 	MediaBaseURL    string
-	BFFBaseURL      string
+	AuthValidator   middleware.SessionValidator
 }
 
 func ValidateDependencies(deps Dependencies) error {
 	if deps.AuthServiceName == "" {
 		return errors.New("auth service name is required")
 	}
-	if deps.BFFServiceName == "" {
-		return errors.New("bff service name is required")
+	if deps.AuthValidator == nil {
+		return errors.New("auth validator is required")
 	}
 	return nil
 }
@@ -40,8 +39,9 @@ func RegisterRoutes(h *server.Hertz, deps Dependencies) error {
 	h.Any("/api/auth/*path", proxy.NewReverseProxy(deps.AuthBaseURL, "/api/auth"))
 	uploadGuard := middleware.NewUploadGuard(middleware.UploadGuardConfig{MaxBodyBytes: 512 * 1024 * 1024, MaxConcurrent: 3, Timeout: 2 * time.Minute})
 	h.Any("/api/media/*path", uploadGuard.Middleware(), proxy.NewReverseProxy(deps.MediaBaseURL, "/api/media"))
+
+	h.Any("/api/content/admin/*path", middleware.AuthRequired(deps.AuthValidator), proxy.NewReverseProxy(deps.ContentBaseURL, "/api/content"))
 	h.Any("/api/content/*path", proxy.NewReverseProxy(deps.ContentBaseURL, "/api/content"))
-	h.Any("/api/blog/*path", proxy.NewReverseProxy(deps.BFFBaseURL, "/api/blog"))
 	return nil
 }
 

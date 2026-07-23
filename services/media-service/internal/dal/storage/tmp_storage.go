@@ -26,8 +26,8 @@ func (s *TmpStorage) SaveChunk(uploadID string, chunkIndex int, content io.Reade
 	if s == nil {
 		return "", 0, "", errors.New("tmp storage is required")
 	}
-	if strings.TrimSpace(uploadID) == "" {
-		return "", 0, "", errors.New("upload id is required")
+	if err := validateUploadID(uploadID); err != nil {
+		return "", 0, "", err
 	}
 	if chunkIndex < 0 {
 		return "", 0, "", errors.New("chunk index is required")
@@ -42,12 +42,12 @@ func (s *TmpStorage) SaveChunk(uploadID string, chunkIndex int, content io.Reade
 	}
 
 	storageName := fmt.Sprintf("chunk_%06d.part", chunkIndex)
-	tempPath := filepath.Join(dir, storageName+".tmp")
-	finalPath := filepath.Join(dir, storageName)
-	file, err := os.Create(tempPath)
+	file, err := os.CreateTemp(dir, storageName+".tmp-*")
 	if err != nil {
 		return "", 0, "", err
 	}
+	tempPath := file.Name()
+	finalPath := filepath.Join(dir, storageName)
 
 	hash := sha256.New()
 	written, copyErr := io.Copy(io.MultiWriter(file, hash), content)
@@ -60,6 +60,16 @@ func (s *TmpStorage) SaveChunk(uploadID string, chunkIndex int, content io.Reade
 		_ = os.Remove(tempPath)
 		return "", 0, "", closeErr
 	}
+
+	digest := hex.EncodeToString(hash.Sum(nil))
+	if existingDigest, existingSize, exists, err := checksumFile(finalPath); err != nil {
+		_ = os.Remove(tempPath)
+		return "", 0, "", err
+	} else if exists && existingSize == written && existingDigest == digest {
+		_ = os.Remove(tempPath)
+		return filepath.ToSlash(filepath.Join(uploadID, storageName)), written, digest, nil
+	}
+
 	if err := os.Remove(finalPath); err != nil && !os.IsNotExist(err) {
 		_ = os.Remove(tempPath)
 		return "", 0, "", err
@@ -69,7 +79,7 @@ func (s *TmpStorage) SaveChunk(uploadID string, chunkIndex int, content io.Reade
 		return "", 0, "", err
 	}
 
-	return filepath.ToSlash(filepath.Join(uploadID, storageName)), written, hex.EncodeToString(hash.Sum(nil)), nil
+	return filepath.ToSlash(filepath.Join(uploadID, storageName)), written, digest, nil
 }
 
 func (s *TmpStorage) BackupChunk(storagePath string) (string, bool, error) {
@@ -79,7 +89,10 @@ func (s *TmpStorage) BackupChunk(storagePath string) (string, bool, error) {
 	if strings.TrimSpace(storagePath) == "" {
 		return "", false, nil
 	}
-	sourcePath := s.Resolve(storagePath)
+	sourcePath, err := s.resolveStoragePath(storagePath)
+	if err != nil {
+		return "", false, err
+	}
 	source, err := os.Open(sourcePath)
 	if os.IsNotExist(err) {
 		return "", false, nil
@@ -114,7 +127,11 @@ func (s *TmpStorage) RestoreChunk(storagePath string, backupPath string) error {
 	if strings.TrimSpace(storagePath) == "" || strings.TrimSpace(backupPath) == "" {
 		return nil
 	}
-	targetPath := s.Resolve(storagePath)
+	targetPath, err := s.resolveStoragePath(storagePath)
+	if err != nil {
+		_ = os.Remove(backupPath)
+		return err
+	}
 	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
 		return err
 	}
@@ -149,7 +166,11 @@ func (s *TmpStorage) RemoveChunk(storagePath string) error {
 	if strings.TrimSpace(storagePath) == "" {
 		return nil
 	}
-	if err := os.Remove(filepath.Join(s.rootDir, filepath.FromSlash(storagePath))); err != nil && !os.IsNotExist(err) {
+	resolved, err := s.resolveStoragePath(storagePath)
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(resolved); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	return nil
@@ -159,7 +180,11 @@ func (s *TmpStorage) Resolve(storagePath string) string {
 	if s == nil {
 		return ""
 	}
-	return filepath.Join(s.rootDir, filepath.FromSlash(storagePath))
+	resolved, err := s.resolveStoragePath(storagePath)
+	if err != nil {
+		return ""
+	}
+	return resolved
 }
 
 func (s *TmpStorage) RemoveUpload(uploadID string) error {
@@ -169,8 +194,48 @@ func (s *TmpStorage) RemoveUpload(uploadID string) error {
 	if strings.TrimSpace(uploadID) == "" {
 		return nil
 	}
+	if err := validateUploadID(uploadID); err != nil {
+		return err
+	}
 	if err := os.RemoveAll(filepath.Join(s.rootDir, uploadID)); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	return nil
+}
+
+func (s *TmpStorage) resolveStoragePath(storagePath string) (string, error) {
+	cleaned := filepath.Clean(filepath.FromSlash(storagePath))
+	if cleaned == "." || filepath.IsAbs(cleaned) || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) || cleaned == ".." || filepath.VolumeName(cleaned) != "" {
+		return "", errors.New("invalid storage path")
+	}
+	return filepath.Join(s.rootDir, cleaned), nil
+}
+
+func validateUploadID(uploadID string) error {
+	trimmed := strings.TrimSpace(uploadID)
+	if trimmed == "" {
+		return errors.New("upload id is required")
+	}
+	if trimmed != uploadID || trimmed == "." || trimmed == ".." || strings.ContainsAny(trimmed, `/\:`) || filepath.Clean(trimmed) != trimmed {
+		return errors.New("invalid upload id")
+	}
+	return nil
+}
+
+func checksumFile(path string) (string, int64, bool, error) {
+	file, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return "", 0, false, nil
+	}
+	if err != nil {
+		return "", 0, false, err
+	}
+	defer file.Close()
+
+	hash := sha256.New()
+	size, err := io.Copy(hash, file)
+	if err != nil {
+		return "", 0, false, err
+	}
+	return hex.EncodeToString(hash.Sum(nil)), size, true, nil
 }

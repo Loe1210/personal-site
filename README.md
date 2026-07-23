@@ -1,6 +1,6 @@
-# 个人小站
+﻿# 个人小站
 
-这是一个基于 Go + Hertz + MySQL 的个人小站项目。当前后端已从单体入口迁移到微服务运行方式，外部 HTTP 流量统一从 `gateway` 进入，再转发到 `auth-service`、`content-service`、`media-service` 和 `web-bff`。
+这是一个基于 Go + Hertz + MySQL 的个人小站项目。当前后端已从单体入口迁移到微服务运行方式，外部 HTTP 流量统一从 `gateway` 进入，再由 `gateway` 调用 `auth-service`、`content-service` 和 `media-service`。
 
 ## 当前架构
 
@@ -8,7 +8,6 @@
 - `services/auth-service`：登录、登出、当前用户、权限校验基础能力
 - `services/content-service`：文章内容域，包含文章列表和文章详情等接口
 - `services/media-service`：上传和文件元数据能力
-- `services/web-bff`：面向前台页面的聚合层
 - `frontend`：Nginx 静态前端入口，默认访问 `http://127.0.0.1:8080`
 - `deploy/docker/compose.yaml`：本地微服务运行环境
 
@@ -87,13 +86,13 @@ make verify-prod
 
 ## 后端代码一起上线
 
-如果本次同时改了后端服务代码，例如 `media-service`、`content-service`、`gateway` 或 `web-bff`，先把分支推送到 GitHub，然后在本地执行：
+如果本次同时改了后端服务代码，例如 `media-service`、`content-service`、`auth-service` 或 `gateway`，先把分支推送到 GitHub，然后在本地执行：
 
 ```bash
 make deploy-code BRANCH=你的分支名
 ```
 
-`deploy-code` 只会让服务器拉取指定分支并重建应用容器：`frontend`、`media-service`、`content-service`、`web-bff`、`gateway`。它不会执行 `docker compose down -v`，不会导入 SQL，也不会删除或重建 MySQL 数据卷。
+`deploy-code` 只会让服务器拉取指定分支并重建应用容器：`frontend`、`media-service`、`content-service`、`auth-service`、`gateway`。它不会执行 `docker compose down -v`，不会导入 SQL，也不会删除或重建 MySQL 数据卷。
 ## 验证
 
 基础 Go 测试：
@@ -164,3 +163,4 @@ docker compose -f deploy/docker/compose.yaml down
 ## 遗留单体说明
 
 旧单体入口、`biz/`、`service/`、`dal/db/` 和根目录旧 IDL 已删除。后续新增功能应优先落在对应 `services/*` 服务内，不再恢复旧单体分层。
+

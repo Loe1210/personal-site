@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/Loe1210/personal-site/internal/xresilience"
 	"github.com/gomodule/redigo/redis"
 )
 
@@ -14,15 +15,23 @@ type RedisPool interface {
 }
 
 type RedisStore struct {
-	pool   RedisPool
-	prefix string
+	pool           RedisPool
+	prefix         string
+	commandTimeout time.Duration
 }
 
 func NewRedisStore(pool RedisPool, prefix string) Store {
+	return NewRedisStoreWithTimeout(pool, prefix, xresilience.DefaultRedisTimeout)
+}
+
+func NewRedisStoreWithTimeout(pool RedisPool, prefix string, commandTimeout time.Duration) Store {
 	if prefix == "" {
 		prefix = "session:"
 	}
-	return &RedisStore{pool: pool, prefix: prefix}
+	if commandTimeout <= 0 {
+		commandTimeout = xresilience.DefaultRedisTimeout
+	}
+	return &RedisStore{pool: pool, prefix: prefix, commandTimeout: commandTimeout}
 }
 
 func (s *RedisStore) Save(ctx context.Context, sessionID string, claims *Claims, ttl time.Duration) error {
@@ -42,7 +51,7 @@ func (s *RedisStore) Save(ctx context.Context, sessionID string, claims *Claims,
 	if seconds <= 0 {
 		seconds = int(time.Hour.Seconds())
 	}
-	_, err = conn.Do("SETEX", s.key(sessionID), seconds, payload)
+	_, err = redis.DoWithTimeout(conn, s.commandTimeout, "SETEX", s.key(sessionID), seconds, payload)
 	return err
 }
 
@@ -55,7 +64,7 @@ func (s *RedisStore) Get(ctx context.Context, sessionID string) (*Claims, error)
 	}
 	conn := s.pool.Get()
 	defer conn.Close()
-	payload, err := redis.Bytes(conn.Do("GET", s.key(sessionID)))
+	payload, err := redis.Bytes(redis.DoWithTimeout(conn, s.commandTimeout, "GET", s.key(sessionID)))
 	if errors.Is(err, redis.ErrNil) {
 		return nil, errSessionNotFound
 	}
@@ -83,7 +92,7 @@ func (s *RedisStore) Delete(ctx context.Context, sessionID string) error {
 	}
 	conn := s.pool.Get()
 	defer conn.Close()
-	_, err := conn.Do("DEL", s.key(sessionID))
+	_, err := redis.DoWithTimeout(conn, s.commandTimeout, "DEL", s.key(sessionID))
 	return err
 }
 
